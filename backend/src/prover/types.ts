@@ -23,6 +23,17 @@ export interface TableInfo {
   columns: ColumnInfo[];
 }
 
+/** What one actor could do to the canary with one operation. */
+export interface OperationResult {
+  operation: Operation;
+  actor: 'user_b' | 'anon';
+  /** true = it worked (read / changed / deleted the canary), false = blocked, null = not tested */
+  allowed: boolean | null;
+  httpStatus: number | null;
+  rowsReturned: number | null;
+  note?: string;
+}
+
 export interface Finding {
   id: string;
   module: 'data-access-prover';
@@ -37,6 +48,7 @@ export interface Finding {
     httpStatus: number | null;
     canaryRowId: string | null;
     reproducer: string | null;
+    operations: OperationResult[];
   };
   fix: { status: 'proposed'; description: string; sql: string } | null;
   retest: { status: 'not_run'; lastRunAt: null };

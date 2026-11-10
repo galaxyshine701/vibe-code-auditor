@@ -128,6 +128,26 @@ Error `400` (production-looking URL)
 }
 ```
 
+### Additive field: finding.evidence.operations
+Added in the Data Access Prover. Optional for the frontend: ignore it if you don't need it.
+
+```json
+"operations": [
+  { "operation": "SELECT", "actor": "user_b", "allowed": true,  "httpStatus": 200, "rowsReturned": 1 },
+  { "operation": "UPDATE", "actor": "user_b", "allowed": false, "httpStatus": 200, "rowsReturned": 0 },
+  { "operation": "DELETE", "actor": "user_b", "allowed": false, "httpStatus": 200, "rowsReturned": 0 },
+  { "operation": "SELECT", "actor": "anon",   "allowed": false, "httpStatus": 200, "rowsReturned": 0 }
+]
+```
+
+- `operation`: `SELECT` | `UPDATE` | `DELETE`
+- `actor`: `"user_b"` (second test user) | `"anon"` (visitor with no login)
+- `allowed`: `true` = the canary row was read / changed / deleted; `false` = blocked; `null` = not tested (see `note`)
+- `httpStatus` / `rowsReturned`: what the API answered; `null` when not tested
+- `note` (optional): short plain-language reason, e.g. "Not tested: ..."
+- The list can have 4 items (normal), 1 item (table has no owner column: only the anonymous read), or be empty (canary could not be planted).
+- A blocked UPDATE or DELETE can still show `httpStatus` 200 with `rowsReturned` 0, because the row is judged by re-reading it, not by the status code.
+
 ### POST /audits/:id/findings/:findingId/fix/approve
 A human approves the suggested fix. Response `200`: the updated finding with `fix.status = "approved"`.
 (The backend does not change the user's database by itself in version 1; approval only records the decision and marks the fix as ready to apply.)

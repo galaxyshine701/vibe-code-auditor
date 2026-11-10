@@ -11,6 +11,7 @@ import {
   ProverError,
   type Finding,
   type Operation,
+  type OperationResult,
   type ProverResult,
   type TableInfo,
 } from './types.js';
@@ -124,6 +125,16 @@ async function checkTable(
       rowsReturned: res.rows.length,
       canaryRowId: null,
       reason: 'no-owner-column',
+      operations: [
+        {
+          operation: 'SELECT',
+          actor: 'anon',
+          allowed: res.rows.length > 0,
+          httpStatus: res.status,
+          rowsReturned: res.rows.length,
+          note: 'No owner column, so no canary row was planted.',
+        },
+      ],
     });
   }
 
@@ -150,6 +161,7 @@ async function checkTable(
       canaryRowId: null,
       reason: 'plant-failed',
       reasonDetail: error instanceof Error ? error.message : 'unknown',
+      operations: [],
     });
   }
   const pk = table.columns.find((c) => c.isPrimaryKey);
@@ -159,6 +171,10 @@ async function checkTable(
 
   // Attack as B: SELECT, UPDATE, DELETE. Judge UPDATE/DELETE by re-reading, not by status.
   const selectB = await gateway.restCall('GET', table.name, filter, asB);
+
+  // Anonymous check. Runs BEFORE the write attacks, because a successful DELETE
+  // would remove the canary and hide an anonymous read leak.
+  const selectAnon = await gateway.restCall('GET', table.name, filter, anon);
 
   const editColumn = findEditableTextColumn(table, ownerColumn);
   let update: RestResult | null = null;
@@ -175,8 +191,45 @@ async function checkTable(
   const afterDelete = await gateway.readRows(table.name, ownerColumn, userAId);
   const deleted = afterDelete.length === 0;
 
-  // Anonymous check
-  const selectAnon = await gateway.restCall('GET', table.name, filter, anon);
+  const operations: OperationResult[] = [
+    {
+      operation: 'SELECT',
+      actor: 'user_b',
+      allowed: selectB.rows.length > 0,
+      httpStatus: selectB.status,
+      rowsReturned: selectB.rows.length,
+    },
+    editColumn && update
+      ? {
+          operation: 'UPDATE',
+          actor: 'user_b',
+          allowed: updated,
+          httpStatus: update.status,
+          rowsReturned: update.rows.length,
+        }
+      : {
+          operation: 'UPDATE',
+          actor: 'user_b',
+          allowed: null,
+          httpStatus: null,
+          rowsReturned: null,
+          note: 'Not tested: the table has no text column that is safe to change.',
+        },
+    {
+      operation: 'DELETE',
+      actor: 'user_b',
+      allowed: deleted,
+      httpStatus: del.status,
+      rowsReturned: del.rows.length,
+    },
+    {
+      operation: 'SELECT',
+      actor: 'anon',
+      allowed: selectAnon.rows.length > 0,
+      httpStatus: selectAnon.status,
+      rowsReturned: selectAnon.rows.length,
+    },
+  ];
 
   const leaks: { op: Operation; culprit: Culprit; res: RestResult }[] = [];
   if (selectB.rows.length > 0)
@@ -192,6 +245,7 @@ async function checkTable(
     ownerColumn,
     canaryRowId,
     ownerValue: userAId,
+    operations,
   };
 
   if (leaks.length > 0) {
