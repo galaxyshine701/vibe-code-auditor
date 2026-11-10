@@ -20,6 +20,8 @@ export interface FakeTable {
   rows?: Row[];
   /** make inserting the canary fail with this message */
   insertError?: string;
+  /** leave out the text column, so the Prover cannot test UPDATE */
+  noTextColumn?: boolean;
 }
 
 export interface FakeOptions {
@@ -53,6 +55,7 @@ export class FakeGateway implements Gateway {
         },
         note: { type: 'string' },
       };
+      if (t.noTextColumn) delete properties.note;
       const required: string[] = [];
       if (t.ownerColumn && t.ownerColumn !== 'id') {
         properties[t.ownerColumn] = { type: 'string', format: 'uuid' };

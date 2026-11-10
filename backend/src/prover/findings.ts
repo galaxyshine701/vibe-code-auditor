@@ -1,4 +1,4 @@
-import type { Finding, Operation, Verdict } from './types.js';
+import type { Finding, Operation, OperationResult, Verdict } from './types.js';
 
 export type Culprit = 'user' | 'anon';
 
@@ -17,6 +17,7 @@ export interface FindingInput {
   /** For INCONCLUSIVE: why. */
   reason?: 'no-owner-column' | 'plant-failed';
   reasonDetail?: string;
+  operations: OperationResult[];
 }
 
 const q = (name: string) => `"${name.replace(/"/g, '""')}"`;
@@ -82,6 +83,7 @@ export function buildFinding(
     httpStatus: input.httpStatus,
     canaryRowId: input.canaryRowId,
     reproducer: buildReproducer(input),
+    operations: input.operations,
   };
 
   if (input.verdict === 'LEAKED') {

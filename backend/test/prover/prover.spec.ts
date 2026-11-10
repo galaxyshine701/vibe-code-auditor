@@ -75,6 +75,7 @@ describe('Prover against the three demo tables (fake project)', () => {
       httpStatus: 200,
       rowsReturned: 1,
       canaryRowId: 'abc',
+      operations: [],
     });
     expect(text).toContain('<ANON_KEY>');
     expect(text).not.toContain('USER_B_JWT');
@@ -95,6 +96,102 @@ describe('Prover against the three demo tables (fake project)', () => {
       'check constraint failed',
     );
     expect(result.cleanup).toBe('ok');
+  });
+});
+
+describe('Per-operation evidence', () => {
+  const find = (
+    ops: { operation: string; actor: string }[],
+    operation: string,
+    actor: string,
+  ) => ops.find((o) => o.operation === operation && o.actor === actor)!;
+
+  it('shows every operation as allowed on an unprotected table', async () => {
+    const result = await runProver(new FakeGateway(demoTables()));
+    const ops = result.findings.find((f) => f.table === 'bookings')!.evidence
+      .operations;
+    expect(ops).toHaveLength(4);
+    for (const [operation, actor] of [
+      ['SELECT', 'user_b'],
+      ['UPDATE', 'user_b'],
+      ['DELETE', 'user_b'],
+      ['SELECT', 'anon'],
+    ]) {
+      const o = find(ops, operation, actor);
+      expect(o.allowed).toBe(true);
+      expect(o.httpStatus).toBe(200);
+      expect(o.rowsReturned).toBe(1);
+    }
+  });
+
+  it('shows every operation as blocked (status 200, 0 rows) when RLS works', async () => {
+    const result = await runProver(new FakeGateway(demoTables()));
+    const ops = result.findings.find((f) => f.table === 'profiles')!.evidence
+      .operations;
+    expect(ops).toHaveLength(4);
+    for (const o of ops) {
+      expect(o.allowed).toBe(false);
+      expect(o.httpStatus).toBe(200);
+      expect(o.rowsReturned).toBe(0);
+    }
+  });
+
+  it('separates reading from changing: read allowed, write blocked', async () => {
+    const result = await runProver(
+      new FakeGateway([
+        { name: 'notes', policy: 'public-read', ownerColumn: 'owner_id' },
+      ]),
+    );
+    const ops = result.findings[0].evidence.operations;
+    expect(find(ops, 'SELECT', 'user_b').allowed).toBe(true);
+    expect(find(ops, 'UPDATE', 'user_b').allowed).toBe(false);
+    expect(find(ops, 'DELETE', 'user_b').allowed).toBe(false);
+    // the fix only asks for what actually leaked
+    expect(result.findings[0].fix?.sql).not.toContain('for update');
+    expect(result.findings[0].fix?.sql).not.toContain('for delete');
+  });
+
+  it('says UPDATE was not tested when there is no safe text column', async () => {
+    const result = await runProver(
+      new FakeGateway([
+        {
+          name: 'logs',
+          policy: 'own',
+          ownerColumn: 'user_id',
+          noTextColumn: true,
+        },
+      ]),
+    );
+    const update = find(
+      result.findings[0].evidence.operations,
+      'UPDATE',
+      'user_b',
+    );
+    expect(update.allowed).toBeNull();
+    expect(update.httpStatus).toBeNull();
+    expect(update.note).toContain('Not tested');
+  });
+
+  it('has only the anonymous read for a table with no owner column', async () => {
+    const result = await runProver(new FakeGateway(demoTables()));
+    const ops = result.findings.find((f) => f.table === 'hotels')!.evidence
+      .operations;
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ operation: 'SELECT', actor: 'anon' });
+  });
+
+  it('has an empty list when the canary could not be planted', async () => {
+    const result = await runProver(
+      new FakeGateway([
+        {
+          name: 'orders',
+          policy: 'own',
+          ownerColumn: 'user_id',
+          insertError: 'nope',
+        },
+      ]),
+    );
+    expect(result.findings[0].evidence.operations).toEqual([]);
   });
 });
 
