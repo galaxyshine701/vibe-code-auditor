@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "id": "fnd_001",
+      "module": "data-access-prover",
+      "table": "profiles",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null
+      },
+      "verdict": "BLOCKED",
+      "severity": "info",
+      "title": "\"profiles\" is protected",
+      "explanation": {
+        "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+        "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+      },
+      "evidence": {
+        "rowsReturned": 0,
+        "httpStatus": 200,
+        "canaryRowId": "39baf8b8-6ffb-4fda-b44e-f9961c86124b",
+        "reproducer": null
+      },
+      "fix": null
+    },
+    {
+      "id": "fnd_002",
+      "module": "data-access-prover",
+      "table": "bookings",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null
+      },
+      "verdict": "LEAKED",
+      "severity": "critical",
+      "title": "Any logged-in user can read other users' rows in \"bookings\"",
+      "explanation": {
+        "en": "The second test user was able to read a row that belongs to the first user. The table has no rule that limits rows to their owner.",
+        "ur": "Doosra test user ne pehle user ki row parh li. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare."
+      },
+      "evidence": {
+        "rowsReturned": 1,
+        "httpStatus": 200,
+        "canaryRowId": "83072717-d941-429e-ae93-8af976cd53bb",
+        "reproducer": "curl -H 'apikey: <ANON_KEY>' -H 'Authorization: Bearer <USER_B_JWT>' '<PROJECT_URL>/rest/v1/bookings?user_id=eq.39baf8b8-6ffb-4fda-b44e-f9961c86124b'"
+      },
+      "fix": {
+        "status": "proposed",
+        "description": "Turn on row-level security and let users reach only their own rows. If a broader policy already exists on this table, remove it, because policies add up. Review before applying.",
+        "sql": "alter table \"bookings\" enable row level security;\ncreate policy \"Owners can select own rows\" on \"bookings\" for select to authenticated using ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can update own rows\" on \"bookings\" for update to authenticated using ((select auth.uid()) = \"user_id\") with check ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can delete own rows\" on \"bookings\" for delete to authenticated using ((select auth.uid()) = \"user_id\");"
+      }
+    },
+    {
+      "id": "fnd_003",
+      "module": "data-access-prover",
+      "table": "hotels",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null
+      },
+      "verdict": "INCONCLUSIVE",
+      "severity": "low",
+      "title": "\"hotels\": no owner column, is this intended?",
+      "explanation": {
+        "en": "This table has no column that links a row to a user, so a canary row could not be planted. If it holds public information such as a hotel list, that is fine. Please confirm. An anonymous visitor can read it.",
+        "ur": "Is table me aisa column nahi jo row ko kisi user se jore, isliye canary row nahi daali ja saki. Agar isme sirf public maloomat hain (jaise hotel list) to theek hai. Barae meharbani confirm karein. Bina login wala visitor ise parh sakta hai."
+      },
+      "evidence": {
+        "rowsReturned": 2,
+        "httpStatus": 200,
+        "canaryRowId": null,
+        "reproducer": null
+      },
+      "fix": null
+    }
+  ],
+  "cleanup": "ok"
+}
