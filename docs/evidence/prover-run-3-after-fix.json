@@ -1,0 +1,147 @@
+{
+  "findings": [
+    {
+      "id": "fnd_001",
+      "module": "data-access-prover",
+      "table": "profiles",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null
+      },
+      "verdict": "BLOCKED",
+      "severity": "info",
+      "title": "\"profiles\" is protected",
+      "explanation": {
+        "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+        "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+      },
+      "evidence": {
+        "rowsReturned": 0,
+        "httpStatus": 200,
+        "canaryRowId": "9a49b4fc-040d-4512-b8b7-3ba0865daeff",
+        "reproducer": null,
+        "operations": [
+          {
+            "operation": "SELECT",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "UPDATE",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "DELETE",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "SELECT",
+            "actor": "anon",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          }
+        ]
+      },
+      "fix": null
+    },
+    {
+      "id": "fnd_002",
+      "module": "data-access-prover",
+      "table": "bookings",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null
+      },
+      "verdict": "BLOCKED",
+      "severity": "info",
+      "title": "\"bookings\" is protected",
+      "explanation": {
+        "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+        "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+      },
+      "evidence": {
+        "rowsReturned": 0,
+        "httpStatus": 200,
+        "canaryRowId": "f9d8d5cb-fed3-4be6-900a-be55453e5d22",
+        "reproducer": null,
+        "operations": [
+          {
+            "operation": "SELECT",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "UPDATE",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "DELETE",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "SELECT",
+            "actor": "anon",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          }
+        ]
+      },
+      "fix": null
+    },
+    {
+      "id": "fnd_003",
+      "module": "data-access-prover",
+      "table": "hotels",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null
+      },
+      "verdict": "INCONCLUSIVE",
+      "severity": "low",
+      "title": "\"hotels\": no owner column, is this intended?",
+      "explanation": {
+        "en": "This table has no column that links a row to a user, so a canary row could not be planted. If it holds public information such as a hotel list, that is fine. Please confirm. An anonymous visitor can read it.",
+        "ur": "Is table me aisa column nahi jo row ko kisi user se jore, isliye canary row nahi daali ja saki. Agar isme sirf public maloomat hain (jaise hotel list) to theek hai. Barae meharbani confirm karein. Bina login wala visitor ise parh sakta hai."
+      },
+      "evidence": {
+        "rowsReturned": 2,
+        "httpStatus": 200,
+        "canaryRowId": null,
+        "reproducer": null,
+        "operations": [
+          {
+            "operation": "SELECT",
+            "actor": "anon",
+            "allowed": true,
+            "httpStatus": 200,
+            "rowsReturned": 2,
+            "note": "No owner column, so no canary row was planted."
+          }
+        ]
+      },
+      "fix": null
+    }
+  ],
+  "cleanup": "ok"
+}
