@@ -1,0 +1,180 @@
+import { buildReproducer } from '../../src/prover/findings.js';
+import { loadConfig } from '../../src/prover/config.js';
+import { runProver } from '../../src/prover/prover.js';
+import { redact } from '../../src/prover/redact.js';
+import { findOwnerColumn, parseTables } from '../../src/prover/schema.js';
+import { ProverError } from '../../src/prover/types.js';
+import { FakeGateway, type FakeTable } from './fake-gateway.js';
+
+const demoTables = (): FakeTable[] => [
+  { name: 'bookings', policy: 'off', ownerColumn: 'user_id' },
+  { name: 'profiles', policy: 'own', ownerColumn: 'id' },
+  { name: 'hotels', policy: 'public-read', ownerColumn: null },
+];
+
+describe('Prover against the three demo tables (fake project)', () => {
+  it('gives LEAKED, BLOCKED, INCONCLUSIVE and cleans up', async () => {
+    const fake = new FakeGateway(demoTables());
+    const result = await runProver(fake);
+    const by = Object.fromEntries(result.findings.map((f) => [f.table, f]));
+
+    expect(by.bookings.verdict).toBe('LEAKED');
+    expect(by.bookings.severity).toBe('critical');
+    expect(by.bookings.fix?.sql).toContain('enable row level security');
+    expect(by.profiles.verdict).toBe('BLOCKED');
+    expect(by.profiles.severity).toBe('info');
+    expect(by.profiles.evidence.httpStatus).toBe(200);
+    expect(by.profiles.evidence.rowsReturned).toBe(0);
+    expect(by.hotels.verdict).toBe('INCONCLUSIVE');
+    expect(by.hotels.severity).toBe('low');
+    expect(result.cleanup).toBe('ok');
+
+    // nothing left behind
+    expect(fake.users.size).toBe(0);
+    expect(fake.data.get('bookings')).toHaveLength(0);
+    expect(fake.data.get('profiles')).toHaveLength(0);
+  });
+
+  it('matches the api-contract shape and uses only placeholders', async () => {
+    const fake = new FakeGateway(demoTables());
+    const result = await runProver(fake);
+    for (const f of result.findings) {
+      expect(f.module).toBe('data-access-prover');
+      expect(f.retest).toEqual({ status: 'not_run', lastRunAt: null });
+      expect(f.explanation.en).toBeTruthy();
+      expect(f.explanation.ur).toBeTruthy();
+    }
+    const leaked = result.findings.find((f) => f.verdict === 'LEAKED')!;
+    expect(leaked.evidence.reproducer).toContain('<PROJECT_URL>');
+    expect(leaked.evidence.reproducer).toContain('<ANON_KEY>');
+    expect(leaked.evidence.reproducer).toContain('<USER_B_JWT>');
+    const text = JSON.stringify(result);
+    expect(text).not.toContain('fake-token-');
+    for (const u of fake.users.values()) {
+      expect(text).not.toContain(u.password);
+    }
+  });
+
+  it('flags a table everyone can read as LEAKED', async () => {
+    const fake = new FakeGateway([
+      { name: 'notes', policy: 'public-read', ownerColumn: 'owner_id' },
+    ]);
+    const [finding] = (await runProver(fake)).findings;
+    expect(finding.verdict).toBe('LEAKED');
+    expect(finding.operation).toBe('SELECT');
+  });
+
+  it('leaves the user token out of an anonymous reproducer', () => {
+    const text = buildReproducer({
+      table: 'notes',
+      ownerColumn: 'owner_id',
+      verdict: 'LEAKED',
+      operation: 'SELECT',
+      culprit: 'anon',
+      ownerValue: 'abc',
+      httpStatus: 200,
+      rowsReturned: 1,
+      canaryRowId: 'abc',
+    });
+    expect(text).toContain('<ANON_KEY>');
+    expect(text).not.toContain('USER_B_JWT');
+  });
+
+  it('marks a table INCONCLUSIVE when the canary cannot be planted', async () => {
+    const fake = new FakeGateway([
+      {
+        name: 'orders',
+        policy: 'own',
+        ownerColumn: 'user_id',
+        insertError: 'check constraint failed',
+      },
+    ]);
+    const result = await runProver(fake);
+    expect(result.findings[0].verdict).toBe('INCONCLUSIVE');
+    expect(result.findings[0].explanation.en).toContain(
+      'check constraint failed',
+    );
+    expect(result.cleanup).toBe('ok');
+  });
+});
+
+describe('Safety rules', () => {
+  it('aborts before creating anything when a table has more than 100 rows', async () => {
+    const rows = Array.from({ length: 101 }, (_, i) => ({ id: String(i) }));
+    const fake = new FakeGateway([
+      { name: 'big', policy: 'off', ownerColumn: 'user_id', rows },
+    ]);
+    const error = await runProver(fake).catch((e) => e);
+    expect(error).toBeInstanceOf(ProverError);
+    expect(error.code).toBe('TOO_MUCH_DATA');
+    expect(error.cleanup).toBe('ok');
+    expect(fake.users.size).toBe(0);
+    expect(fake.calls).toHaveLength(0);
+    expect(fake.data.get('big')).toHaveLength(101);
+  });
+
+  it('still cleans up when the attack step crashes', async () => {
+    const fake = new FakeGateway(demoTables(), { throwOnRest: true });
+    const error = await runProver(fake).catch((e) => e);
+    expect(error).toBeInstanceOf(ProverError);
+    expect(error.cleanup).toBe('ok');
+    expect(fake.users.size).toBe(0);
+    expect(fake.data.get('bookings')).toHaveLength(0);
+  });
+
+  it('says cleanup failed when a user cannot be deleted', async () => {
+    const fake = new FakeGateway(demoTables(), { failDeleteUser: true });
+    const result = await runProver(fake);
+    expect(result.cleanup).toBe('failed');
+  });
+});
+
+describe('loadConfig', () => {
+  const good = {
+    SUPABASE_URL: 'https://abc.supabase.co/',
+    SUPABASE_PUBLISHABLE_KEY: 'pub-key-123456',
+    SUPABASE_SECRET_KEY: 'sec-key-123456',
+    CONFIRM_TEST_PROJECT: 'yes',
+  };
+
+  it('accepts a full config', () => {
+    expect(loadConfig(good).supabaseUrl).toBe('https://abc.supabase.co');
+  });
+
+  it('refuses unless CONFIRM_TEST_PROJECT is yes', () => {
+    expect(() => loadConfig({ ...good, CONFIRM_TEST_PROJECT: 'no' })).toThrow(
+      /CONFIRM_TEST_PROJECT=yes/,
+    );
+  });
+
+  it('names missing variables but never prints values', () => {
+    try {
+      loadConfig({ ...good, SUPABASE_SECRET_KEY: '' });
+      throw new Error('should have thrown');
+    } catch (e) {
+      const message = (e as Error).message;
+      expect(message).toContain('SUPABASE_SECRET_KEY');
+      expect(message).not.toContain('pub-key-123456');
+    }
+  });
+});
+
+describe('helpers', () => {
+  it('redact hides secrets', () => {
+    expect(redact('key=abcdef123 end', ['abcdef123'])).toBe(
+      'key=[REDACTED] end',
+    );
+  });
+
+  it('finds the owner column', () => {
+    const doc = {
+      definitions: {
+        a: { properties: { user_id: { type: 'string' } } },
+        b: { properties: { title: { type: 'string' } } },
+      },
+    };
+    const [a, b] = parseTables(doc);
+    expect(findOwnerColumn(a)).toBe('user_id');
+    expect(findOwnerColumn(b)).toBeNull();
+  });
+});
