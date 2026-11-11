@@ -24,6 +24,7 @@ const outPath = arg('--out');
 const projectUrl = process.env.SUPABASE_URL;
 const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
 const secret = process.env.SUPABASE_SECRET_KEY;
+const accessCode = process.env.AUDIT_ACCESS_CODE; // sent as a header, never printed
 const missing = Object.entries({
   SUPABASE_URL: projectUrl,
   SUPABASE_PUBLISHABLE_KEY: publishable,
@@ -40,7 +41,7 @@ if (!logPath) {
   process.exit(2);
 }
 
-const keys = [publishable, secret];
+const keys = [publishable, secret, accessCode].filter(Boolean);
 const everything = []; // every response body we saw
 const hasKey = (text) => keys.some((k) => text.includes(k));
 const problems = [];
@@ -49,7 +50,10 @@ const fail = (message) => problems.push(message);
 async function call(method, path, body) {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessCode ? { 'X-Access-Code': accessCode } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();

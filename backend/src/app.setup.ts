@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { resolveTrustProxyHops } from './access/access-config.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 
 export const DEFAULT_FRONTEND_ORIGIN = 'http://localhost:3000';
@@ -36,6 +37,16 @@ export function configureApp(
   app.enableCors({
     origin: resolveAllowedOrigin(env),
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'X-Access-Code'],
   });
+
+  // How many reverse proxies (for example Railway) stand in front of us.
+  // This decides which address counts as the client's: with 0 the
+  // X-Forwarded-For header is ignored, so it cannot be faked. Behind Railway
+  // set TRUST_PROXY_HOPS=1, otherwise every client looks like the proxy.
+  const hops = resolveTrustProxyHops(env);
+  const express = app.getHttpAdapter().getInstance() as {
+    set(name: string, value: unknown): void;
+  };
+  express.set('trust proxy', hops);
 }

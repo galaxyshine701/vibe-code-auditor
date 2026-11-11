@@ -6,10 +6,14 @@ import {
   Inject,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+import { AccessCodeGuard } from '../access/access-code.guard.js';
 import { parseAuditInput } from './audit-input.js';
 import { AuditsService } from './audits.service.js';
 
+// Every route here needs the X-Access-Code header (see AccessCodeGuard).
+@UseGuards(AccessCodeGuard)
 @Controller('audits')
 export class AuditsController {
   constructor(@Inject(AuditsService) private readonly audits: AuditsService) {}
