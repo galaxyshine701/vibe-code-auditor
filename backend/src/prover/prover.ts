@@ -21,6 +21,13 @@ const TAMPERED = 'vca-tampered';
 
 interface RunState {
   userIds: string[];
+  /** email of each user whose id we know (to name it if it cannot be removed) */
+  emails: Map<string, string>;
+  /**
+   * Emails of users whose create call failed (for example a timeout). The user
+   * may exist even though we never got an id, so we cannot delete it.
+   */
+  unconfirmedEmails: string[];
   planted: { table: string; column: string; value: string }[];
 }
 
@@ -31,13 +38,19 @@ interface RunState {
 export async function runProver(
   gateway: Gateway,
   log: (message: string) => void = () => {},
+  onProgress: (percent: number) => void = () => {},
 ): Promise<ProverResult> {
-  const state: RunState = { userIds: [], planted: [] };
+  const state: RunState = {
+    userIds: [],
+    emails: new Map(),
+    unconfirmedEmails: [],
+    planted: [],
+  };
   let findings: Finding[] = [];
   let failure: unknown = null;
-  let cleanup: 'ok' | 'failed' = 'failed';
+  let cleanup: Cleanup = { status: 'failed' };
   try {
-    findings = await runChecks(gateway, state, log);
+    findings = await runChecks(gateway, state, log, onProgress);
   } catch (error) {
     failure = error;
   } finally {
@@ -50,15 +63,20 @@ export async function runProver(
       failure instanceof Error
         ? failure.message
         : 'The Prover stopped unexpectedly.';
-    throw new ProverError(code, message, cleanup);
+    throw new ProverError(code, message, cleanup.status, cleanup.note);
   }
-  return { findings, cleanup };
+  return {
+    findings,
+    cleanup: cleanup.status,
+    ...(cleanup.note ? { cleanupNote: cleanup.note } : {}),
+  };
 }
 
 async function runChecks(
   gateway: Gateway,
   state: RunState,
   log: (message: string) => void,
+  onProgress: (percent: number) => void,
 ): Promise<Finding[]> {
   // 1. Preflight
   log('Preflight: reading the table list and counting rows');
@@ -76,6 +94,8 @@ async function runChecks(
     }
   }
 
+  onProgress(10);
+
   // 2 + 3. Users A and B, signed in
   log('Creating two temporary test users');
   const userA = await newUser(gateway, state);
@@ -84,6 +104,7 @@ async function runChecks(
   const tokenB = await gateway.signIn(userB.email, userB.password);
 
   // 4 - 7. One finding per table
+  onProgress(15);
   const findings: Finding[] = [];
   for (const table of tables) {
     log(`Checking table "${table.name}"`);
@@ -91,6 +112,7 @@ async function runChecks(
     findings.push(
       await checkTable(gateway, state, table, id, userA.id, tokenA, tokenB),
     );
+    onProgress(15 + Math.floor((80 * findings.length) / tables.length));
   }
   return findings;
 }
@@ -98,8 +120,16 @@ async function runChecks(
 async function newUser(gateway: Gateway, state: RunState) {
   const email = `vca-${randomBytes(6).toString('hex')}@example.com`;
   const password = `${randomBytes(24).toString('base64url')}aA1!`;
-  const id = await gateway.createUser(email, password);
+  let id: string;
+  try {
+    id = await gateway.createUser(email, password);
+  } catch (error) {
+    // A timeout can happen after the user was really created.
+    state.unconfirmedEmails.push(email);
+    throw error;
+  }
   state.userIds.push(id);
+  state.emails.set(id, email);
   return { id, email, password };
 }
 
@@ -366,42 +396,85 @@ async function ownerInsertCheck(
   };
 }
 
-/** Deletes canary rows and both users, then checks they are really gone. */
+interface Cleanup {
+  status: 'ok' | 'failed';
+  note?: string;
+}
+
+/**
+ * Deletes canary rows and both users, then checks they are really gone.
+ * "ok" is only returned when nothing can be left behind. If a user might be
+ * left (also one we could not look up by email), the result is "failed" with
+ * a note that says what to remove by hand.
+ */
 async function teardown(
   gateway: Gateway,
   state: RunState,
   log: (message: string) => void,
-): Promise<'ok' | 'failed'> {
-  if (state.planted.length > 0 || state.userIds.length > 0) {
+): Promise<Cleanup> {
+  if (
+    state.planted.length > 0 ||
+    state.userIds.length > 0 ||
+    state.unconfirmedEmails.length > 0
+  ) {
     log('Cleaning up canary rows and test users');
   }
-  let ok = true;
+  const leftoverTables = new Set<string>();
+  const leftoverEmails = new Set<string>();
   for (const p of state.planted) {
     try {
       await gateway.deleteRows(p.table, p.column, p.value);
     } catch {
-      ok = false;
+      leftoverTables.add(p.table);
     }
   }
   for (const p of state.planted) {
     try {
       if ((await gateway.readRows(p.table, p.column, p.value)).length > 0)
-        ok = false;
+        leftoverTables.add(p.table);
     } catch {
-      ok = false;
+      leftoverTables.add(p.table);
     }
   }
   for (const userId of state.userIds) {
+    const email = state.emails.get(userId) ?? 'vca-?@example.com';
     try {
       await gateway.deleteUser(userId);
     } catch {
-      ok = false;
+      leftoverEmails.add(email);
     }
     try {
-      if (await gateway.userExists(userId)) ok = false;
+      if (await gateway.userExists(userId)) leftoverEmails.add(email);
     } catch {
-      ok = false;
+      leftoverEmails.add(email);
     }
   }
-  return ok ? 'ok' : 'failed';
+  // A create call that never answered: the user may exist without us knowing
+  // its id. Look for exactly the emails made in this run (no wildcard).
+  // Not found = nothing to clean. Found = delete it and check it is gone.
+  for (const email of state.unconfirmedEmails) {
+    try {
+      const id = await gateway.deleteUserByEmail(email);
+      if (id !== null && (await gateway.userExists(id))) {
+        leftoverEmails.add(email);
+      }
+    } catch {
+      leftoverEmails.add(email);
+    }
+  }
+  if (leftoverEmails.size === 0 && leftoverTables.size === 0) {
+    return { status: 'ok' };
+  }
+  const parts: string[] = [];
+  if (leftoverEmails.size > 0) {
+    parts.push(
+      `Test users may be left behind in Supabase Auth. Delete the users with an email like vca-*@example.com by hand (Authentication > Users). Possible leftovers: ${[...leftoverEmails].join(', ')}.`,
+    );
+  }
+  if (leftoverTables.size > 0) {
+    parts.push(
+      `Canary rows may be left in: ${[...leftoverTables].join(', ')}. They are owned by the test users above; delete them by hand.`,
+    );
+  }
+  return { status: 'failed', note: parts.join(' ') };
 }
