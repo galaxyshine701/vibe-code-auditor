@@ -190,11 +190,18 @@ Only available when no `LEAKED` finding remains and the re-test passed. Otherwis
 }
 ```
 
+## Access code (all `/audits` routes)
+Additive. Every request to `/api/v1/audits...` must send the header `X-Access-Code: <code>` (the code is given to the user; the frontend sends it, never stores it in the page or in logs). `GET /health` needs no code.
+- Missing or wrong code: `401`, `{ "error": { "code": "ACCESS_DENIED", "message": "Access denied." } }`
+- Only a code that was sent and is wrong counts toward the limit. A missing header and CORS `OPTIONS` requests are never counted.
+- Too many wrong codes (10 within 15 minutes from one client): `429`, `{ "error": { "code": "RATE_LIMITED", "message": "Too many wrong attempts. Try again later." } }`, with a `Retry-After` header in seconds. While blocked, even the right code gets `429`.
+- The code is never part of any response.
+
 ## Errors (all endpoints)
 ```json
 { "error": { "code": "SOME_CODE", "message": "Plain-language message" } }
 ```
-Codes used so far: `PRODUCTION_REFUSED` (reserved), `NOT_FOUND`, `NOT_ELIGIBLE`, `INVALID_INPUT`, `AUDIT_IN_PROGRESS`.
+Codes used so far: `PRODUCTION_REFUSED` (reserved), `NOT_FOUND`, `NOT_ELIGIBLE`, `INVALID_INPUT`, `AUDIT_IN_PROGRESS`, `ACCESS_DENIED`, `RATE_LIMITED`.
 
 ## What the frontend should show for each state
 Loading, empty (no findings), error (use `error.message`), and the three verdicts. Every finding card needs: verdict badge, table name, title, plain-language explanation (English / Roman Urdu toggle), collapsible evidence, collapsible suggested fix, and the buttons "Approve fix" and "Re-test".
