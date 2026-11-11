@@ -60,6 +60,8 @@ export interface Finding {
 export interface ProverResult {
   findings: Finding[];
   cleanup: 'ok' | 'failed';
+  /** Only when cleanup is "failed": what to remove by hand. */
+  cleanupNote?: string;
 }
 
 export class ProverError extends Error {
@@ -67,6 +69,7 @@ export class ProverError extends Error {
     public readonly code: string,
     message: string,
     public cleanup?: 'ok' | 'failed',
+    public cleanupNote?: string,
   ) {
     super(message);
   }

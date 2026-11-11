@@ -34,6 +34,7 @@ try {
           : 'The Prover stopped unexpectedly.',
     },
     cleanup: known?.cleanup ?? null,
+    ...(known?.cleanupNote ? { cleanupNote: known.cleanupNote } : {}),
   });
   process.exitCode = 1;
 }

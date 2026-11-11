@@ -36,17 +36,27 @@ Request
   "label": "Hotel booking (test project)",
   "projectUrl": "https://example-project.supabase.co",
   "anonKey": "<write-only, never returned>",
-  "serviceKey": "<write-only, never returned>"
+  "serviceKey": "<write-only, never returned>",
+  "confirmTestProject": true
 }
 ```
-Response `202`
+- The field names `projectUrl`, `anonKey` and `serviceKey` are fixed.
+- `confirmTestProject` is required and must be exactly `true` (the boolean, not the text "true"). It is the caller's confirmation that this is a TEST project. Otherwise: `400` `INVALID_INPUT`.
+- `projectUrl` must look like `https://<project-ref>.supabase.co` (no port, path or login). Otherwise: `400` `INVALID_INPUT`.
+
+Response `202` (the work starts at once, so the status is `running`)
 ```json
-{ "id": "aud_001", "status": "queued" }
+{ "id": "aud_001", "status": "running" }
 ```
-Error `400` (production-looking URL)
+Error `400` (confirmation missing, or the URL is not a plain Supabase project address)
 ```json
-{ "error": { "code": "PRODUCTION_REFUSED", "message": "This looks like a production project. Use a test project." } }
+{ "error": { "code": "INVALID_INPUT", "message": "Confirm this is a TEST project: set confirmTestProject to true." } }
 ```
+Error `409` (only one audit runs at a time; try again when the running one has finished)
+```json
+{ "error": { "code": "AUDIT_IN_PROGRESS", "message": "Another audit is still running. Wait until it finishes, then try again." } }
+```
+Error `400` `PRODUCTION_REFUSED` is reserved: version 1 of the backend cannot tell a production project from a test project by its address, so it relies on `confirmTestProject` and the URL check above.
 
 ### GET /audits/:id
 ```json
@@ -59,9 +69,14 @@ Error `400` (production-looking URL)
   "modules": [
     { "id": "data-access-prover", "name": "Data Access Prover", "status": "running", "progress": 60 },
     { "id": "secrets-scanner", "name": "Secrets Scanner", "status": "queued", "progress": 0 }
-  ]
+  ],
+  "cleanup": null
 }
 ```
+Additive fields:
+- `cleanup`: `"ok"` | `"failed"` | `null`. `null` while the audit is still running. `"failed"` means the temporary test users or canary rows could not be removed from the test project; the user should check it.
+- `cleanupNote`: only present when `cleanup` is `"failed"`. Plain-language text that says what to remove by hand, for example the users in Supabase Auth with an email like `vca-*@example.com`.
+- `error`: only present when `status` is `failed`: `{ "code": "TOO_MUCH_DATA", "message": "Plain-language message" }`. Keys are never part of it.
 
 ### GET /audits/:id/findings
 ```json
@@ -179,7 +194,7 @@ Only available when no `LEAKED` finding remains and the re-test passed. Otherwis
 ```json
 { "error": { "code": "SOME_CODE", "message": "Plain-language message" } }
 ```
-Codes used so far: `PRODUCTION_REFUSED`, `NOT_FOUND`, `NOT_ELIGIBLE`, `INVALID_INPUT`.
+Codes used so far: `PRODUCTION_REFUSED` (reserved), `NOT_FOUND`, `NOT_ELIGIBLE`, `INVALID_INPUT`, `AUDIT_IN_PROGRESS`.
 
 ## What the frontend should show for each state
 Loading, empty (no findings), error (use `error.message`), and the three verdicts. Every finding card needs: verdict badge, table name, title, plain-language explanation (English / Roman Urdu toggle), collapsible evidence, collapsible suggested fix, and the buttons "Approve fix" and "Re-test".

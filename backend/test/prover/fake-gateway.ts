@@ -33,6 +33,15 @@ export interface FakeTable {
 
 export interface FakeOptions {
   failDeleteUser?: boolean;
+  /**
+   * The Nth createUser call (1 = first) creates the user for real, but the
+   * answer never arrives (a timeout), so the caller never learns the id.
+   */
+  createUserTimesOutOnCall?: number;
+  /** The Nth createUser call fails before anything was created. */
+  createUserFailsBeforeCreatingOnCall?: number;
+  /** Looking up / deleting a user by email fails. */
+  failDeleteUserByEmail?: boolean;
   throwOnRest?: boolean;
 }
 
@@ -42,6 +51,8 @@ export class FakeGateway implements Gateway {
   readonly tokens = new Map<string, string>();
   readonly data = new Map<string, Row[]>();
   readonly calls: string[] = [];
+  /** every email that cleanup looked up */
+  readonly emailLookups: string[] = [];
 
   constructor(
     private readonly tables: FakeTable[],
@@ -86,9 +97,21 @@ export class FakeGateway implements Gateway {
     return Promise.resolve(this.data.get(table)!.length);
   }
 
+  private createUserCalls = 0;
+
   createUser(email: string, password: string): Promise<string> {
+    this.createUserCalls += 1;
+    if (
+      this.options.createUserFailsBeforeCreatingOnCall === this.createUserCalls
+    ) {
+      return Promise.reject(new Error('request timed out'));
+    }
     const id = randomUUID();
     this.users.set(id, { email, password });
+    if (this.options.createUserTimesOutOnCall === this.createUserCalls) {
+      // the user exists now, but the caller only sees a timeout
+      return Promise.reject(new Error('request timed out'));
+    }
     return Promise.resolve(id);
   }
 
@@ -96,6 +119,21 @@ export class FakeGateway implements Gateway {
     if (this.options.failDeleteUser) return Promise.reject(new Error('nope'));
     this.users.delete(userId);
     return Promise.resolve();
+  }
+
+  deleteUserByEmail(email: string): Promise<string | null> {
+    this.emailLookups.push(email);
+    if (this.options.failDeleteUserByEmail) {
+      return Promise.reject(new Error('lookup failed'));
+    }
+    // exact match only
+    for (const [id, u] of this.users) {
+      if (u.email === email) {
+        this.users.delete(id);
+        return Promise.resolve(id);
+      }
+    }
+    return Promise.resolve(null);
   }
 
   userExists(userId: string): Promise<boolean> {

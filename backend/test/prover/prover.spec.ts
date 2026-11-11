@@ -341,6 +341,103 @@ describe('Safety rules', () => {
   });
 });
 
+describe('A createUser call that never answers (cleanup by exact email)', () => {
+  const EMAIL = /^vca-[0-9a-f]+@example\.com$/;
+
+  it.each([
+    ['the first user (A)', 1],
+    ['the second user (B)', 2],
+  ])(
+    'finds %s by email, deletes it, and reports cleanup "ok"',
+    async (_who, callNumber) => {
+      const fake = new FakeGateway(demoTables(), {
+        createUserTimesOutOnCall: callNumber,
+      });
+      const error = await runProver(fake).catch((e) => e);
+
+      // the run itself failed (the answer never came) ...
+      expect(error).toBeInstanceOf(ProverError);
+      // ... but nothing is left behind, so cleanup is honestly "ok"
+      expect(error.cleanup).toBe('ok');
+      expect(error.cleanupNote).toBeUndefined();
+      expect(fake.users.size).toBe(0);
+      // exactly one look-up, for the one email that never got an id
+      expect(fake.emailLookups).toHaveLength(1);
+      expect(fake.emailLookups[0]).toMatch(EMAIL);
+    },
+  );
+
+  it('says "ok" when the user was never created (nothing to find)', async () => {
+    const fake = new FakeGateway(demoTables(), {
+      createUserFailsBeforeCreatingOnCall: 1,
+    });
+    const error = await runProver(fake).catch((e) => e);
+    expect(error.cleanup).toBe('ok');
+    expect(fake.emailLookups).toHaveLength(1); // it looked, and found nobody
+    expect(fake.users.size).toBe(0);
+  });
+
+  it('touches only the exact email of this run, never other users', async () => {
+    const fake = new FakeGateway(demoTables(), { createUserTimesOutOnCall: 1 });
+    // users that already existed before the run, some with a similar look
+    fake.users.set('pre-1', {
+      email: 'vca-preexisting@example.com',
+      password: 'x',
+    });
+    fake.users.set('pre-2', { email: 'someone@example.com', password: 'x' });
+    await runProver(fake).catch(() => {});
+
+    const emails = [...fake.users.values()].map((u) => u.email).sort();
+    expect(emails).toEqual([
+      'someone@example.com',
+      'vca-preexisting@example.com',
+    ]);
+    expect(fake.emailLookups).toHaveLength(1);
+    expect(fake.emailLookups).not.toContain('vca-preexisting@example.com');
+  });
+
+  it('reports "failed" with a by-hand note when the user cannot be removed', async () => {
+    const fake = new FakeGateway(demoTables(), {
+      createUserTimesOutOnCall: 1,
+      failDeleteUserByEmail: true,
+    });
+    const error = await runProver(fake).catch((e) => e);
+
+    expect(error).toBeInstanceOf(ProverError);
+    expect(error.cleanup).toBe('failed');
+    expect(error.cleanupNote).toContain('vca-*@example.com');
+    expect(error.cleanupNote).toContain('by hand');
+    expect(error.cleanupNote).toContain('Supabase Auth');
+    // the user really is still there, and the note names that exact address
+    const left = [...fake.users.values()];
+    expect(left).toHaveLength(1);
+    expect(left[0].email).toMatch(EMAIL);
+    expect(error.cleanupNote).toContain(left[0].email);
+  });
+
+  it('removes the users it knew by id and the one it found by email', async () => {
+    const fake = new FakeGateway(demoTables(), { createUserTimesOutOnCall: 2 });
+    await runProver(fake).catch(() => {});
+    expect(fake.users.size).toBe(0);
+  });
+
+  it('keeps "ok" and no note when everything is removed', async () => {
+    const result = await runProver(new FakeGateway(demoTables()));
+    expect(result.cleanup).toBe('ok');
+    expect(result.cleanupNote).toBeUndefined();
+  });
+
+  it('names a user it knew about but could not delete', async () => {
+    const fake = new FakeGateway(demoTables(), { failDeleteUser: true });
+    const result = await runProver(fake);
+    expect(result.cleanup).toBe('failed');
+    expect(result.cleanupNote).toContain('vca-*@example.com');
+    for (const u of fake.users.values()) {
+      expect(result.cleanupNote).toContain(u.email);
+    }
+  });
+});
+
 describe('loadConfig', () => {
   const good = {
     SUPABASE_URL: 'https://abc.supabase.co/',
