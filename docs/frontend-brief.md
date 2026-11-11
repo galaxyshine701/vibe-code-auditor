@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5)
+# Frontend specification: Vibe Code Auditor (v0.5.1)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.1 | 11 Nov 2026 | Keys are cleared only after a successful `202`. On `400`, `401`, `409`, `429` and network errors they stay in memory (R4, R18, R29, checklist 4 and 10). Priority rule over chat messages added. Re-test example in the contract changed to `running`. |
 | v0.5 | 11 Nov 2026 | Rewritten as a numbered specification. Four screens as in the contract. Decisions added for access code, offline handling, base address, ordering, language, fix status, certificate and re-test. Backend behaviour for unknown ids, failed audits, `label` and restarts stated from the code. |
 
 ## How to read this document
@@ -16,6 +17,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 - Part 1 is binding. It does not change with the design.
 - Part 2 describes behaviour per screen. Layout, colour and visual design are the developer's choice.
 - Requirements are numbered R1, R2, and so on.
+- This document takes priority over chat messages. If they differ, this document is correct.
 
 ---
 
@@ -39,7 +41,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 **R3.** Every request to `/api/v1/audits...` must send the header `X-Access-Code: <code>`. This includes every poll. The code must not appear in the URL or in the request body.
 
-**R4.** If the server cannot be reached (network error or no answer), the screen must show: "Cannot reach the server. Check your connection and try again." It must offer a Retry button. The values in the form must stay. The keys and the access code must be cleared.
+**R4.** If the server cannot be reached (network error or no answer), the screen must show: "Cannot reach the server. Check your connection and try again." It must offer a Retry button. The values in the form must stay, including the keys and the access code, in memory only (R26). The user can press Retry without typing them again.
 
 ## 1.2 Audit lifecycle
 
@@ -136,7 +138,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R17.** Every error has the shape `{ "error": { "code": "...", "message": "..." } }`. The frontend must show `error.message` as given. For an unknown code it must still show `error.message`.
 
-**R18.** `400 INVALID_INPUT`: show `error.message` next to the form. The keys have been cleared (R29). The user types them again. The other form values stay.
+**R18.** `400 INVALID_INPUT`: show `error.message` next to the form. All form values stay, including the keys (in memory only, R26). The user corrects the input and sends again.
 
 **R19.** `401 ACCESS_DENIED`: the frontend must clear the stored access code, show "Access denied." and return the user to the access code field.
 
@@ -160,7 +162,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R28.** The frontend must not show the keys or the access code after they have been typed, except as masked input while typing.
 
-**R29.** When the user presses Start, the frontend must clear the publishable key and the secret key from its state. The backend never returns the keys. For another audit the user types them again.
+**R29.** When the backend answers `202` to the start call, the frontend must clear the publishable key and the secret key from its state. On `400`, `401`, `409`, `429` and on a network error the keys must stay in memory, so the user can send again. The backend never returns the keys. For another audit the user types them again.
 
 ## 1.6 Approve fix, Re-test and Certificate
 
@@ -332,12 +334,12 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 1. The server address comes from `NEXT_PUBLIC_API_BASE_URL` and defaults to `http://localhost:4000` (R1).
 2. Every `/api/v1/audits...` request, including polls, carries `X-Access-Code`, and the code is not in any URL or body (R3).
 3. No key or access code is present in `localStorage`, `sessionStorage` or cookies (check in DevTools > Application), in mock mode too (R26).
-4. The publishable key and the secret key are empty in the form after Start is pressed (R29).
+4. The publishable key and the secret key are cleared after a `202`, and they stay in memory after a `400`, `401`, `409`, `429` or network error (R29).
 5. A page refresh asks for the access code again, and a `401` returns the user to the access code field (R19, R27).
 6. The Start action is disabled until the test-project box is ticked, and the body sends the boolean `true` (R6).
 7. Progress polls every 2 seconds and stops at `completed` or `failed` (R9).
 8. A `429` disables the submit button until `Retry-After` ends (R22).
 9. `cleanupNote` is visible on Progress and Report when `cleanup` is `"failed"` (R25).
-10. An unreachable server shows "Cannot reach the server. Check your connection and try again.", a Retry button, kept form values and cleared secrets (R4).
+10. An unreachable server shows "Cannot reach the server. Check your connection and try again.", a Retry button, and form values (keys and access code included, in memory only) that are kept (R4).
 11. Findings appear in the order `LEAKED`, `INCONCLUSIVE`, `BLOCKED`, then severity, then table name (R15).
 12. The Report screen shows English by default, switches to Roman Urdu, shows the disclaimer, and has no Reject button (R30, R39, R42).

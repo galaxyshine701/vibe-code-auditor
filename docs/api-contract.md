@@ -175,7 +175,7 @@ A human approves the suggested fix. Response `200`: the updated finding with `fi
 (The backend does not change the user's database by itself in version 1; approval only records the decision and marks the fix as ready to apply.)
 
 ### POST /audits/:id/retest
-Runs the same checks again. Response `202`: `{ "id": "aud_001", "status": "queued" }`. After it finishes, each finding's `retest.status` is `passed` or `failed`.
+Runs the same checks again. This route is not built yet. Response `202`: `{ "id": "aud_001", "status": "running" }`. After it finishes, each finding's `retest.status` is `passed` or `failed`.
 
 ### GET /audits/:id/certificate
 Only available when no `LEAKED` finding remains and the re-test passed. Otherwise `409` with `{ "error": { "code": "NOT_ELIGIBLE", "message": "..." } }`.
