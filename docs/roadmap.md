@@ -12,6 +12,7 @@ Note: the Prover is deliberately plain code, so its proof can be reproduced. The
 5. Frontend, 4 screens (Alishba) on Vercel; backend on Railway.
 6. Small benchmark on the planted tables.
 7. `SKILL.md`, README, Word document and market research.
+8. MCP server (own small server: run_audit, get_findings, create_ticket; demo via Claude Code).
 
 ## Tier B: if Tier A works, in this order
 1. Secrets Scanner: look for `sb_secret_` or `service_role` in a deployed site's JavaScript.
@@ -25,6 +26,6 @@ Deploy Config Checker, Code Quality Reviewer, GitHub Action that runs on every n
 ## Day plan
 - 11 Nov: Prover result on `vca-test-target`; Alishba's Report screen branch.
 - 12 Nov: backend on Railway; Report agent.
-- 13 Nov: frontend and backend connected; Jira ticket; Re-test.
+- 13 Nov: frontend and backend connected; Jira ticket; MCP server (after the Jira ticket); Re-test.
 - 14 Nov: first Tier B module if time allows; Word document; demo; check the live URL.
 - 15 Nov: submit only, no new work.

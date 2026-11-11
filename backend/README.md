@@ -34,3 +34,11 @@ Tests a Supabase **test** project and prints JSON findings (LEAKED, BLOCKED or I
 ## Timeouts and cleanup
 - Every request to Supabase has its own 20 second timeout (one constant, `REQUEST_TIMEOUT_MS`). A stalled call gives the plain error "Supabase did not answer in time." Cleanup calls have their own timeouts too, so a slow request cannot stop the cleanup.
 - If a "create user" call never answers, the user may exist without us knowing its id. Cleanup then looks for that exact email (made in this run, no wildcard) and deletes it. If it cannot, the result is `cleanup: "failed"` with a note to delete `vca-*@example.com` users by hand in Supabase Auth.
+
+## Access code (`/api/v1/audits`)
+- Every `/api/v1/audits` route needs the header `X-Access-Code`. `/health` stays open.
+- Set `AUDIT_ACCESS_CODE` in `backend/.env` (and in Railway Variables): a secret of **at least 24 characters**. Never put it in code, logs or chat.
+- **Fail-closed:** with no `AUDIT_ACCESS_CODE` the server does not start. For local testing only you can set `ALLOW_OPEN_API=yes` (no code at all). A code that is too short never falls back to open.
+- Wrong or missing code: `401 ACCESS_DENIED`. Only a code that was sent and is wrong is counted; a missing header and CORS `OPTIONS` checks are not. After 10 wrong tries from one client IP within 15 minutes: `429 RATE_LIMITED` (with `Retry-After`), also for the right code until the time is up. The counter is in memory, so a restart resets it.
+- **Behind Railway set `TRUST_PROXY_HOPS=1`.** Then the real client IP is read from `X-Forwarded-For`. If you forget it, every client looks like the proxy and one attacker can lock out everybody. Do not set it when there is no proxy (anyone could fake the header). Default is 0.
+- The smoke script (`scripts/http-smoke.mjs`) reads `AUDIT_ACCESS_CODE` from `.env` and sends it; it never prints it.
