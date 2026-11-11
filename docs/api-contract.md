@@ -1,12 +1,12 @@
-# Vibe Code Auditor: API contract (draft v0.1)
+# Vibe Code Auditor: API contract
 
-Purpose: the frontend (Alishba) and the backend (Anam) agree on the shape of the data **before** either side is finished. The frontend can build every screen now with the mock data below; the backend will return exactly this shape.
+Purpose: the frontend (Alishba) and the backend (Anam) agree on the shape of the data **before** either side is finished. The shapes below are examples. Mock data for the frontend comes from `docs/evidence` (see `docs/frontend-brief.md`, R45 and R46).
 
 Rules
 - Base path: `/api/v1`. Format: JSON. All dates are ISO 8601 (UTC).
 - Any change to this file goes through a pull request that both of us approve.
 - The backend NEVER returns keys (`serviceKey`, `anonKey`) in any response. The frontend must never store or display them after submitting.
-- The tool is for **staging / test projects only**. The backend refuses production-looking URLs.
+- The tool is for **staging / test projects only**. The backend does not detect production from the URL. It requires `confirmTestProject: true` and aborts when a table has more than 100 rows.
 
 ## Screens and the endpoint each one uses
 
@@ -23,6 +23,7 @@ Rules
 - `finding.verdict`: `LEAKED` (red) | `BLOCKED` (green) | `INCONCLUSIVE` (grey)
 - `finding.severity`: `critical` | `high` | `medium` | `low` | `info`
 - `fix.status`: `proposed` | `approved` | `applied` | `rejected`
+- Version 1 returns only `proposed` and `approved`. `applied` and `rejected` are reserved.
 - `retest.status`: `not_run` | `running` | `passed` | `failed`
 
 ## Endpoints
@@ -73,6 +74,8 @@ Error `400` `PRODUCTION_REFUSED` is reserved: version 1 of the backend cannot te
   "cleanup": null
 }
 ```
+Example only. Version 1 returns only `data-access-prover`.
+
 Additive fields:
 - `cleanup`: `"ok"` | `"failed"` | `null`. `null` while the audit is still running. `"failed"` means the temporary test users or canary rows could not be removed from the test project; the user should check it.
 - `cleanupNote`: only present when `cleanup` is `"failed"`. Plain-language text that says what to remove by hand, for example the users in Supabase Auth with an email like `vca-*@example.com`.
