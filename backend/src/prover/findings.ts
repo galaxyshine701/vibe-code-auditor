@@ -1,4 +1,10 @@
-import type { Finding, Operation, OperationResult, Verdict } from './types.js';
+import type {
+  AttackOperation,
+  Finding,
+  Operation,
+  OperationResult,
+  Verdict,
+} from './types.js';
 
 export type Culprit = 'user' | 'anon';
 
@@ -6,7 +12,7 @@ export interface FindingInput {
   table: string;
   ownerColumn: string | null;
   verdict: Verdict;
-  operation: Operation;
+  operation: AttackOperation;
   httpStatus: number | null;
   rowsReturned: number | null;
   canaryRowId: string | null;
@@ -15,7 +21,7 @@ export interface FindingInput {
   /** Who got the data: logged-in user B or an anonymous visitor. */
   culprit?: Culprit;
   /** For INCONCLUSIVE: why. */
-  reason?: 'no-owner-column' | 'plant-failed';
+  reason?: 'no-owner-column' | 'plant-failed' | 'owner-blocked';
   reasonDetail?: string;
   operations: OperationResult[];
 }
@@ -41,21 +47,28 @@ export function buildReproducer(input: FindingInput): string | null {
   return `curl -X DELETE -H 'apikey: <ANON_KEY>'${auth} ${url}`;
 }
 
-function fixFor(input: FindingInput, ops: Operation[]): Finding['fix'] {
+function fixFor(
+  input: FindingInput,
+  leakedOps: AttackOperation[],
+): Finding['fix'] {
   if (input.verdict !== 'LEAKED' || !input.ownerColumn) return null;
-  const t = q(input.table);
+  const t = `public.${q(input.table)}`;
   const c = q(input.ownerColumn);
+  const owner = `(select auth.uid()) = ${c}`;
+  // INSERT is always included: turning on RLS without it would stop the app
+  // from saving its own users' rows.
+  const wanted = new Set<Operation>([...leakedOps, 'INSERT']);
   const lines = [`alter table ${t} enable row level security;`];
-  for (const op of ops) {
+  for (const op of ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] as const) {
+    if (!wanted.has(op)) continue;
     const name = `Owners can ${op.toLowerCase()} own rows`;
-    if (op === 'UPDATE') {
-      lines.push(
-        `create policy "${name}" on ${t} for update to authenticated using ((select auth.uid()) = ${c}) with check ((select auth.uid()) = ${c});`,
-      );
+    const start = `create policy "${name}" on ${t} for ${op.toLowerCase()} to authenticated`;
+    if (op === 'INSERT') {
+      lines.push(`${start} with check (${owner});`);
+    } else if (op === 'UPDATE') {
+      lines.push(`${start} using (${owner}) with check (${owner});`);
     } else {
-      lines.push(
-        `create policy "${name}" on ${t} for ${op.toLowerCase()} to authenticated using ((select auth.uid()) = ${c});`,
-      );
+      lines.push(`${start} using (${owner});`);
     }
   }
   return {
@@ -69,7 +82,7 @@ function fixFor(input: FindingInput, ops: Operation[]): Finding['fix'] {
 export function buildFinding(
   id: string,
   input: FindingInput,
-  leakedOps: Operation[] = [input.operation],
+  leakedOps: AttackOperation[] = [input.operation],
 ): Finding {
   const base = {
     id,
@@ -119,6 +132,21 @@ export function buildFinding(
       explanation: {
         en: "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
         ur: 'Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila.',
+      },
+      evidence,
+      fix: null,
+    };
+  }
+
+  if (input.reason === 'owner-blocked') {
+    return {
+      ...base,
+      verdict: 'INCONCLUSIVE',
+      severity: 'low',
+      title: `"${input.table}": the owner is blocked too, please check`,
+      explanation: {
+        en: 'The second test user and an anonymous visitor got nothing, but the owner is also blocked from reading or adding rows. Owner is also blocked; the app may be broken or this table is not meant for direct client access.',
+        ur: 'Doosre test user aur bina login wale visitor ko kuch nahi mila, lekin row ke maalik ko bhi parhne ya nayi row daalne se roka ja raha hai. Maalik ko bhi roka ja raha hai; ho sakta hai app kharab ho ya ye table seedhe client ke liye na ho.',
       },
       evidence,
       fix: null,

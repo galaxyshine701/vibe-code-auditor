@@ -1,6 +1,8 @@
 export type Verdict = 'LEAKED' | 'BLOCKED' | 'INCONCLUSIVE';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
-export type Operation = 'SELECT' | 'UPDATE' | 'DELETE';
+export type Operation = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
+/** The operations an attacker (user B or anonymous) tries on the canary. */
+export type AttackOperation = Exclude<Operation, 'INSERT'>;
 
 export interface ProverConfig {
   supabaseUrl: string;
@@ -26,7 +28,8 @@ export interface TableInfo {
 /** What one actor could do to the canary with one operation. */
 export interface OperationResult {
   operation: Operation;
-  actor: 'user_b' | 'anon';
+  /** owner = user A, the positive control: the rightful owner should be able to use the row */
+  actor: 'user_b' | 'anon' | 'owner';
   /** true = it worked (read / changed / deleted the canary), false = blocked, null = not tested */
   allowed: boolean | null;
   httpStatus: number | null;
@@ -38,7 +41,7 @@ export interface Finding {
   id: string;
   module: 'data-access-prover';
   table: string;
-  operation: Operation;
+  operation: AttackOperation;
   verdict: Verdict;
   severity: Severity;
   title: string;

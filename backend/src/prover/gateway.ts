@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ProverConfig } from './types.js';
 
-export type RestMethod = 'GET' | 'PATCH' | 'DELETE';
+export type RestMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 export type Caller = { kind: 'anon' } | { kind: 'user'; token: string };
 
 export interface RowFilter {

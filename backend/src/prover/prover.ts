@@ -10,7 +10,7 @@ import {
 import {
   ProverError,
   type Finding,
-  type Operation,
+  type AttackOperation,
   type OperationResult,
   type ProverResult,
   type TableInfo,
@@ -80,7 +80,7 @@ async function runChecks(
   log('Creating two temporary test users');
   const userA = await newUser(gateway, state);
   const userB = await newUser(gateway, state);
-  await gateway.signIn(userA.email, userA.password);
+  const tokenA = await gateway.signIn(userA.email, userA.password);
   const tokenB = await gateway.signIn(userB.email, userB.password);
 
   // 4 - 7. One finding per table
@@ -89,7 +89,7 @@ async function runChecks(
     log(`Checking table "${table.name}"`);
     const id = `fnd_${String(findings.length + 1).padStart(3, '0')}`;
     findings.push(
-      await checkTable(gateway, state, table, id, userA.id, tokenB),
+      await checkTable(gateway, state, table, id, userA.id, tokenA, tokenB),
     );
   }
   return findings;
@@ -103,12 +103,16 @@ async function newUser(gateway: Gateway, state: RunState) {
   return { id, email, password };
 }
 
+const OWNER_BLOCKED_NOTE =
+  'Owner is also blocked; the app may be broken or this table is not meant for direct client access.';
+
 async function checkTable(
   gateway: Gateway,
   state: RunState,
   table: TableInfo,
   findingId: string,
   userAId: string,
+  tokenA: string,
   tokenB: string,
 ): Promise<Finding> {
   const ownerColumn = findOwnerColumn(table);
@@ -167,7 +171,12 @@ async function checkTable(
   const pk = table.columns.find((c) => c.isPrimaryKey);
   const canaryRowId = String(pk ? planted[pk.name] : userAId);
   const filter = { column: ownerColumn, value: userAId };
+  const asA = { kind: 'user', token: tokenA } as const;
   const asB = { kind: 'user', token: tokenB } as const;
+
+  // Positive control, part 1: the owner (A) reads their own canary. This runs
+  // first, because B's DELETE below may remove the canary.
+  const selectOwner = await gateway.restCall('GET', table.name, filter, asA);
 
   // Attack as B: SELECT, UPDATE, DELETE. Judge UPDATE/DELETE by re-reading, not by status.
   const selectB = await gateway.restCall('GET', table.name, filter, asB);
@@ -190,6 +199,17 @@ async function checkTable(
   const del = await gateway.restCall('DELETE', table.name, filter, asB);
   const afterDelete = await gateway.readRows(table.name, ownerColumn, userAId);
   const deleted = afterDelete.length === 0;
+
+  // Positive control, part 2: the owner adds one new row of their own. Last, so
+  // the extra row cannot disturb the attack checks. Cleanup removes it
+  // (it is owned by A, and cleanup deletes every row owned by A).
+  const ownerInsert = await ownerInsertCheck(
+    gateway,
+    table,
+    ownerColumn,
+    userAId,
+    asA,
+  );
 
   const operations: OperationResult[] = [
     {
@@ -229,9 +249,18 @@ async function checkTable(
       httpStatus: selectAnon.status,
       rowsReturned: selectAnon.rows.length,
     },
+    {
+      operation: 'SELECT',
+      actor: 'owner',
+      allowed: selectOwner.rows.length > 0,
+      httpStatus: selectOwner.status,
+      rowsReturned: selectOwner.rows.length,
+    },
+    ownerInsert,
   ];
 
-  const leaks: { op: Operation; culprit: Culprit; res: RestResult }[] = [];
+  const leaks: { op: AttackOperation; culprit: Culprit; res: RestResult }[] =
+    [];
   if (selectB.rows.length > 0)
     leaks.push({ op: 'SELECT', culprit: 'user', res: selectB });
   if (selectAnon.rows.length > 0)
@@ -261,6 +290,26 @@ async function checkTable(
     return buildFinding(findingId, input, [...new Set(leaks.map((l) => l.op))]);
   }
 
+  // Nobody else got anything. That only counts as "protected" if the owner can
+  // still use the table. If the owner is blocked too, we cannot tell.
+  const ownerBlocked = operations.some(
+    (o) => o.actor === 'owner' && o.allowed === false,
+  );
+  if (ownerBlocked) {
+    for (const o of operations) {
+      if (o.actor === 'owner' && o.allowed === false)
+        o.note = OWNER_BLOCKED_NOTE;
+    }
+    return buildFinding(findingId, {
+      ...common,
+      verdict: 'INCONCLUSIVE',
+      reason: 'owner-blocked',
+      operation: 'SELECT',
+      httpStatus: selectB.status,
+      rowsReturned: selectB.rows.length,
+    });
+  }
+
   return buildFinding(findingId, {
     ...common,
     verdict: 'BLOCKED',
@@ -268,6 +317,53 @@ async function checkTable(
     httpStatus: selectB.status,
     rowsReturned: selectB.rows.length,
   });
+}
+
+/**
+ * The owner adds one new row of their own through the public API.
+ * Only a 401/403 counts as "blocked". Any other failure (for example a 409
+ * conflict) says nothing about the policy, so it is reported as not tested.
+ */
+async function ownerInsertCheck(
+  gateway: Gateway,
+  table: TableInfo,
+  ownerColumn: string,
+  userAId: string,
+  asA: { kind: 'user'; token: string },
+): Promise<OperationResult> {
+  const base = { operation: 'INSERT', actor: 'owner' } as const;
+  if (table.columns.find((c) => c.name === ownerColumn)?.isPrimaryKey) {
+    return {
+      ...base,
+      allowed: null,
+      httpStatus: null,
+      rowsReturned: null,
+      note: 'Not tested: the owner column is the primary key, so the owner cannot add a second row.',
+    };
+  }
+  const res = await gateway.restCall(
+    'POST',
+    table.name,
+    null,
+    asA,
+    buildCanaryRow(table, ownerColumn, userAId, randomUUID),
+  );
+  const common = {
+    ...base,
+    httpStatus: res.status,
+    rowsReturned: res.rows.length,
+  };
+  if (res.status >= 200 && res.status < 300) {
+    return { ...common, allowed: true };
+  }
+  if (res.status === 401 || res.status === 403) {
+    return { ...common, allowed: false };
+  }
+  return {
+    ...common,
+    allowed: null,
+    note: `Not tested: the insert failed for another reason (HTTP ${res.status}).`,
+  };
 }
 
 /** Deletes canary rows and both users, then checks they are really gone. */

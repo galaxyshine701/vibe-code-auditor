@@ -9,8 +9,13 @@ import type {
 
 type Row = Record<string, unknown>;
 
-/** off = no protection, own = owner only, public-read = anyone may read, nobody may write */
-export type FakePolicy = 'off' | 'own' | 'public-read';
+/**
+ * off = no protection, own = owner only, public-read = anyone may read, nobody may write,
+ * own-no-insert = owner may read/change/delete but not insert (like a fix without an INSERT policy),
+ * deny-all = nobody at all, not even the owner
+ */
+export type FakePolicy =
+  'off' | 'own' | 'public-read' | 'own-no-insert' | 'deny-all';
 
 export interface FakeTable {
   name: string;
@@ -22,6 +27,8 @@ export interface FakeTable {
   insertError?: string;
   /** leave out the text column, so the Prover cannot test UPDATE */
   noTextColumn?: boolean;
+  /** answer the owner's INSERT with 409 Conflict (a failure that says nothing about policies) */
+  insertConflict?: boolean;
 }
 
 export interface FakeOptions {
@@ -149,8 +156,23 @@ export class FakeGateway implements Gateway {
     const matching = all.filter(
       (r) => !filter || r[filter.column] === filter.value,
     );
+    if (method === 'POST') {
+      const owner = def.ownerColumn;
+      if (def.insertConflict) return Promise.resolve({ status: 409, rows: [] });
+      const allowed =
+        def.policy === 'off' ||
+        (def.policy === 'own' &&
+          !!userId &&
+          !!owner &&
+          body?.[owner] === userId);
+      if (!allowed) return Promise.resolve({ status: 403, rows: [] });
+      const row = { id: randomUUID(), ...body };
+      all.push(row);
+      return Promise.resolve({ status: 201, rows: [{ ...row }] });
+    }
     const canSee = (r: Row) => {
       if (def.policy === 'off') return true;
+      if (def.policy === 'deny-all') return false;
       if (def.policy === 'public-read') return method === 'GET';
       return !!userId && !!def.ownerColumn && r[def.ownerColumn] === userId;
     };
