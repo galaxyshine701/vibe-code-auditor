@@ -11,10 +11,21 @@ Goal: show whether user B (or an anonymous visitor) can read, change or delete d
 6. **Anonymous check.** Repeat SELECT with only the publishable key.
 7. **Verdict per table.**
    - LEAKED (critical): B or anon received the canary row, or B changed or deleted it.
-   - BLOCKED (info): B and anon received nothing and the row is unchanged.
+   - BLOCKED (info): B and anon received nothing, the row is unchanged, and the owner can still use the row (owner SELECT true; owner INSERT true or not tested).
+   - If the owner is blocked too, the verdict is INCONCLUSIVE (low), not BLOCKED. See "Owner positive control" below.
    - INCONCLUSIVE (low): table readable by everyone but has no owner column (maybe public on purpose), or the canary could not be planted. State why.
 8. **Teardown, always.** Delete canary rows and users A and B, verify, and include `cleanup: "ok" | "failed"`.
-9. **Output** one object per table, matching `docs/api-contract.md`: table, operation, verdict, severity, evidence (rowsReturned, httpStatus, canaryId), reproducer, explanation (en, ur), suggestedFix, retest `not_run`. Reproducers use placeholders (`<PROJECT_URL>`, `<ANON_KEY>`, `<USER_B_JWT>`), never real values.
+9. **Output** one object per table, matching `docs/api-contract.md`: table, operation, verdict, severity, evidence (rowsReturned, httpStatus, canaryRowId), reproducer, explanation (en, ur), suggestedFix, retest `not_run`. Reproducers use placeholders (`<PROJECT_URL>`, `<ANON_KEY>`, `<USER_B_JWT>`), never real values.
+
+## Owner positive control
+"Nobody else got the row" only proves protection if the rightful owner can still use the table. So user A (the owner) is also tested, through the REST API with A's token.
+- **Owner SELECT** runs first, right after the canary is planted (B's DELETE could remove the canary later).
+- **Owner INSERT** runs after all attacks, so the extra row cannot disturb them. The row is owned by A, so teardown deletes it with the canary rows and verifies it is gone.
+- **INSERT counts as blocked only on HTTP 401 or 403.** Any other failure (for example 409 Conflict) says nothing about access rules, so the result is `allowed: null` (not tested) with a note.
+- **If the owner column is the table's primary key** (for example `profiles.id`), the owner cannot add a second row, so INSERT is `allowed: null` (not tested).
+- **Verdict rule:** if B and anon received nothing but the owner SELECT or INSERT is blocked (`allowed: false`), the verdict is INCONCLUSIVE (low), not BLOCKED. Note: "Owner is also blocked; the app may be broken or this table is not meant for direct client access." A real leak still wins: LEAKED stays LEAKED.
+- Results go into `evidence.operations` with `actor: "owner"` (see `docs/api-contract.md`).
+- **Known limitation:** a spoofed insert (B inserting a row that names A as the owner) is not tested yet.
 
 ## Test target (`vca-test-target`)
 - `bookings`: RLS off. Expected LEAKED.

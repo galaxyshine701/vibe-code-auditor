@@ -136,17 +136,24 @@ Added in the Data Access Prover. Optional for the frontend: ignore it if you don
   { "operation": "SELECT", "actor": "user_b", "allowed": true,  "httpStatus": 200, "rowsReturned": 1 },
   { "operation": "UPDATE", "actor": "user_b", "allowed": false, "httpStatus": 200, "rowsReturned": 0 },
   { "operation": "DELETE", "actor": "user_b", "allowed": false, "httpStatus": 200, "rowsReturned": 0 },
-  { "operation": "SELECT", "actor": "anon",   "allowed": false, "httpStatus": 200, "rowsReturned": 0 }
+  { "operation": "SELECT", "actor": "anon",   "allowed": false, "httpStatus": 200, "rowsReturned": 0 },
+  { "operation": "SELECT", "actor": "owner",  "allowed": true,  "httpStatus": 200, "rowsReturned": 1 },
+  { "operation": "INSERT", "actor": "owner",  "allowed": true,  "httpStatus": 201, "rowsReturned": 1 }
 ]
 ```
 
-- `operation`: `SELECT` | `UPDATE` | `DELETE`
-- `actor`: `"user_b"` (second test user) | `"anon"` (visitor with no login)
-- `allowed`: `true` = the canary row was read / changed / deleted; `false` = blocked; `null` = not tested (see `note`)
+- `operation`: `SELECT` | `INSERT` | `UPDATE` | `DELETE`
+- `actor`: `"user_b"` (second test user) | `"anon"` (visitor with no login) | `"owner"` (first test user, a positive control: the rightful owner should be able to use their own row)
+- `allowed`: `true` = the canary row was read / inserted / changed / deleted; `false` = blocked; `null` = not tested (see `note`)
 - `httpStatus` / `rowsReturned`: what the API answered; `null` when not tested
 - `note` (optional): short plain-language reason, e.g. "Not tested: ..."
-- The list can have 4 items (normal), 1 item (table has no owner column: only the anonymous read), or be empty (canary could not be planted).
+- Number of items in the list:
+  - 6 items (normal): `user_b` SELECT / UPDATE / DELETE, `anon` SELECT, `owner` SELECT / INSERT.
+  - 1 item (table has no owner column): only the `anon` SELECT.
+  - 0 items (the canary row could not be planted).
 - A blocked UPDATE or DELETE can still show `httpStatus` 200 with `rowsReturned` 0, because the row is judged by re-reading it, not by the status code.
+- If the second user and the anonymous visitor get nothing but the owner is blocked too (`allowed: false`), the finding is `INCONCLUSIVE`: the app may be broken, or the table is not meant for direct client access.
+- The owner `INSERT` is `allowed: null` (not tested, see `note`) when the owner column is the table's primary key, or when the insert fails for a reason that says nothing about access rules (for example HTTP 409).
 
 ### POST /audits/:id/findings/:findingId/fix/approve
 A human approves the suggested fix. Response `200`: the updated finding with `fix.status = "approved"`.

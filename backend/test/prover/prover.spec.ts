@@ -110,7 +110,7 @@ describe('Per-operation evidence', () => {
     const result = await runProver(new FakeGateway(demoTables()));
     const ops = result.findings.find((f) => f.table === 'bookings')!.evidence
       .operations;
-    expect(ops).toHaveLength(4);
+    expect(ops).toHaveLength(6);
     for (const [operation, actor] of [
       ['SELECT', 'user_b'],
       ['UPDATE', 'user_b'],
@@ -128,8 +128,8 @@ describe('Per-operation evidence', () => {
     const result = await runProver(new FakeGateway(demoTables()));
     const ops = result.findings.find((f) => f.table === 'profiles')!.evidence
       .operations;
-    expect(ops).toHaveLength(4);
-    for (const o of ops) {
+    expect(ops).toHaveLength(6);
+    for (const o of ops.filter((x) => x.actor !== 'owner')) {
       expect(o.allowed).toBe(false);
       expect(o.httpStatus).toBe(200);
       expect(o.rowsReturned).toBe(0);
@@ -192,6 +192,121 @@ describe('Per-operation evidence', () => {
       ]),
     );
     expect(result.findings[0].evidence.operations).toEqual([]);
+  });
+});
+
+describe('Owner positive control and INSERT', () => {
+  const owner = (
+    ops: { operation: string; actor: string }[],
+    operation: string,
+  ) => ops.find((o) => o.actor === 'owner' && o.operation === operation)!;
+
+  it('removes the extra row the owner inserted', async () => {
+    const fake = new FakeGateway([
+      { name: 'trips', policy: 'own', ownerColumn: 'user_id' },
+    ]);
+    const result = await runProver(fake);
+    const ops = result.findings[0].evidence.operations;
+    expect(owner(ops, 'SELECT')).toMatchObject({
+      allowed: true,
+      httpStatus: 200,
+      rowsReturned: 1,
+    });
+    expect(owner(ops, 'INSERT')).toMatchObject({
+      allowed: true,
+      httpStatus: 201,
+    });
+    expect(result.findings[0].verdict).toBe('BLOCKED');
+    expect(result.cleanup).toBe('ok');
+    expect(fake.data.get('trips')).toHaveLength(0);
+  });
+
+  it('is INCONCLUSIVE when nobody is allowed anything, not even the owner', async () => {
+    const result = await runProver(
+      new FakeGateway([
+        { name: 'vault', policy: 'deny-all', ownerColumn: 'user_id' },
+      ]),
+    );
+    const [finding] = result.findings;
+    expect(finding.verdict).toBe('INCONCLUSIVE');
+    expect(finding.severity).toBe('low');
+    expect(finding.explanation.en).toContain(
+      'Owner is also blocked; the app may be broken or this table is not meant for direct client access.',
+    );
+    const ops = finding.evidence.operations;
+    expect(owner(ops, 'SELECT')).toMatchObject({ allowed: false });
+    expect(owner(ops, 'INSERT')).toMatchObject({
+      allowed: false,
+      httpStatus: 403,
+    });
+    expect(owner(ops, 'SELECT').note).toContain('Owner is also blocked');
+    expect(result.cleanup).toBe('ok');
+  });
+
+  it('catches a fix that forgot the INSERT policy (owner can read but not insert)', async () => {
+    const result = await runProver(
+      new FakeGateway([
+        { name: 'bookings', policy: 'own-no-insert', ownerColumn: 'user_id' },
+      ]),
+    );
+    const [finding] = result.findings;
+    expect(finding.verdict).toBe('INCONCLUSIVE');
+    const ops = finding.evidence.operations;
+    expect(owner(ops, 'SELECT').allowed).toBe(true);
+    expect(owner(ops, 'INSERT').allowed).toBe(false);
+  });
+
+  it('does not treat a 409 conflict as "owner blocked"', async () => {
+    const result = await runProver(
+      new FakeGateway([
+        {
+          name: 'trips',
+          policy: 'own',
+          ownerColumn: 'user_id',
+          insertConflict: true,
+        },
+      ]),
+    );
+    const [finding] = result.findings;
+    const insert = owner(finding.evidence.operations, 'INSERT');
+    expect(insert.allowed).toBeNull();
+    expect(insert.httpStatus).toBe(409);
+    expect(finding.verdict).toBe('BLOCKED');
+  });
+
+  it('reports INSERT as not tested when the owner column is the primary key', async () => {
+    const result = await runProver(new FakeGateway(demoTables()));
+    const ops = result.findings.find((f) => f.table === 'profiles')!.evidence
+      .operations;
+    expect(owner(ops, 'SELECT').allowed).toBe(true);
+    const insert = owner(ops, 'INSERT');
+    expect(insert.allowed).toBeNull();
+    expect(insert.note).toContain('Not tested');
+  });
+
+  it('writes the fix SQL with public."table" and an INSERT policy', async () => {
+    const result = await runProver(new FakeGateway(demoTables()));
+    const sql = result.findings.find((f) => f.table === 'bookings')!.fix!.sql;
+    expect(sql).toContain(
+      'alter table public."bookings" enable row level security;',
+    );
+    expect(sql).toContain(
+      'create policy "Owners can insert own rows" on public."bookings" for insert to authenticated with check ((select auth.uid()) = "user_id");',
+    );
+    expect(sql).not.toMatch(/on "bookings"/);
+    expect(sql).not.toMatch(/alter table "bookings"/);
+  });
+
+  it('adds the INSERT policy even when only reading leaked', async () => {
+    const result = await runProver(
+      new FakeGateway([
+        { name: 'notes', policy: 'public-read', ownerColumn: 'owner_id' },
+      ]),
+    );
+    const sql = result.findings[0].fix!.sql;
+    expect(sql).toContain('for insert to authenticated with check');
+    expect(sql).not.toContain('for update');
+    expect(sql).not.toContain('for delete');
   });
 });
 
