@@ -38,6 +38,7 @@ export function configureApp(
     origin: resolveAllowedOrigin(env),
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'X-Access-Code'],
+    exposedHeaders: ['Retry-After'],
   });
 
   // How many reverse proxies (for example Railway) stand in front of us.
