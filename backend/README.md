@@ -42,3 +42,11 @@ Tests a Supabase **test** project and prints JSON findings (LEAKED, BLOCKED or I
 - Wrong or missing code: `401 ACCESS_DENIED`. Only a code that was sent and is wrong is counted; a missing header and CORS `OPTIONS` checks are not. After 10 wrong tries from one client IP within 15 minutes: `429 RATE_LIMITED` (with `Retry-After`), also for the right code until the time is up. The counter is in memory, so a restart resets it.
 - **Behind Railway set `TRUST_PROXY_HOPS=1`.** Then the real client IP is read from `X-Forwarded-For`. If you forget it, every client looks like the proxy and one attacker can lock out everybody. Do not set it when there is no proxy (anyone could fake the header). Default is 0.
 - The smoke script (`scripts/http-smoke.mjs`) reads `AUDIT_ACCESS_CODE` from `.env` and sends it; it never prints it.
+
+## Report agent (AI text)
+- After the Prover has finished and cleaned up, an AI model may reword four texts of each finding: `title`, `explanation.en`, `explanation.ur` (Roman Urdu) and `fix.description`. **The verdict, severity, evidence and fix SQL always come from the Prover. The AI never changes them.**
+- **What is sent to the AI provider:** the table name and the test results (verdict, severity, and for each check the operation, who did it, allowed or blocked, HTTP status, number of rows). **Not sent:** keys, the access code, row data, the canary row id, the project address, the fix SQL, the reproducer, error notes.
+- Every answer is checked (shape, length, Latin letters only for Roman Urdu, no links or code, no claim such as "is secure" or "guaranteed" unless negated, no "leaked" in a BLOCKED or INCONCLUSIVE text unless negated). If a check fails, or the AI is off, slow, or rate limited, the finding keeps the Prover's own text. An audit never fails because of the AI.
+- Each finding has `explanationSource`: `"ai"` or `"template"`.
+- Limits: one AI call at a time, 6 seconds per call, 15 seconds for the whole step, then a pause of at least 60 seconds after a failed call. The same finding is not sent twice (in-memory cache).
+- Status: the checks, the fallback and the cache are built. **No AI provider is connected yet**, so today every finding is `"template"`.

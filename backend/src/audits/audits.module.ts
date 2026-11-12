@@ -7,6 +7,7 @@ import {
 } from '../access/access-code.guard.js';
 import { AttemptLimiter } from '../access/attempt-limiter.js';
 import { SupabaseGateway } from '../prover/gateway.js';
+import { REPORT_AGENT, ReportAgent } from '../report/report-agent.js';
 import { AuditsController } from './audits.controller.js';
 import { AuditsService, GATEWAY_FACTORY } from './audits.service.js';
 
@@ -35,6 +36,15 @@ import { AuditsService, GATEWAY_FACTORY } from './audits.service.js';
       },
     },
     { provide: ATTEMPT_LIMITER, useFactory: () => new AttemptLimiter() },
+    {
+      // No AI provider is connected yet, so every finding keeps the Prover's
+      // own text (explanationSource "template").
+      provide: REPORT_AGENT,
+      useFactory: () => {
+        const logger = new Logger('Report');
+        return new ReportAgent({ log: (message) => logger.log(message) });
+      },
+    },
   ],
 })
 export class AuditsModule {}

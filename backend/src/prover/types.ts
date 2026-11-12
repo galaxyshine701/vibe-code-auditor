@@ -46,6 +46,8 @@ export interface Finding {
   severity: Severity;
   title: string;
   explanation: { en: string; ur: string };
+  /** Who wrote title, explanation and fix description. Set by the Report agent; absent in the Prover CLI output. */
+  explanationSource?: 'ai' | 'template';
   evidence: {
     rowsReturned: number | null;
     httpStatus: number | null;

@@ -9,6 +9,7 @@ import {
   type Finding,
   type ProverConfig,
 } from '../prover/types.js';
+import { REPORT_AGENT, type ReportEnricher } from '../report/report-agent.js';
 import type { AuditInput } from './audit-input.js';
 
 export type AuditStatus = 'queued' | 'running' | 'completed' | 'failed';
@@ -52,6 +53,7 @@ export class AuditsService {
 
   constructor(
     @Inject(GATEWAY_FACTORY) private readonly makeGateway: GatewayFactory,
+    @Inject(REPORT_AGENT) private readonly report: ReportEnricher,
   ) {}
 
   /** Starts an audit and returns at once. The work continues in the background. */
@@ -145,9 +147,11 @@ export class AuditsService {
           record.progress = percent;
         },
       );
-      record.findings = result.findings;
+      // The Prover has finished and cleaned up. Only now may the AI reword
+      // the texts. It never changes a verdict and it can never fail the audit.
       record.cleanup = result.cleanup;
       record.cleanupNote = result.cleanupNote ?? null;
+      record.findings = await this.reportOrKeep(result.findings);
       record.progress = 100;
       record.status = 'completed';
     } catch (error) {
@@ -167,6 +171,17 @@ export class AuditsService {
     } finally {
       this.runningId = null;
       this.logger.log(`${record.id} ${record.status}`);
+    }
+  }
+
+  private async reportOrKeep(findings: Finding[]): Promise<Finding[]> {
+    try {
+      return await this.report.enrich(findings);
+    } catch {
+      return findings.map((f) => ({
+        ...f,
+        explanationSource: 'template' as const,
+      }));
     }
   }
 
