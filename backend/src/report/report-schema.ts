@@ -87,23 +87,39 @@ const UNSAFE_TEXT =
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** True when one of the 3 words before `index` (in the same sentence) is a negator. */
-function negatedBefore(text: string, index: number): boolean {
-  const before = text.slice(0, index);
-  const sentence = before.slice(
+/**
+ * True when one of the `before` words before the match, or one of the `after`
+ * words after it, is a negator. Only the same sentence counts.
+ */
+function negatedNear(
+  text: string,
+  start: number,
+  end: number,
+  negators: ReadonlySet<string>,
+  before: number,
+  after: number,
+  contractions: boolean,
+): boolean {
+  const head = text.slice(0, start);
+  const sentenceStart =
     Math.max(
-      before.lastIndexOf('.'),
-      before.lastIndexOf('!'),
-      before.lastIndexOf('?'),
-      before.lastIndexOf(';'),
-      before.lastIndexOf(':'),
-      before.lastIndexOf('\n'),
-    ) + 1,
+      head.lastIndexOf('.'),
+      head.lastIndexOf('!'),
+      head.lastIndexOf('?'),
+      head.lastIndexOf(';'),
+      head.lastIndexOf(':'),
+      head.lastIndexOf('\n'),
+    ) + 1;
+  const tail = text.slice(end);
+  const stop = tail.search(/[.!?;:\n]/);
+  const words = (part: string) => part.toLowerCase().match(/[a-z']+/g) ?? [];
+  const near = [
+    ...(before > 0 ? words(head.slice(sentenceStart)).slice(-before) : []),
+    ...words(stop === -1 ? tail : tail.slice(0, stop)).slice(0, after),
+  ];
+  return near.some(
+    (word) => negators.has(word) || (contractions && word.endsWith("n't")),
   );
-  const words = sentence.toLowerCase().match(/[a-z']+/g) ?? [];
-  return words
-    .slice(-3)
-    .some((word) => NEGATORS.has(word) || word.endsWith("n't"));
 }
 
 /** True when `phrase` appears at least once WITHOUT a negator just before it. */
@@ -113,7 +129,41 @@ export function hasUnnegated(text: string, phrase: string): boolean {
     'gi',
   );
   for (const match of text.matchAll(pattern)) {
-    if (!negatedBefore(text, match.index)) return true;
+    const end = match.index + match[0].length;
+    if (!negatedNear(text, match.index, end, NEGATORS, 3, 0, true)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Roman Urdu: "nahi" and "bina" come before OR after the claim ("secure nahi hai"). */
+const URDU_NEGATORS = new Set(['nahi', 'nahin', 'bina']);
+
+/**
+ * Roman Urdu claims, as stems so spelling variants are caught:
+ * secure, safe, mehfooz / mahfuz / mehfuz ..., surakshit, "bilkul theek", guarantee.
+ */
+const URDU_CLAIMS = [
+  /\bsecure[d]?\b/gi,
+  /\bsafe\b/gi,
+  /\bm[ae]h?f[ou]+z\b/gi,
+  /\bsurakshit\b/gi,
+  /\bbilkul\s+theek\b/gi,
+  /\bguarantee[d]?\b/gi,
+];
+
+/** Roman Urdu "a leak happened": "leak ho gaya / gayi / gaye / chuka", "leak hua / hui / hue". */
+const URDU_LEAK_HAPPENED =
+  /\bleak\s+(?:ho\s+(?:gaya|gayi|gaye|chuka|chuki|chuke)|hua|hui|hue)\b/gi;
+
+/** True when the pattern appears at least once WITHOUT a negator within 3 words on either side. */
+export function hasUnnegatedUrdu(text: string, pattern: RegExp): boolean {
+  for (const match of text.matchAll(pattern)) {
+    const end = match.index + match[0].length;
+    if (!negatedNear(text, match.index, end, URDU_NEGATORS, 3, 3, false)) {
+      return true;
+    }
   }
   return false;
 }
@@ -169,11 +219,17 @@ export function parseReport(
   if (texts.some((t) => FORBIDDEN_PHRASES.some((p) => hasUnnegated(t, p)))) {
     return { ok: false, reason: 'forbidden-claim' };
   }
+  if (URDU_CLAIMS.some((p) => hasUnnegatedUrdu(value.explanationUr, p))) {
+    return { ok: false, reason: 'forbidden-claim' };
+  }
   if (context.verdict === 'LEAKED') {
     if (texts.some((t) => /\bno\s+leak\s+found\b/i.test(t))) {
       return { ok: false, reason: 'contradicts-verdict' };
     }
-  } else if (texts.some((t) => hasUnnegated(t, 'leaked'))) {
+  } else if (
+    texts.some((t) => hasUnnegated(t, 'leaked')) ||
+    hasUnnegatedUrdu(value.explanationUr, URDU_LEAK_HAPPENED)
+  ) {
     return { ok: false, reason: 'contradicts-verdict' };
   }
   return { ok: true, value };
