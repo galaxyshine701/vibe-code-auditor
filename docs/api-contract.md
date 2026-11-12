@@ -173,6 +173,12 @@ Added in the Data Access Prover. Optional for the frontend: ignore it if you don
 - If the second user and the anonymous visitor get nothing but the owner is blocked too (`allowed: false`), the finding is `INCONCLUSIVE`: the app may be broken, or the table is not meant for direct client access.
 - The owner `INSERT` is `allowed: null` (not tested, see `note`) when the owner column is the table's primary key, or when the insert fails for a reason that says nothing about access rules (for example HTTP 409).
 
+### Additive field: finding.explanationSource
+Optional. It says who wrote `title`, `explanation` and `fix.description` of a finding: `"ai"` (an AI model reworded the text) or `"template"` (the built-in text of the Data Access Prover). If the field is missing, treat it as `"template"`.
+- `verdict`, `severity`, `evidence` and `fix.sql` always come from the Prover. An AI never writes or changes them.
+- AI text is checked before it is used. If the AI is off, slow, or its answer fails the checks, the finding keeps the `"template"` text.
+- The frontend may show a small label such as "Written by AI" when the value is `"ai"`.
+
 ### POST /audits/:id/findings/:findingId/fix/approve
 A human approves the suggested fix. This route is not built yet. Response `200`: the updated finding with `fix.status = "approved"`.
 (The backend does not change the user's database by itself in version 1; approval only records the decision and marks the fix as ready to apply.)
