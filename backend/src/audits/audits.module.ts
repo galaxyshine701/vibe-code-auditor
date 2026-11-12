@@ -1,8 +1,12 @@
 import { Logger, Module } from '@nestjs/common';
-import { resolveAccessConfig } from '../access/access-config.js';
+import {
+  resolveAccessConfig,
+  resolveClientIpHeader,
+} from '../access/access-config.js';
 import {
   ACCESS_CONFIG,
   ATTEMPT_LIMITER,
+  CLIENT_IP_HEADER,
   AccessCodeGuard,
 } from '../access/access-code.guard.js';
 import { AttemptLimiter } from '../access/attempt-limiter.js';
@@ -32,6 +36,19 @@ import { AuditsService, GATEWAY_FACTORY } from './audits.service.js';
           );
         }
         return config;
+      },
+    },
+    {
+      // Where the client address comes from. A fixed sentence, no values.
+      provide: CLIENT_IP_HEADER,
+      useFactory: () => {
+        const header = resolveClientIpHeader(process.env);
+        new Logger('Access').log(
+          header
+            ? `Client IP source: header ${header}`
+            : 'Client IP source: request.ip',
+        );
+        return header;
       },
     },
     { provide: ATTEMPT_LIMITER, useFactory: () => new AttemptLimiter() },

@@ -44,3 +44,42 @@ export function resolveTrustProxyHops(
   }
   return hops;
 }
+
+/**
+ * Headers that must never be used as the client address: they carry secrets,
+ * or are lists whose first part the client can write itself.
+ */
+const FORBIDDEN_IP_HEADERS = new Set([
+  'x-access-code',
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'host',
+  'content-type',
+  'content-length',
+  'x-forwarded-for',
+  'forwarded',
+]);
+
+/**
+ * Which header holds the real client address (for example x-real-ip on
+ * Railway). null = not set: the guard then uses request.ip as before.
+ * The messages name the variable only, never the value.
+ */
+export function resolveClientIpHeader(
+  env: Record<string, string | undefined>,
+): string | null {
+  const raw = env.CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (!raw) return null;
+  if (!/^[a-z0-9-]{1,64}$/.test(raw)) {
+    throw new Error(
+      'CLIENT_IP_HEADER must be a valid header name, for example x-real-ip.',
+    );
+  }
+  if (FORBIDDEN_IP_HEADERS.has(raw)) {
+    throw new Error(
+      'CLIENT_IP_HEADER cannot be that header. Use one that your proxy sets to the client address alone, for example x-real-ip.',
+    );
+  }
+  return raw;
+}
