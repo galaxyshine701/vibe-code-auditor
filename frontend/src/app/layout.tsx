@@ -23,7 +23,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 Vibe Code Auditor checks test projects only. Results are
                 evidence from the checks that ran, not a guarantee.
               </p>
-              <p className="footer-note">No leak found by these checks.</p>
             </div>
           </footer>
         </AppProvider>

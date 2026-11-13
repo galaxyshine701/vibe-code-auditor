@@ -235,13 +235,25 @@ export function initialMockFindings(): Finding[] {
   ];
 }
 
+// What a successful Re-test returns after the fix: only the table that was
+// LEAKED is "passed"; the others were not LEAKED before, so "not_run".
 export function retestedMockFindings(ranAt: string): Finding[] {
+  const retestOf = (
+    status: Finding['retest']['status'],
+    previousVerdict: Finding['verdict'],
+  ): Finding['retest'] => ({ status, lastRunAt: ranAt, previousVerdict });
   return [
-    cloneFinding(PROFILES_BLOCKED),
-    cloneFinding(BOOKINGS_AFTER_FIX),
-    cloneFinding(HOTELS_INCONCLUSIVE),
-  ].map((finding) => ({
-    ...finding,
-    retest: { status: 'passed', lastRunAt: ranAt },
-  }));
+    {
+      ...cloneFinding(PROFILES_BLOCKED),
+      retest: retestOf('not_run', 'BLOCKED'),
+    },
+    {
+      ...cloneFinding(BOOKINGS_AFTER_FIX),
+      retest: retestOf('passed', 'LEAKED'),
+    },
+    {
+      ...cloneFinding(HOTELS_INCONCLUSIVE),
+      retest: retestOf('not_run', 'INCONCLUSIVE'),
+    },
+  ];
 }
