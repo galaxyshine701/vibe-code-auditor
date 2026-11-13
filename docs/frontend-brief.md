@@ -8,7 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
-| v0.5.2 | 13 Nov 2026 | Approve fix, Re-test and Certificate are built (R2). Re-test sends the keys again and never `projectUrl` (R33). New fields `lastRetest` and `retest.previousVerdict` (R10, R14). Errors `NO_FIX_TO_APPROVE`, `NOT_ELIGIBLE` and Re-test `INVALID_INPUT` (R47 to R49). Re-test running, failed Re-test, added and removed tables, previous verdict (R50 to R53). Certificate rule and body changed (R35). Mock rules changed (R43 to R46). Design requirements (R54 to R60). |
+| v0.5.2 | 13 Nov 2026 | Approve fix, Re-test and Certificate are built (R2). Re-test sends the keys again and never `projectUrl` (R33). New fields `lastRetest` and `retest.previousVerdict`, and the fix status after a Re-test (R10, R14). Errors `NO_FIX_TO_APPROVE`, `NOT_ELIGIBLE` and Re-test `INVALID_INPUT` (R47 to R49). Re-test running, failed Re-test, added and removed tables, previous verdict (R50 to R53). Certificate rule and body changed (R35). Mock rules changed (R43 to R46). Design requirements (R54 to R60). |
 | v0.5.1 | 11 Nov 2026 | Keys are cleared only after a successful `202`. On `400`, `401`, `409`, `429` and network errors they stay in memory (R4, R18, R29, checklist 4 and 10). Priority rule over chat messages added. Re-test example in the contract changed to `running`. |
 | v0.5 | 11 Nov 2026 | Rewritten as a numbered specification. Four screens as in the contract. Decisions added for access code, offline handling, base address, ordering, language, fix status, certificate and re-test. Backend behaviour for unknown ids, failed audits, `label` and restarts stated from the code. |
 
@@ -132,6 +132,8 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 - `retest.lastRunAt` is the time the last successful Re-test of this table finished, or `null`.
 - `retest.previousVerdict` is `LEAKED`, `BLOCKED`, `INCONCLUSIVE` or `null`. It is the verdict of the same table in the run before. It is `null` for the first audit and for a table that is new.
 - After a Re-test, a table that was in both runs keeps the same finding `id`. The frontend must match findings by `id`.
+- After a Re-test, a finding that is still `LEAKED` has the fix proposed now. If the SQL is the same as before, `fix.status` stays as it was. If the SQL is different, `fix.status` is `proposed` again. The frontend must show the status it receives and must not keep an earlier "approved" for changed SQL.
+- After a Re-test, a finding that is now `BLOCKED` or `INCONCLUSIVE` has `fix` `null` and no approval.
 
 **R15.** The frontend must sort findings by verdict in this order: `LEAKED`, `INCONCLUSIVE`, `BLOCKED`. Inside one verdict, it must sort by severity (`critical`, `high`, `medium`, `low`, `info`). Inside one severity, it must sort by table name, A to Z.
 
@@ -253,7 +255,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R43.** The frontend should keep mock mode behind a single switch. The switch must be off by default.
 
-**R44.** With the switch off, all seven audit routes in R2 use the real backend. With it on, mock responses must match the shapes in R10, R14, R31, R33 and R35.
+**R44.** With the switch off, all six audit routes in R2 (not `/health`) use the real backend. With it on, mock responses must match the shapes in R10, R14, R31, R33 and R35.
 
 **R45.** For findings, the mock may use `docs/evidence/audit-http-run-1.json`. It is a real backend response with `profiles` BLOCKED, `bookings` BLOCKED and `hotels` INCONCLUSIVE, each with the full `operations` list. It has no `LEAKED` finding.
 
@@ -414,7 +416,7 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 16. Added and removed tables are shown, and a finding shows its previous verdict when it differs (R52, R53).
 17. Approve fix is shown only for a `proposed` fix. A second approval is not an error. `409 NO_FIX_TO_APPROVE` shows its message (R31, R47).
 18. The certificate action appears only when `summary.leaked` is 0, `summary.blocked` is at least 1 and `cleanup` is not `"failed"`. A `409 NOT_ELIGIBLE` shows `error.message`. `recordHash` is labelled "integrity fingerprint, not a signature" (R35).
-19. The mock switch is off by default. With it off, all seven routes use the backend (R43, R44).
+19. The mock switch is off by default. With it off, all six audit routes in R2 (not `/health`) use the backend (R43, R44).
 20. All four screens are usable at 375, 768 and 1280 px (R54).
 21. The theme follows the system setting, and the manual toggle on every screen overrides it (R55).
 22. Every verdict shows text plus an SVG icon. No emoji is used as an icon (R56, R57).
