@@ -15,7 +15,7 @@ Rules
 | 1. Connect | Enters the test project's details and presses "Start audit" | `POST /audits` |
 | 2. Progress | Watches each module's status (poll every 2 seconds) | `GET /audits/:id` |
 | 3. Report | Reads findings, approves a fix, presses "Re-test" | `GET /audits/:id/findings`, `POST .../fix/approve`, `POST /audits/:id/retest` |
-| 4. Certificate | Opens the shareable result page | `GET /audits/:id/certificate` |
+| 4. Certificate | Opens the result page inside the app (no public link) | `GET /audits/:id/certificate` |
 
 ## Words the UI must understand (fixed values)
 
@@ -174,7 +174,7 @@ Added in the Data Access Prover. Optional for the frontend: ignore it if you don
 - The owner `INSERT` is `allowed: null` (not tested, see `note`) when the owner column is the table's primary key, or when the insert fails for a reason that says nothing about access rules (for example HTTP 409).
 
 ### POST /audits/:id/findings/:findingId/fix/approve
-A human approves the suggested fix. This route is not built yet. Response `200`: the updated finding with `fix.status = "approved"`.
+A human approves the suggested fix. Response `200`: the updated finding with `fix.status = "approved"`.
 (The backend does not change the user's database by itself in version 1; approval only records the decision and marks the fix as ready to apply.)
 
 - No request body.
@@ -186,7 +186,7 @@ A human approves the suggested fix. This route is not built yet. Response `200`:
 - Approvals are kept in memory only (see "What the backend keeps").
 
 ### POST /audits/:id/retest
-Runs the same checks again on the same audit. This route is not built yet. The keys are sent again on every re-test, because the backend never stores them.
+Runs the same checks again on the same audit. The keys are sent again on every re-test, because the backend never stores them.
 
 Request
 ```json
@@ -253,7 +253,7 @@ In `GET /audits/:id`. `null` until a re-test has been started.
 Audits, approvals and re-test results are kept in memory only (newest 50 audits). After a server restart they are gone, and every route in this file answers `404` `NOT_FOUND` for the old id.
 
 ### GET /audits/:id/certificate
-This route is not built yet. Available only when ALL of these are true: the audit `status` is `completed` (no run or re-test is going on), it has zero `LEAKED` findings, it has at least one `BLOCKED` finding, and `cleanup` is not `"failed"`. Otherwise `409` with `{ "error": { "code": "NOT_ELIGIBLE", "message": "..." } }`, and the message names the reason. An audit with only `INCONCLUSIVE` findings is not eligible: nothing was shown to be blocked.
+Available only when ALL of these are true: the audit `status` is `completed` (no run or re-test is going on), it has zero `LEAKED` findings, it has at least one `BLOCKED` finding, and `cleanup` is not `"failed"`. Otherwise `409` with `{ "error": { "code": "NOT_ELIGIBLE", "message": "..." } }`, and the message names the reason. An audit with only `INCONCLUSIVE` findings is not eligible: nothing was shown to be blocked.
 ```json
 {
   "auditId": "aud_001",
@@ -261,7 +261,7 @@ This route is not built yet. Available only when ALL of these are true: the audi
   "result": "NO_LEAK_FOUND_BY_THESE_CHECKS",
   "checksRun": ["data-access-prover"],
   "summary": { "blocked": 2, "inconclusive": 1 },
-  "disclaimer": "This is evidence that specific checks passed. It is not a guarantee that the app is secure.",
+  "disclaimer": "This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.",
   "recordHash": "<sha256 of the audit record>"
 }
 ```
