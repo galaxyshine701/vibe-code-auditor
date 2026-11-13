@@ -29,7 +29,6 @@ export function AccessGate({
   return (
     <div className="gate-wrap">
       <div className="card gate-card">
-        <span className="eyebrow">Protected route</span>
         <h1>{title}</h1>
         <p className="muted">{description}</p>
         <form onSubmit={submit} className="stack">

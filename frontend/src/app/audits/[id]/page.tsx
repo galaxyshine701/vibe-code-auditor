@@ -92,7 +92,6 @@ export default function ProgressPage() {
     return (
       <div className="shell narrow-stack">
         <div className="card empty-card">
-          <span className="eyebrow">Audit unavailable</span>
           <h1>This audit no longer exists.</h1>
           <p className="muted">
             No audit with this id was found. Audits are kept in server memory,
@@ -114,7 +113,6 @@ export default function ProgressPage() {
     <div className="shell page-stack">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">Progress</span>
           <h1>{audit?.target.label ?? 'Loading audit…'}</h1>
           {audit ? (
             <p className="muted break">{audit.target.projectUrl}</p>
@@ -122,7 +120,6 @@ export default function ProgressPage() {
             <p className="muted">Contacting the server…</p>
           )}
         </div>
-        <span className="step-chip">Step 2 of 4</span>
       </div>
 
       {error ? (
@@ -156,7 +153,6 @@ export default function ProgressPage() {
           <section className="card progress-card">
             <div className="progress-top">
               <div>
-                <span className="eyebrow">Audit status</span>
                 <div className="status-line">
                   <span className={`status-dot status-${audit.status}`} />
                   <strong>{STATUS_LABEL[audit.status]}</strong>

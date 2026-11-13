@@ -102,7 +102,6 @@ export default function CertificatePage() {
     return (
       <div className="shell narrow-stack">
         <div className="card empty-card">
-          <span className="eyebrow">Certificate unavailable</span>
           <h1>This audit no longer exists.</h1>
           <p className="muted">
             No audit with this id was found. Audits are kept in server memory,
@@ -125,7 +124,6 @@ export default function CertificatePage() {
 
       {notEligible ? (
         <section className="card empty-card">
-          <span className="eyebrow">Certificate not available</span>
           <h1>This audit is not eligible yet.</h1>
           <p className="muted">{error}</p>
           <div className="action-row">
@@ -170,7 +168,6 @@ export default function CertificatePage() {
               VCA
             </span>
             <div>
-              <span className="eyebrow">Certificate view</span>
               <h1>No leak found by these checks</h1>
             </div>
           </div>

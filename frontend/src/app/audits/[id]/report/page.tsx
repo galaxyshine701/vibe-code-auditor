@@ -217,7 +217,6 @@ export default function ReportPage() {
     return (
       <div className="shell narrow-stack">
         <div className="card empty-card">
-          <span className="eyebrow">Report unavailable</span>
           <h1>This audit no longer exists.</h1>
           <p className="muted">
             No audit with this id was found. Audits are kept in server memory,
@@ -287,13 +286,11 @@ export default function ReportPage() {
     <div className="shell page-stack">
       <div className="report-heading">
         <div>
-          <span className="eyebrow">Report</span>
           <h1>{audit?.target.label ?? 'Audit report'}</h1>
           {audit ? (
             <p className="muted break">{audit.target.projectUrl}</p>
           ) : null}
         </div>
-        <span className="step-chip">Step 3 of 4</span>
       </div>
 
       {audit?.cleanup === 'failed' ? (
@@ -303,7 +300,6 @@ export default function ReportPage() {
       {failed ? (
         <>
           <section className="card empty-card">
-            <span className="eyebrow">Audit failed</span>
             <h1>The audit could not finish.</h1>
             <p className="muted">
               {audit?.error?.message ??
@@ -489,7 +485,7 @@ export default function ReportPage() {
             </div>
           ) : null}
 
-          <div className="findings-list">
+          <div className="findings-grid">
             {shownFindings?.map((finding) => (
               <FindingCard
                 key={finding.id}

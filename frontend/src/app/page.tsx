@@ -4,15 +4,22 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
 import { ErrorBanner } from '@/components/error-banner';
+import { HeroMotion } from '@/components/hero-motion';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
-import { API_BASE_URL, USE_MOCK } from '@/lib/config';
 import { ApiError, NetworkError } from '@/lib/errors';
 import { useApiError } from '@/lib/use-api-error';
 
+const HEADLINE = ['Can', 'another', 'user', 'read', 'your', 'data?'];
+
 export default function ConnectPage() {
   const router = useRouter();
-  const { accessCode, setAccessCode, rateLimitSecondsLeft } = useApp();
+  const {
+    accessCode,
+    setAccessCode,
+    clearAccessCode,
+    rateLimitSecondsLeft,
+  } = useApp();
   const handleApiError = useApiError();
 
   const [label, setLabel] = useState('');
@@ -36,7 +43,7 @@ export default function ConnectPage() {
       return;
     }
     if (!effectiveAccessCode) {
-      setError('Enter the access code before starting.');
+      setError('Enter the access code in the hero first.');
       setCanRetry(false);
       return;
     }
@@ -65,6 +72,7 @@ export default function ConnectPage() {
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
         setAccessCodeInput('');
+        clearAccessCode();
       }
       setError(handleApiError(caught));
       setCanRetry(caught instanceof NetworkError);
@@ -78,50 +86,86 @@ export default function ConnectPage() {
     void runAudit();
   }
 
+  function changeAccessCode() {
+    clearAccessCode();
+    setAccessCodeInput('');
+  }
+
   return (
     <div className="shell page-stack">
       <section className="hero">
-        <div>
-          <span className="eyebrow">Data Access Prover</span>
-          <h1>
-            See what another user can
-            <span className="gradient-text"> read or change.</span>
+        <div className="hero-copy">
+          <p className="hero-kicker">Data access prover</p>
+          <h1 className="hero-title" aria-label="Can another user read your data?">
+            {HEADLINE.map((word, index) => (
+              <span key={word}>
+                <span
+                  className="hero-word"
+                  style={{ animationDelay: `${150 + index * 90}ms` }}
+                >
+                  {word}
+                </span>
+                {index < HEADLINE.length - 1 ? ' ' : null}
+              </span>
+            ))}
           </h1>
-          <p className="hero-copy">
-            The auditor creates two temporary users in your test Supabase
-            project, plants a canary row for the first user, and tries to reach
-            it as the second. You get evidence, not a guess.
+          <p className="hero-lede">
+            Two temporary users, one canary row. The auditor tries to reach it
+            and shows you exactly what answered.
           </p>
-          <ul className="trust-list">
-            <li>Two temporary test users, removed afterwards</li>
-            <li>Canary rows in your own test project</li>
-            <li>Findings with a copyable reproducer and fix SQL</li>
-          </ul>
-        </div>
-        <div className="hero-orbit" aria-hidden="true">
-          <div className="orbit-card orbit-user-a">
-            <span className="orbit-dot dot-a" />
-            User A
-            <small>owns the row</small>
+
+          <div className="hero-gate" id="access-gate">
+            {!accessCode ? (
+              <label className="field field-code">
+                <span>Access code</span>
+                <input
+                  id="access-code"
+                  type="password"
+                  value={accessCodeInput}
+                  onChange={(event) => setAccessCodeInput(event.target.value)}
+                  placeholder="Enter the door"
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  maxLength={4096}
+                />
+                <small>
+                  Kept in this page’s memory only. It unlocks the run and is
+                  sent as a header, never in the URL.
+                </small>
+              </label>
+            ) : (
+              <div className="memory-chip">
+                <span className="memory-dot" aria-hidden="true" />
+                <span>Access code held for this page only.</span>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={changeAccessCode}
+                >
+                  Change
+                </button>
+              </div>
+            )}
+            <p className="hero-gate-note">
+              This is the door. The temporary users and canary rows are created
+              only after you enter it.
+            </p>
           </div>
-          <div className="orbit-line" />
-          <div className="orbit-card orbit-user-b">
-            <span className="orbit-dot dot-b" />
-            User B
-            <small>tries to read it</small>
-          </div>
-          <div className="orbit-verdict">LEAKED?</div>
         </div>
+
+        <HeroMotion />
       </section>
 
       <div className="connect-grid">
         <section className="card form-card" aria-labelledby="start-heading">
           <div className="card-heading">
             <div>
-              <span className="eyebrow">Connect</span>
               <h2 id="start-heading">Start an audit</h2>
+              <p className="muted small">
+                Use a Supabase test project, never production.
+              </p>
             </div>
-            <span className="step-chip">Step 1 of 4</span>
+            <span className="pill pill-outline">Test project</span>
           </div>
 
           <form onSubmit={submit} className="stack" noValidate>
@@ -186,29 +230,6 @@ export default function ConnectPage() {
               </label>
             </div>
 
-            {!accessCode ? (
-              <label className="field">
-                <span>Access code</span>
-                <input
-                  type="password"
-                  value={accessCodeInput}
-                  onChange={(event) => setAccessCodeInput(event.target.value)}
-                  autoComplete="new-password"
-                  spellCheck={false}
-                  maxLength={4096}
-                  required
-                />
-                <small>
-                  Kept in this page’s memory only, then sent as X-Access-Code.
-                </small>
-              </label>
-            ) : (
-              <div className="memory-chip">
-                <span className="memory-dot" aria-hidden="true" />
-                Access code held in memory for this page only
-              </div>
-            )}
-
             <label className="check-row">
               <input
                 type="checkbox"
@@ -247,7 +268,7 @@ export default function ConnectPage() {
 
         <aside className="stack">
           <section className="card info-card">
-            <span className="eyebrow">How it works</span>
+            <h2>How it works</h2>
             <ol className="steps">
               <li>
                 <span>1</span>
@@ -282,7 +303,7 @@ export default function ConnectPage() {
           </section>
 
           <section className="card truth-card">
-            <span className="eyebrow">What this means</span>
+            <h2>What this means</h2>
             <p>
               A clean result means <strong>no leak found by these checks</strong>
               . It is not a guarantee that the app is secure.
@@ -310,16 +331,6 @@ export default function ConnectPage() {
                 </dd>
               </div>
             </dl>
-          </section>
-
-          <section className="card server-card">
-            <span className="eyebrow">Connection</span>
-            <p className="mono-small break">{API_BASE_URL}</p>
-            <p className="muted small">
-              {USE_MOCK
-                ? 'Demo data mode is on, so no real request is sent.'
-                : 'Every audit request sends the access code in a header, never in the URL.'}
-            </p>
           </section>
         </aside>
       </div>
