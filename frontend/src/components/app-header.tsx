@@ -33,8 +33,7 @@ export function AppHeader() {
           </span>
         </Link>
         <div className="header-actions">
-          {USE_MOCK ? <span className="pill pill-muted"></span> : null}
-          <span className="pill pill-outline">Test projects only</span>
+          {USE_MOCK ? <span className="pill pill-muted">Sample data</span> : null}
           <ThemeToggle />
         </div>
       </div>

@@ -290,7 +290,7 @@ export async function mockGetCertificate(id: string): Promise<Certificate> {
     checksRun: ['data-access-prover'],
     summary: { blocked: summary.blocked, inconclusive: summary.inconclusive },
     disclaimer:
-      'This is evidence that specific checks passed. It is not a guarantee that the app is secure.',
+      'This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.',
     recordHash: RECORD_HASH,
   };
 }

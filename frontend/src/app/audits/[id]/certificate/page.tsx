@@ -197,6 +197,18 @@ export default function CertificatePage() {
                 </dd>
               </div>
             ) : null}
+            {certificate.summary && certificate.summary.inconclusive > 0 ? (
+              <div>
+                <dt>Not verified</dt>
+                <dd>
+                  {certificate.summary.inconclusive}{' '}
+                  {certificate.summary.inconclusive === 1
+                    ? 'table could'
+                    : 'tables could'}{' '}
+                  not be verified.
+                </dd>
+              </div>
+            ) : null}
             <div className="certificate-hash">
               <dt>Record hash (integrity fingerprint, not a signature)</dt>
               <dd className="mono-small break">{certificate.recordHash}</dd>
@@ -208,8 +220,6 @@ export default function CertificatePage() {
           </div>
         </section>
       ) : null}
-
-      <Disclaimer />
 
       <p className="muted center small">
         This view lives inside the app. There is no public link or share

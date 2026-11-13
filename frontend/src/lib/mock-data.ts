@@ -7,7 +7,7 @@ const PROFILES_BLOCKED: Finding = {
   operation: 'SELECT',
   verdict: 'BLOCKED',
   severity: 'info',
-  title: '"profiles" is protected',
+  title: '"profiles": other users and visitors were blocked',
   explanation: {
     en: "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
     ur: 'Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila.',
@@ -164,7 +164,7 @@ const BOOKINGS_AFTER_FIX: Finding = {
   operation: 'SELECT',
   verdict: 'BLOCKED',
   severity: 'info',
-  title: '"bookings" is protected',
+  title: '"bookings": other users and visitors were blocked',
   explanation: {
     en: "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
     ur: 'Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila.',

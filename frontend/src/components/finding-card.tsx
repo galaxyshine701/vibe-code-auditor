@@ -141,7 +141,9 @@ export function FindingCard({
           ) : null}
         </div>
         <span className={`retest-badge retest-${retest.status}`}>
-          {RETEST_LABEL[retest.status]}
+          {retest.status === 'not_run' && retest.lastRunAt
+            ? 'Re-tested'
+            : RETEST_LABEL[retest.status]}
           {retest.lastRunAt ? ` · ${formatDate(retest.lastRunAt)}` : ''}
         </span>
       </div>

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { AccessGate } from '@/components/access-gate';
 import { useApp } from '@/components/app-provider';
 import { CleanupWarning } from '@/components/cleanup-warning';
+import { CoverageNotes } from '@/components/coverage-notes';
 import { Disclaimer } from '@/components/disclaimer';
 import { ErrorBanner } from '@/components/error-banner';
 import { FindingCard } from '@/components/finding-card';
@@ -465,6 +466,7 @@ export default function ReportPage() {
             : null}
 
           <Disclaimer />
+          <CoverageNotes summary="What these checks cover and what they do not" />
 
           <div className="findings-heading">
             <h2>Findings</h2>
@@ -478,10 +480,7 @@ export default function ReportPage() {
           {findings && findings.length === 0 ? (
             <div className="card empty-card">
               <h3>No findings</h3>
-              <p className="muted">
-                These checks returned no findings. This does not promise that
-                the app is secure.
-              </p>
+              <p className="muted">These checks returned no findings.</p>
             </div>
           ) : null}
 
