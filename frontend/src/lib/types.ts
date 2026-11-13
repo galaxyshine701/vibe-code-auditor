@@ -23,8 +23,8 @@ export interface OperationEvidence {
 }
 
 export interface FindingEvidence {
-  rowsReturned: number;
-  httpStatus: number;
+  rowsReturned: number | null;
+  httpStatus: number | null;
   canaryRowId: string | null;
   reproducer: string | null;
   operations?: OperationEvidence[];
@@ -39,6 +39,8 @@ export interface FindingFix {
 export interface FindingRetest {
   status: RetestStatus;
   lastRunAt: string | null;
+  /** Verdict of the same table in the run before. Missing is treated as null (R46). */
+  previousVerdict?: Verdict | null;
 }
 
 export interface Finding {
@@ -88,6 +90,17 @@ export interface AuditStatusResponse {
   cleanup: CleanupState;
   cleanupNote?: string;
   error?: AuditError;
+  /** null until a Re-test has been started. Missing is treated as null (R46). */
+  lastRetest?: LastRetest | null;
+}
+
+export interface LastRetest {
+  status: 'running' | 'completed' | 'failed';
+  startedAt: string;
+  finishedAt: string | null;
+  tablesAdded: string[];
+  tablesRemoved: string[];
+  error: AuditError | null;
 }
 
 export interface FindingsResponse {
@@ -104,8 +117,15 @@ export interface Certificate {
   issuedAt: string;
   result: 'NO_LEAK_FOUND_BY_THESE_CHECKS';
   checksRun: string[];
+  summary?: { blocked: number; inconclusive: number } | null;
   disclaimer: string;
   recordHash: string;
+}
+
+export interface RetestInput {
+  anonKey: string;
+  serviceKey: string;
+  confirmTestProject: true;
 }
 
 export interface StartAuditInput {

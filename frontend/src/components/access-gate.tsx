@@ -38,7 +38,7 @@ export function AccessGate({
               type="password"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              autoComplete="off"
+              autoComplete="new-password"
               autoFocus
               maxLength={4096}
               disabled={rateLimitSecondsLeft > 0}

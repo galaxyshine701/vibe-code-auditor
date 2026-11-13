@@ -429,13 +429,9 @@ export function HeroMotion() {
       <p key={`${phase}-summary`} className="motion-summary">
         {copy.summary}
       </p>
-      {finalFrame ? (
-        <p className="motion-caption">No leak found by these checks.</p>
-      ) : (
-        <p className="motion-caption motion-caption-muted">
-          Evidence from these checks, not a guarantee.
-        </p>
-      )}
+      <p className="motion-caption motion-caption-muted">
+        Evidence from these checks, not a guarantee.
+      </p>
 
       <div className="motion-controls">
         <span className="motion-controls-label">Example run</span>

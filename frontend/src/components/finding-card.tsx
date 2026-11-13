@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { approveFix } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { severityLabel, verdictLabel } from '@/lib/findings';
+import { ApiError } from '@/lib/errors';
 import type {
   Finding,
   OperationActor,
@@ -80,12 +81,15 @@ export function FindingCard({
   language,
   actionsDisabled,
   onUpdated,
+  onNotFound,
 }: {
   auditId: string;
   finding: Finding;
   language: 'en' | 'ur';
   actionsDisabled: boolean;
   onUpdated: (finding: Finding) => void;
+  /** Called on a 404, so the page can tell whether the audit is gone (R13). */
+  onNotFound?: () => void;
 }) {
   const { accessCode, rateLimitSecondsLeft } = useApp();
   const handleApiError = useApiError();
@@ -111,6 +115,7 @@ export function FindingCard({
       onUpdated(updated);
     } catch (error) {
       setApproveError(handleApiError(error));
+      if (error instanceof ApiError && error.status === 404) onNotFound?.();
     } finally {
       setApproving(false);
     }
@@ -128,6 +133,12 @@ export function FindingCard({
             {severityLabel(finding.severity)}
           </span>
           <span className="table-chip">{finding.table}</span>
+          {retest.previousVerdict &&
+          retest.previousVerdict !== finding.verdict ? (
+            <span className="table-chip">
+              was {retest.previousVerdict}, now {finding.verdict}
+            </span>
+          ) : null}
         </div>
         <span className={`retest-badge retest-${retest.status}`}>
           {RETEST_LABEL[retest.status]}
@@ -143,11 +154,11 @@ export function FindingCard({
       <dl className="metric-row">
         <div>
           <dt>Rows returned</dt>
-          <dd>{finding.evidence.rowsReturned}</dd>
+          <dd>{finding.evidence.rowsReturned ?? '—'}</dd>
         </div>
         <div>
           <dt>HTTP status</dt>
-          <dd>{finding.evidence.httpStatus}</dd>
+          <dd>{finding.evidence.httpStatus ?? '—'}</dd>
         </div>
         <div>
           <dt>Module</dt>

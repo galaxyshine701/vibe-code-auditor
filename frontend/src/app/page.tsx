@@ -124,7 +124,7 @@ export default function ConnectPage() {
                   value={accessCodeInput}
                   onChange={(event) => setAccessCodeInput(event.target.value)}
                   placeholder="Enter the door"
-                  autoComplete="off"
+                  autoComplete="new-password"
                   spellCheck={false}
                   maxLength={4096}
                 />
@@ -207,12 +207,12 @@ export default function ConnectPage() {
                   type="password"
                   value={anonKey}
                   onChange={(event) => setAnonKey(event.target.value)}
-                  autoComplete="off"
+                  autoComplete="new-password"
                   spellCheck={false}
                   maxLength={4096}
                   required
                 />
-                <small>Sent as anonKey. Never returned by the server.</small>
+                <small>Never returned by the server.</small>
               </label>
 
               <label className="field">
@@ -221,12 +221,12 @@ export default function ConnectPage() {
                   type="password"
                   value={serviceKey}
                   onChange={(event) => setServiceKey(event.target.value)}
-                  autoComplete="off"
+                  autoComplete="new-password"
                   spellCheck={false}
                   maxLength={4096}
                   required
                 />
-                <small>Sent as serviceKey. Never returned by the server.</small>
+                <small>Never returned by the server.</small>
               </label>
             </div>
 

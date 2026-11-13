@@ -10,6 +10,7 @@ import { Disclaimer } from '@/components/disclaimer';
 import { ErrorBanner } from '@/components/error-banner';
 import { FindingCard } from '@/components/finding-card';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
+import { RetestForm } from '@/components/retest-form';
 import { getAudit, getFindings, retest } from '@/lib/api';
 import {
   ApiError,
@@ -36,6 +37,13 @@ export default function ReportPage() {
   const [retestStarting, setRetestStarting] = useState(false);
   const [retestError, setRetestError] = useState('');
   const [retryTick, setRetryTick] = useState(0);
+  // The keys for a Re-test live in memory only, here in the page (R26, R29).
+  const [showRetestForm, setShowRetestForm] = useState(false);
+  const [retestAnonKey, setRetestAnonKey] = useState('');
+  const [retestServiceKey, setRetestServiceKey] = useState('');
+  const [retestConfirmed, setRetestConfirmed] = useState(false);
+  const [pollError, setPollError] = useState('');
+  const [pollTick, setPollTick] = useState(0);
 
   useEffect(() => {
     if (!accessCode) return;
@@ -94,6 +102,7 @@ export default function ReportPage() {
     let cancelled = false;
     let timer: number | undefined;
     const controller = new AbortController();
+    setPollError('');
 
     const poll = async () => {
       try {
@@ -101,27 +110,32 @@ export default function ReportPage() {
         if (cancelled) return;
         setAudit(status);
 
-        if (status.status === 'completed') {
+        if (status.status === 'queued' || status.status === 'running') {
+          timer = window.setTimeout(poll, 2_000);
+          return;
+        }
+
+        // A failed Re-test leaves the audit "completed" and the findings as
+        // they were; the failure is in lastRetest (R51).
+        if (
+          status.status === 'completed' &&
+          status.lastRetest?.status === 'completed'
+        ) {
           const result = await getFindings(id, accessCode, controller.signal);
           if (cancelled) return;
           setFindings(sortFindings(result.findings));
-          setRetestRunning(false);
-          return;
         }
-
-        if (status.status === 'failed') {
-          setRetestRunning(false);
-          setRetestError(
-            status.error?.message ?? 'The re-test stopped before it finished.',
-          );
-          return;
-        }
-
-        timer = window.setTimeout(poll, 2_000);
+        setRetestRunning(false);
       } catch (caught) {
         if (cancelled || caught instanceof RequestCancelledError) return;
-        setRetestRunning(false);
-        setRetestError(handleApiError(caught));
+        if (caught instanceof ApiError && caught.status === 404) {
+          setRetestRunning(false);
+          setGone(true);
+          setError(caught.message);
+          return;
+        }
+        // Stop here; Retry resumes the polling.
+        setPollError(handleApiError(caught));
       }
     };
 
@@ -132,27 +146,51 @@ export default function ReportPage() {
       controller.abort();
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [accessCode, handleApiError, id, retestRunning]);
+  }, [accessCode, handleApiError, id, pollTick, retestRunning]);
 
   async function startRetest() {
     if (!accessCode) return;
     setRetestError('');
     setRetestStarting(true);
     try {
-      await retest(id, accessCode);
-      setFindings((current) =>
-        current
-          ? current.map((finding) => ({
-              ...finding,
-              retest: { ...finding.retest, status: 'running' },
-            }))
-          : current,
+      await retest(
+        id,
+        {
+          anonKey: retestAnonKey,
+          serviceKey: retestServiceKey,
+          confirmTestProject: true,
+        },
+        accessCode,
       );
+      // Cleared only after the server accepted the Re-test (R29).
+      setRetestAnonKey('');
+      setRetestServiceKey('');
+      setRetestConfirmed(false);
+      setShowRetestForm(false);
       setRetestRunning(true);
     } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 404) {
+        setGone(true);
+        setError(caught.message);
+        return;
+      }
+      // The keys stay in memory so the user can send again.
       setRetestError(handleApiError(caught));
     } finally {
       setRetestStarting(false);
+    }
+  }
+
+  // A 404 from Approve fix can mean an unknown finding or a gone audit.
+  async function checkAuditStillExists() {
+    if (!accessCode) return;
+    try {
+      await getAudit(id, accessCode);
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 404) {
+        setGone(true);
+        setError(caught.message);
+      }
     }
   }
 
@@ -225,11 +263,24 @@ export default function ReportPage() {
   }
 
   const failed = audit?.status === 'failed';
-  const allPassed =
-    findings !== null &&
-    findings.length > 0 &&
-    findings.every((finding) => finding.retest.status === 'passed');
+  const lastRetest = audit?.lastRetest ?? null;
+  // While a Re-test runs the old findings stay, each shown as "running" (R50).
+  const retestActive = retestRunning || lastRetest?.status === 'running';
+  const shownFindings =
+    findings && retestActive
+      ? findings.map((finding) => ({
+          ...finding,
+          retest: { ...finding.retest, status: 'running' as const },
+        }))
+      : findings;
   const leakedCount = audit?.summary.leaked ?? 0;
+  const blockedCount = audit?.summary.blocked ?? 0;
+  const canOpenCertificate =
+    audit?.status === 'completed' &&
+    !retestActive &&
+    leakedCount === 0 &&
+    blockedCount >= 1 &&
+    audit.cleanup !== 'failed';
 
   return (
     <div className="shell page-stack">
@@ -290,28 +341,47 @@ export default function ReportPage() {
                 <button
                   type="button"
                   className="button button-primary"
-                  onClick={() => void startRetest()}
+                  onClick={() => setShowRetestForm((open) => !open)}
                   disabled={
-                    retestRunning ||
+                    retestActive ||
                     retestStarting ||
+                    audit?.status !== 'completed' ||
                     rateLimitSecondsLeft > 0 ||
                     !findings
                   }
                 >
-                  {retestRunning || retestStarting
+                  {retestActive || retestStarting
                     ? 'Re-test running…'
                     : 'Re-test'}
                 </button>
-                <Link
-                  href={`/audits/${id}/certificate`}
-                  className="button button-ghost"
-                >
-                  Open certificate view
-                </Link>
+                {canOpenCertificate ? (
+                  <Link
+                    href={`/audits/${id}/certificate`}
+                    className="button button-ghost"
+                  >
+                    Open certificate view
+                  </Link>
+                ) : null}
               </div>
             </div>
 
-            {retestRunning || retestStarting ? (
+            {showRetestForm && !retestActive ? (
+              <RetestForm
+                anonKey={retestAnonKey}
+                serviceKey={retestServiceKey}
+                confirmed={retestConfirmed}
+                onAnonKey={setRetestAnonKey}
+                onServiceKey={setRetestServiceKey}
+                onConfirmed={setRetestConfirmed}
+                onSubmit={() => void startRetest()}
+                onCancel={() => setShowRetestForm(false)}
+                submitting={retestStarting}
+                blocked={rateLimitSecondsLeft > 0}
+                error={retestError}
+              />
+            ) : null}
+
+            {retestActive || retestStarting ? (
               <div className="notice notice-info" role="status">
                 <span className="spinner spinner-small" aria-hidden="true" />
                 Re-test is running. The page polls every 2 seconds and reads the
@@ -319,7 +389,20 @@ export default function ReportPage() {
               </div>
             ) : null}
 
-            {retestError ? <ErrorBanner message={retestError} /> : null}
+            {pollError ? (
+              <ErrorBanner
+                message={pollError}
+                onRetry={
+                  rateLimitSecondsLeft === 0
+                    ? () => setPollTick((tick) => tick + 1)
+                    : undefined
+                }
+              />
+            ) : null}
+
+            {!showRetestForm && retestError ? (
+              <ErrorBanner message={retestError} />
+            ) : null}
             <RateLimitNotice />
           </section>
 
@@ -338,16 +421,48 @@ export default function ReportPage() {
                 <strong>Blocked</strong>
               </div>
             </div>
-            {leakedCount === 0 ? (
+            {leakedCount === 0 && blockedCount >= 1 ? (
               <p className="no-leak-line">No leak found by these checks.</p>
             ) : null}
           </section>
 
-          {allPassed ? (
+          {!retestActive && lastRetest?.status === 'completed' ? (
             <div className="notice notice-success" role="status">
               Re-test finished. The findings below were read again.
             </div>
           ) : null}
+
+          {!retestActive && lastRetest?.status === 'failed' ? (
+            <ErrorBanner
+              message={`Re-test failed: ${
+                lastRetest.error?.message ?? 'It stopped before it finished.'
+              } The findings below are from before the Re-test.`}
+            />
+          ) : null}
+
+          {!retestActive && lastRetest?.status === 'completed'
+            ? lastRetest.tablesAdded.map((table) => (
+                <div
+                  className="notice notice-info"
+                  role="status"
+                  key={`added-${table}`}
+                >
+                  New table found in the last re-test: {table}
+                </div>
+              ))
+            : null}
+
+          {!retestActive && lastRetest?.status === 'completed'
+            ? lastRetest.tablesRemoved.map((table) => (
+                <div
+                  className="notice notice-info"
+                  role="status"
+                  key={`removed-${table}`}
+                >
+                  {table}: This table was not checked in the last re-test.
+                </div>
+              ))
+            : null}
 
           <Disclaimer />
 
@@ -371,14 +486,17 @@ export default function ReportPage() {
           ) : null}
 
           <div className="findings-grid">
-            {findings?.map((finding) => (
+            {shownFindings?.map((finding) => (
               <FindingCard
                 key={finding.id}
                 auditId={id}
                 finding={finding}
                 language={language}
-                actionsDisabled={retestRunning || retestStarting}
+                actionsDisabled={
+                  retestActive || retestStarting || audit?.status === 'running'
+                }
                 onUpdated={updateFinding}
+                onNotFound={() => void checkAuditStillExists()}
               />
             ))}
           </div>

@@ -188,8 +188,17 @@ export default function CertificatePage() {
               <dt>Checks run</dt>
               <dd>{certificate.checksRun.join(', ')}</dd>
             </div>
+            {certificate.summary ? (
+              <div>
+                <dt>Summary</dt>
+                <dd>
+                  {certificate.summary.blocked} blocked,{' '}
+                  {certificate.summary.inconclusive} inconclusive
+                </dd>
+              </div>
+            ) : null}
             <div className="certificate-hash">
-              <dt>Record hash</dt>
+              <dt>Record hash (integrity fingerprint, not a signature)</dt>
               <dd className="mono-small break">{certificate.recordHash}</dd>
             </div>
           </dl>

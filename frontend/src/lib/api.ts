@@ -17,9 +17,29 @@ import type {
   Certificate,
   Finding,
   FindingsResponse,
+  RetestInput,
   StartAuditInput,
   StartAuditResponse,
 } from './types';
+
+// A field that older answers do not have is treated as null (R46).
+function normalizeFinding(finding: Finding): Finding {
+  return {
+    ...finding,
+    retest: {
+      ...finding.retest,
+      previousVerdict: finding.retest.previousVerdict ?? null,
+    },
+  };
+}
+
+function normalizeAudit(audit: AuditStatusResponse): AuditStatusResponse {
+  return { ...audit, lastRetest: audit.lastRetest ?? null };
+}
+
+function normalizeCertificate(certificate: Certificate): Certificate {
+  return { ...certificate, summary: certificate.summary ?? null };
+}
 
 interface RequestOptions {
   method?: 'GET' | 'POST';
@@ -136,12 +156,14 @@ export async function getAudit(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<AuditStatusResponse> {
-  if (USE_MOCK) return mockGetAudit(id);
-  return request<AuditStatusResponse>(
-    `/api/v1/audits/${encodeURIComponent(id)}`,
-    accessCode,
-    { signal },
-  );
+  const audit = USE_MOCK
+    ? await mockGetAudit(id)
+    : await request<AuditStatusResponse>(
+        `/api/v1/audits/${encodeURIComponent(id)}`,
+        accessCode,
+        { signal },
+      );
+  return normalizeAudit(audit);
 }
 
 export async function getFindings(
@@ -149,12 +171,14 @@ export async function getFindings(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<FindingsResponse> {
-  if (USE_MOCK) return mockGetFindings(id);
-  return request<FindingsResponse>(
-    `/api/v1/audits/${encodeURIComponent(id)}/findings`,
-    accessCode,
-    { signal },
-  );
+  const result = USE_MOCK
+    ? await mockGetFindings(id)
+    : await request<FindingsResponse>(
+        `/api/v1/audits/${encodeURIComponent(id)}/findings`,
+        accessCode,
+        { signal },
+      );
+  return { findings: result.findings.map(normalizeFinding) };
 }
 
 export async function approveFix(
@@ -163,24 +187,33 @@ export async function approveFix(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<Finding> {
-  if (USE_MOCK) return mockApproveFix(id, findingId);
-  return request<Finding>(
-    `/api/v1/audits/${encodeURIComponent(id)}/findings/${encodeURIComponent(findingId)}/fix/approve`,
-    accessCode,
-    { method: 'POST', signal },
-  );
+  const finding = USE_MOCK
+    ? await mockApproveFix(id, findingId)
+    : await request<Finding>(
+        `/api/v1/audits/${encodeURIComponent(id)}/findings/${encodeURIComponent(findingId)}/fix/approve`,
+        accessCode,
+        { method: 'POST', signal },
+      );
+  return normalizeFinding(finding);
 }
 
+// The keys are sent again on every Re-test. projectUrl is never sent (R33).
 export async function retest(
   id: string,
+  input: RetestInput,
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<StartAuditResponse> {
-  if (USE_MOCK) return mockRetest(id);
+  const body: RetestInput = {
+    anonKey: input.anonKey,
+    serviceKey: input.serviceKey,
+    confirmTestProject: true,
+  };
+  if (USE_MOCK) return mockRetest(id, body);
   return request<StartAuditResponse>(
     `/api/v1/audits/${encodeURIComponent(id)}/retest`,
     accessCode,
-    { method: 'POST', signal },
+    { method: 'POST', body, signal },
   );
 }
 
@@ -189,10 +222,12 @@ export async function getCertificate(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<Certificate> {
-  if (USE_MOCK) return mockGetCertificate(id);
-  return request<Certificate>(
-    `/api/v1/audits/${encodeURIComponent(id)}/certificate`,
-    accessCode,
-    { signal },
-  );
+  const certificate = USE_MOCK
+    ? await mockGetCertificate(id)
+    : await request<Certificate>(
+        `/api/v1/audits/${encodeURIComponent(id)}/certificate`,
+        accessCode,
+        { signal },
+      );
+  return normalizeCertificate(certificate);
 }
