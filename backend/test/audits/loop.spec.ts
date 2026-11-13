@@ -366,6 +366,10 @@ describe('Re-test: the loop LEAKED, fix, re-test, BLOCKED', () => {
     expect(bookings.retest.lastRunAt).toBe(done.body.lastRetest.finishedAt);
     // the others were not LEAKED before, so "not_run"
     expect(byTable(after, 'profiles').retest.status).toBe('not_run');
+    // a table that stayed BLOCKED was still re-tested: lastRunAt is set
+    expect(byTable(after, 'profiles').retest.lastRunAt).toBe(
+      done.body.lastRetest.finishedAt,
+    );
     expect(byTable(after, 'profiles').retest.previousVerdict).toBe('BLOCKED');
     expect(byTable(after, 'hotels').retest.status).toBe('not_run');
     expect(byTable(after, 'hotels').retest.previousVerdict).toBe(
@@ -592,7 +596,7 @@ describe('Certificate', () => {
     expect(res.body.checksRun).toEqual(['data-access-prover']);
     expect(res.body.summary).toEqual({ blocked: 2, inconclusive: 1 });
     expect(res.body.disclaimer).toBe(
-      'This is evidence that specific checks passed. It is not a guarantee that the app is secure.',
+      'This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.',
     );
     expect(res.body.issuedAt).toBe(done.body.lastRetest.finishedAt);
     expect(res.body.recordHash).toMatch(/^[0-9a-f]{64}$/);
@@ -737,7 +741,9 @@ describe('Certificate', () => {
     const body = (await certificate(id)).body;
     const withoutDisclaimer = JSON.stringify({ ...body, disclaimer: '' });
     expect(withoutDisclaimer).not.toMatch(/secure|safe|certified/i);
-    expect(body.disclaimer).toMatch(/not a guarantee/);
+    expect(body.disclaimer).toBe(
+      'This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.',
+    );
   });
 });
 
