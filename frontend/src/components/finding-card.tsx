@@ -9,15 +9,18 @@ import type {
   OperationActor,
   OperationEvidence,
   RetestStatus,
+  Verdict,
 } from '@/lib/types';
 import { useApiError } from '@/lib/use-api-error';
+import { ActorDiagram } from './actor-diagram';
 import { useApp } from './app-provider';
 import { CopyButton } from './copy-button';
+import { VerdictBadge } from './verdict';
 
 const ACTOR_LABEL: Record<OperationActor, string> = {
-  user_b: 'Second test user',
-  anon: 'Visitor (no login)',
-  owner: 'Owner (control)',
+  user_b: 'User B',
+  anon: 'Anon',
+  owner: 'Owner A',
 };
 
 const RETEST_LABEL: Record<RetestStatus, string> = {
@@ -27,24 +30,43 @@ const RETEST_LABEL: Record<RetestStatus, string> = {
   failed: 'Re-test failed',
 };
 
-function allowedLabel(allowed: boolean | null) {
-  if (allowed === true) {
-    return <span className="allowed allowed-yes">Allowed</span>;
+function resultLabel(
+  item: OperationEvidence,
+  verdict: Verdict,
+): { text: string; className: string } {
+  if (item.allowed === null) {
+    return { text: 'Not tested', className: 'allowed-untested' };
   }
-  if (allowed === false) {
-    return <span className="allowed allowed-no">Blocked</span>;
+  if (item.allowed === false) {
+    return { text: 'Blocked', className: 'allowed-no' };
   }
-  return <span className="allowed allowed-untested">Not tested</span>;
+  if (item.actor === 'owner') {
+    return { text: 'Allowed', className: 'allowed-neutral' };
+  }
+  if (verdict === 'LEAKED') {
+    return { text: 'Reached', className: 'allowed-yes' };
+  }
+  return { text: 'Allowed', className: 'allowed-neutral' };
 }
 
-function OperationRow({ item }: { item: OperationEvidence }) {
+function OperationRow({
+  item,
+  verdict,
+}: {
+  item: OperationEvidence;
+  verdict: Verdict;
+}) {
+  const result = resultLabel(item, verdict);
+
   return (
     <tr>
       <td>
         <span className="operation-name">{item.operation}</span>
       </td>
       <td>{ACTOR_LABEL[item.actor]}</td>
-      <td>{allowedLabel(item.allowed)}</td>
+      <td>
+        <span className={`allowed ${result.className}`}>{result.text}</span>
+      </td>
       <td>{item.httpStatus ?? '—'}</td>
       <td>{item.rowsReturned ?? '—'}</td>
       <td className="operation-note">{item.note ?? '—'}</td>
@@ -98,9 +120,10 @@ export function FindingCard({
     <article className={`finding-card finding-${finding.verdict.toLowerCase()}`}>
       <div className="finding-top">
         <div className="finding-badges">
-          <span className={`verdict verdict-${finding.verdict.toLowerCase()}`}>
-            {verdictLabel(finding.verdict)}
-          </span>
+          <VerdictBadge
+            verdict={finding.verdict}
+            label={verdictLabel(finding.verdict)}
+          />
           <span className={`severity severity-${finding.severity}`}>
             {severityLabel(finding.severity)}
           </span>
@@ -114,6 +137,8 @@ export function FindingCard({
 
       <h3>{finding.title}</h3>
       <p className="finding-explanation">{explanation}</p>
+
+      <ActorDiagram operations={operations} verdict={finding.verdict} />
 
       <dl className="metric-row">
         <div>
@@ -150,7 +175,7 @@ export function FindingCard({
                   <tr>
                     <th>Operation</th>
                     <th>Who</th>
-                    <th>Allowed</th>
+                    <th>Result</th>
                     <th>HTTP</th>
                     <th>Rows</th>
                     <th>Note</th>
@@ -161,6 +186,7 @@ export function FindingCard({
                     <OperationRow
                       key={`${item.operation}-${item.actor}-${index}`}
                       item={item}
+                      verdict={finding.verdict}
                     />
                   ))}
                 </tbody>
@@ -196,9 +222,7 @@ export function FindingCard({
         >
           <summary>
             Suggested fix
-            <span
-              className={`fix-status fix-status-${finding.fix.status}`}
-            >
+            <span className={`fix-status fix-status-${finding.fix.status}`}>
               {finding.fix.status === 'approved' ? 'Approved' : 'Proposed'}
             </span>
           </summary>
