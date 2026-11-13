@@ -24,7 +24,7 @@ Rules
 - `finding.severity`: `critical` | `high` | `medium` | `low` | `info`
 - `fix.status`: `proposed` | `approved` | `applied` | `rejected`
 - Version 1 returns only `proposed` and `approved`. `applied` and `rejected` are reserved.
-- `retest.status`: `not_run` | `running` | `passed` | `failed`
+- `retest.status`: `not_run` | `running` | `passed` | `failed`. `running` on every finding while a re-test is going on. After a re-test: `failed` = the verdict is now `LEAKED`, `passed` = it was `LEAKED` and is not now, `not_run` = anything else (see "POST /audits/:id/retest").
 
 ## Endpoints
 
@@ -177,21 +177,98 @@ Added in the Data Access Prover. Optional for the frontend: ignore it if you don
 A human approves the suggested fix. This route is not built yet. Response `200`: the updated finding with `fix.status = "approved"`.
 (The backend does not change the user's database by itself in version 1; approval only records the decision and marks the fix as ready to apply.)
 
+- No request body.
+- Approving a fix that is already `approved` is not an error: `200` again with the same finding.
+- Approval may be given before or after the user has run the SQL. The backend cannot know whether the SQL was run; it only records the decision.
+- `404` `NOT_FOUND`: unknown audit or unknown finding.
+- `409` `AUDIT_IN_PROGRESS`: the audit (or a re-test of it) is still running.
+- `409` `NO_FIX_TO_APPROVE`: the finding has `fix: null` (for example it is `BLOCKED` or `INCONCLUSIVE`).
+- Approvals are kept in memory only (see "What the backend keeps").
+
 ### POST /audits/:id/retest
-Runs the same checks again. This route is not built yet. Response `202`: `{ "id": "aud_001", "status": "running" }`. After it finishes, each finding's `retest.status` is `passed` or `failed`.
+Runs the same checks again on the same audit. This route is not built yet. The keys are sent again on every re-test, because the backend never stores them.
+
+Request
+```json
+{
+  "anonKey": "<write-only, never returned>",
+  "serviceKey": "<write-only, never returned>",
+  "confirmTestProject": true
+}
+```
+- `confirmTestProject` must be exactly `true`, `anonKey` and `serviceKey` are required (same rules as `POST /audits`). Otherwise `400` `INVALID_INPUT`.
+- `projectUrl` is NOT accepted. If the body contains `projectUrl`, the answer is `400` `INVALID_INPUT`, and nothing is run. The re-test always uses the `projectUrl` stored with the audit, so the keys cannot be pointed at another project.
+
+Response `202` (the work starts at once)
+```json
+{ "id": "aud_001", "status": "running" }
+```
+Errors: `404` `NOT_FOUND` (unknown audit); `409` `AUDIT_IN_PROGRESS` (this audit, or any other audit, is running; only one run at a time); `409` `NOT_ELIGIBLE` (the audit has `status` `failed`, so there are no findings to re-test; start a new audit).
+
+While the re-test runs
+- `audit.status` is `running` (so the screen can poll as before). `GET /audits/:id/findings` still returns the OLD findings, and each finding shows `retest.status = "running"`.
+- The new findings replace the old ones in ONE step, when the re-test has finished successfully. The report never shows a half-new list.
+
+When the re-test finishes successfully: `audit.status` is `completed` again, and each finding's `retest.status` is set by this rule, comparing the new verdict with the verdict from the run before:
+- `failed`: the verdict is now `LEAKED` (a leak was found again).
+- `passed`: the verdict was `LEAKED` and is not `LEAKED` now.
+- `not_run`: in every other case. In particular, a finding that was already `BLOCKED` or `INCONCLUSIVE` and still is gets `not_run`, and a second re-test resets an earlier `passed` to `not_run`. The history lives in `retest.previousVerdict`.
+
+When the re-test fails (wrong keys, the Prover cannot run, network error)
+- The audit is NOT marked `failed`. `audit.status` goes back to `completed`, the old findings stay exactly as they were (their `retest.status` returns to the value it had before the re-test started), and the user can press Re-test again at once.
+- The top-level `error` field stays absent (it is only for an audit whose own `status` is `failed`). The failure is reported in `lastRetest` instead (see below). Keys are never part of it.
+- Nothing from the failed run is merged into the findings.
+
+### Additive field: audit.lastRetest
+In `GET /audits/:id`. `null` until a re-test has been started.
+```json
+"lastRetest": {
+  "status": "completed",
+  "startedAt": "2026-11-12T12:20:00Z",
+  "finishedAt": "2026-11-12T12:20:40Z",
+  "tablesAdded": [],
+  "tablesRemoved": [],
+  "error": null
+}
+```
+- `status`: `running` | `completed` | `failed`. `finishedAt` is `null` while running.
+- `error`: `null`, or `{ "code": "...", "message": "Plain-language message" }` when `status` is `failed`.
+- `tablesAdded` / `tablesRemoved`: names of tables that appear in this run but not in the run before, and the other way round. Always arrays; empty while running and when `failed`.
+- `cleanup` and `cleanupNote` (see above) describe the most recent run that finished, the first audit or a re-test, successful or not. While a re-test runs they keep the value of the run before, and are updated when it ends.
+
+### Additive field: finding.retest.previousVerdict
+```json
+"retest": { "status": "passed", "lastRunAt": "2026-11-12T12:20:40Z", "previousVerdict": "LEAKED" }
+```
+- `previousVerdict`: `LEAKED` | `BLOCKED` | `INCONCLUSIVE` | `null`. The verdict of the same table in the run before. `null` when there was no run before (the first audit) or the table is new.
+- `lastRunAt`: when the last successful re-test of this table finished; `null` if never. A failed re-test does not change it.
+- Findings are matched by `table`, never by position.
+
+### What happens to finding ids, tables and fixes between runs
+- A table that exists in both runs keeps the same finding `id`. A table that appears gets a new `id`, a `previousVerdict` of `null`, and `retest.status` by the rule above (so a new table that is `LEAKED` gets `failed`). A table that disappears is dropped from the list and is named in `lastRetest.tablesRemoved`; a dropped id is never reused. A table that disappeared is not proof that its leak was fixed, so the UI should show `tablesRemoved` to the user.
+- A finding that becomes `BLOCKED` or `INCONCLUSIVE` gets `fix: null` (those findings never have a fix). The approval is not kept; the `previousVerdict` of `LEAKED` and `retest.status = "passed"` tell the story.
+- A finding that is still `LEAKED` gets the fix the Prover proposes now. If the SQL is identical to the old one, `fix.status` stays as it was (for example `approved`). If the SQL is different, `fix.status` goes back to `proposed`, because the approval was for different SQL.
+
+### What the backend keeps
+Audits, approvals and re-test results are kept in memory only (newest 50 audits). After a server restart they are gone, and every route in this file answers `404` `NOT_FOUND` for the old id.
 
 ### GET /audits/:id/certificate
-This route is not built yet. Only available when no `LEAKED` finding remains and the re-test passed. Otherwise `409` with `{ "error": { "code": "NOT_ELIGIBLE", "message": "..." } }`.
+This route is not built yet. Available only when ALL of these are true: the audit `status` is `completed` (no run or re-test is going on), it has zero `LEAKED` findings, it has at least one `BLOCKED` finding, and `cleanup` is not `"failed"`. Otherwise `409` with `{ "error": { "code": "NOT_ELIGIBLE", "message": "..." } }`, and the message names the reason. An audit with only `INCONCLUSIVE` findings is not eligible: nothing was shown to be blocked.
 ```json
 {
   "auditId": "aud_001",
   "issuedAt": "2026-11-12T12:30:00Z",
   "result": "NO_LEAK_FOUND_BY_THESE_CHECKS",
   "checksRun": ["data-access-prover"],
+  "summary": { "blocked": 2, "inconclusive": 1 },
   "disclaimer": "This is evidence that specific checks passed. It is not a guarantee that the app is secure.",
   "recordHash": "<sha256 of the audit record>"
 }
 ```
+- `summary` is additive. It counts the findings of the run that made the audit eligible. `leaked` is not listed because it is always 0.
+- `issuedAt` is the time the latest completed run finished. It does not change between requests; it changes only after a new re-test.
+- `recordHash` is an integrity fingerprint, NOT a signature. It is the sha256 of the audit record (target label and URL, findings, summary, run times; never a key). It lets someone see that the record they hold matches the one that was hashed. It does not prove who made it, and anyone with the same record can compute the same value.
+- Wording: this is "no leak found by these checks". It is not a statement that the app is secure, safe or certified.
 
 ## Access code (all `/audits` routes)
 Additive. Every request to `/api/v1/audits...` must send the header `X-Access-Code: <code>` (the code is given to the user; the frontend sends it, never stores it in the page or in logs). `GET /health` needs no code.
@@ -204,7 +281,7 @@ Additive. Every request to `/api/v1/audits...` must send the header `X-Access-Co
 ```json
 { "error": { "code": "SOME_CODE", "message": "Plain-language message" } }
 ```
-Codes used so far: `PRODUCTION_REFUSED` (reserved), `NOT_FOUND`, `NOT_ELIGIBLE`, `INVALID_INPUT`, `AUDIT_IN_PROGRESS`, `ACCESS_DENIED`, `RATE_LIMITED`.
+Codes used so far: `PRODUCTION_REFUSED` (reserved), `NOT_FOUND`, `NOT_ELIGIBLE`, `INVALID_INPUT`, `AUDIT_IN_PROGRESS`, `ACCESS_DENIED`, `RATE_LIMITED`, `NO_FIX_TO_APPROVE`.
 
 ## What the frontend should show for each state
 Loading, empty (no findings), error (use `error.message`), and the three verdicts. Every finding card needs: verdict badge, table name, title, plain-language explanation (English / Roman Urdu toggle), collapsible evidence, collapsible suggested fix, and the buttons "Approve fix" and "Re-test".

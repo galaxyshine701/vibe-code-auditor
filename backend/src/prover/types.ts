@@ -1,4 +1,5 @@
 export type Verdict = 'LEAKED' | 'BLOCKED' | 'INCONCLUSIVE';
+export type RetestStatus = 'not_run' | 'running' | 'passed' | 'failed';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Operation = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
 /** The operations an attacker (user B or anonymous) tries on the canary. */
@@ -53,8 +54,17 @@ export interface Finding {
     reproducer: string | null;
     operations: OperationResult[];
   };
-  fix: { status: 'proposed'; description: string; sql: string } | null;
-  retest: { status: 'not_run'; lastRunAt: null };
+  fix: {
+    status: 'proposed' | 'approved';
+    description: string;
+    sql: string;
+  } | null;
+  retest: {
+    status: RetestStatus;
+    lastRunAt: string | null;
+    /** Set by the audits service (null on the first run). The Prover leaves it out. */
+    previousVerdict?: Verdict | null;
+  };
 }
 
 export interface ProverResult {

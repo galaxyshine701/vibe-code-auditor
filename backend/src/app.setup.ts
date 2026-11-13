@@ -45,6 +45,7 @@ export function configureApp(
   // This decides which address counts as the client's: with 0 the
   // X-Forwarded-For header is ignored, so it cannot be faked. Behind Railway
   // set TRUST_PROXY_HOPS=1, otherwise every client looks like the proxy.
+  // On Railway the better source is CLIENT_IP_HEADER=x-real-ip (see README).
   const hops = resolveTrustProxyHops(env);
   const express = app.getHttpAdapter().getInstance() as {
     set(name: string, value: unknown): void;

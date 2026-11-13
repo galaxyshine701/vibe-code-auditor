@@ -8,10 +8,11 @@ import {
 import { ApiError } from '../common/api-error.js';
 import type { AccessConfig } from './access-config.js';
 import { AttemptLimiter } from './attempt-limiter.js';
-import { clientKey } from './client-ip.js';
+import { clientKey, resolveClientIp } from './client-ip.js';
 
 export const ACCESS_CONFIG = Symbol('ACCESS_CONFIG');
 export const ATTEMPT_LIMITER = Symbol('ATTEMPT_LIMITER');
+export const CLIENT_IP_HEADER = Symbol('CLIENT_IP_HEADER');
 export const ACCESS_HEADER = 'x-access-code';
 
 interface RequestLike {
@@ -46,6 +47,7 @@ export class AccessCodeGuard implements CanActivate {
   constructor(
     @Inject(ACCESS_CONFIG) private readonly config: AccessConfig,
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
+    @Inject(CLIENT_IP_HEADER) private readonly ipHeader: string | null,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -53,7 +55,7 @@ export class AccessCodeGuard implements CanActivate {
 
     const http = context.switchToHttp();
     const request = http.getRequest<RequestLike>();
-    const client = clientKey(request.ip);
+    const client = clientKey(resolveClientIp(request, this.ipHeader));
 
     const wait = this.limiter.retryAfterSeconds(client);
     if (wait > 0) {
