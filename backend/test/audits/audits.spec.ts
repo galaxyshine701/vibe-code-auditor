@@ -151,6 +151,8 @@ describe('POST /api/v1/audits and the GET routes', () => {
     expect(byTable.bookings.retest).toEqual({
       status: 'not_run',
       lastRunAt: null,
+      // contract: null when there was no run before (the first audit)
+      previousVerdict: null,
     });
   });
 

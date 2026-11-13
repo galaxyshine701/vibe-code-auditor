@@ -29,7 +29,9 @@ Tests a Supabase **test** project and prints JSON findings (LEAKED, BLOCKED or I
 - Only one audit runs at a time. A second one gets `409 AUDIT_IN_PROGRESS`.
 - **Audits live in memory only (no database). When the server restarts, all audits are gone.** The last 50 are kept.
 - CORS: only the origin in `FRONTEND_ORIGIN` (default `http://localhost:3000`) may call the API from a browser.
-- Not built yet: `fix/approve`, `retest`, `certificate`.
+- `POST /api/v1/audits/:id/findings/:findingId/fix/approve` records a human decision (`200`, the finding with `fix.status` `approved`). It does not change your database.
+- `POST /api/v1/audits/:id/retest` runs the same checks again on the same audit (`202`). Send `anonKey`, `serviceKey` and `confirmTestProject: true` again; `projectUrl` is refused (`400`). The old findings stay visible until the new ones replace them in one step. A failed re-test keeps the old findings and shows `lastRetest.status` `failed`.
+- `GET /api/v1/audits/:id/certificate` answers `200` only when the audit is completed, has no LEAKED finding, at least one BLOCKED finding, and cleanup did not fail. Otherwise `409 NOT_ELIGIBLE`. The result is "no leak found by these checks", not a guarantee. `recordHash` is an integrity fingerprint, not a signature.
 
 ## Timeouts and cleanup
 - Every request to Supabase has its own 20 second timeout (one constant, `REQUEST_TIMEOUT_MS`). A stalled call gives the plain error "Supabase did not answer in time." Cleanup calls have their own timeouts too, so a slow request cannot stop the cleanup.
