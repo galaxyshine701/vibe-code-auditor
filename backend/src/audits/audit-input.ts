@@ -83,3 +83,34 @@ function parseKey(value: unknown, field: string): string {
   }
   return value.trim();
 }
+
+export interface RetestInput {
+  publishableKey: string;
+  secretKey: string;
+}
+
+/**
+ * Checks the POST /audits/:id/retest body. The keys are sent again every time
+ * because the backend never stores them. projectUrl is refused: the address
+ * saved with the audit is always used, so keys cannot be pointed elsewhere.
+ */
+export function parseRetestInput(body: unknown): RetestInput {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw invalid('Send a JSON object.');
+  }
+  const b = body as Record<string, unknown>;
+  if (Object.prototype.hasOwnProperty.call(b, 'projectUrl')) {
+    throw invalid(
+      'projectUrl is not accepted for a re-test. The address saved with the audit is always used.',
+    );
+  }
+  if (b.confirmTestProject !== true) {
+    throw invalid(
+      'Confirm this is a TEST project: set confirmTestProject to true.',
+    );
+  }
+  return {
+    publishableKey: parseKey(b.anonKey, 'anonKey'),
+    secretKey: parseKey(b.serviceKey, 'serviceKey'),
+  };
+}
