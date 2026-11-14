@@ -1,13 +1,15 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { createProverAgent, type RunContext } from '../agents/prover-agent.js';
+import { runPipeline } from '../agents/pipeline.js';
 import { ApiError } from '../common/api-error.js';
 import type { Gateway } from '../prover/gateway.js';
-import { runProver } from '../prover/prover.js';
 import { redact } from '../prover/redact.js';
 import {
   ProverError,
   type Finding,
   type ProverConfig,
+  type ProverResult,
 } from '../prover/types.js';
 import type { AuditInput, RetestInput } from './audit-input.js';
 import { buildCertificate, certificateBlocker } from './certificate.js';
@@ -238,6 +240,25 @@ export class AuditsService {
     return record;
   }
 
+  /** Runs the pipeline (today: the Prover only) and returns the Prover result. */
+  private async runAgents(
+    gateway: Gateway,
+    record: AuditRecord,
+    secrets: string[],
+  ): Promise<ProverResult> {
+    const context: RunContext = {};
+    await runPipeline(
+      [
+        createProverAgent(gateway, (percent) => {
+          record.progress = percent;
+        }),
+      ],
+      context,
+      { redact: (text) => redact(text, secrets) },
+    );
+    return context.prover!;
+  }
+
   private async execute(
     record: AuditRecord,
     config: ProverConfig,
@@ -246,13 +267,7 @@ export class AuditsService {
     this.logger.log(`${record.id} started`);
     try {
       const gateway = this.makeGateway(config);
-      const result = await runProver(
-        gateway,
-        () => {},
-        (percent) => {
-          record.progress = percent;
-        },
-      );
+      const result = await this.runAgents(gateway, record, secrets);
       record.findings = result.findings.map((f) => ({
         ...f,
         retest: { ...f.retest, previousVerdict: null },
@@ -296,13 +311,7 @@ export class AuditsService {
     this.logger.log(`${record.id} re-test started`);
     try {
       const gateway = this.makeGateway(config);
-      const result = await runProver(
-        gateway,
-        () => {},
-        (percent) => {
-          record.progress = percent;
-        },
-      );
+      const result = await this.runAgents(gateway, record, secrets);
       const finishedAt = new Date().toISOString();
       // Everything is worked out first, then swapped in together.
       const merged = mergeRetest(
