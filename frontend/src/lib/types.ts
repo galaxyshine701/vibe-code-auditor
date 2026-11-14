@@ -52,6 +52,8 @@ export interface Finding {
   severity: Severity;
   title: string;
   explanation: Explanation;
+  /** Who wrote explanation.en. Missing means the template text (R62). */
+  explanationSource?: 'template' | 'ai';
   evidence: FindingEvidence;
   fix: FindingFix | null;
   retest: FindingRetest;
@@ -68,6 +70,8 @@ export interface AuditModule {
   name: string;
   status: ModuleStatus;
   progress: number;
+  /** One plain sentence, only on a failed row (R62). */
+  message?: string;
 }
 
 export interface AuditError {

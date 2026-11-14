@@ -74,7 +74,7 @@ Error `400` `PRODUCTION_REFUSED` is reserved: version 1 of the backend cannot te
   "cleanup": null
 }
 ```
-Example only. Version 1 returns only `data-access-prover`.
+Example only. Version 1 returns `data-access-prover`, and also `report-agent` when the backend runs with the Report agent on (see "Additive fields: finding.explanationSource and the report-agent module").
 
 Additive fields:
 - `cleanup`: `"ok"` | `"failed"` | `null`. `null` while the audit is still running. `"failed"` means the temporary test users or canary rows could not be removed from the test project; the user should check it.
@@ -244,6 +244,26 @@ In `GET /audits/:id`. `null` until a re-test has been started.
 - `lastRunAt`: when the last successful re-test of this table finished; `null` if never. A failed re-test does not change it.
 - Findings are matched by `table`, never by position.
 
+### Additive fields: finding.explanationSource and the report-agent module
+Optional. They appear only when the backend runs with the Report agent on (`REPORT_AGENT=groq`). With it off (the default) nothing changes.
+```json
+"explanationSource": "ai"
+```
+```json
+"modules": [
+  { "id": "data-access-prover", "name": "Data Access Prover", "status": "completed", "progress": 100 },
+  { "id": "report-agent", "name": "Report agent", "status": "failed", "progress": 100, "message": "AI text was not used for 3 of 3 findings (the AI service is rate limited). Template text kept for those." }
+]
+```
+- `finding.explanationSource`: `"template"` | `"ai"`. It says who wrote `explanation.en`. If the field is missing, treat it as `"template"`.
+- An AI may write only `explanation.en`. `explanation.ur`, `title`, `verdict`, `severity`, `evidence`, `fix` and `retest` always come from the Prover's own code. An AI never changes them.
+- AI text is checked before it is used: format, length, no claim that an app is secure, safe, certified or guaranteed, and no contradiction of the verdict. A finding whose text fails the checks keeps the template text and gets `"template"`.
+- The Report agent runs after the Prover, in the same run, and after a Re-test. While it works, the Prover row is `completed`, the `report-agent` row is `running`, and the audit `status` is still `running`. The audit becomes `completed` after the Report agent has finished.
+- If the Report agent fails (timeout, rate limit, bad answer, no key), the audit still completes and the findings keep the template text. The `report-agent` row is `failed`. If some findings got AI text and some did not, the row is `failed` and its `message` says how many were not used.
+- If the Prover itself fails (the audit, or a Re-test), the Report agent never starts. Its row is then `failed` with the message "Not run: the audit did not finish." or "Not run: the Re-test did not finish."
+- `modules[].message`: optional, only on a `failed` row. One plain sentence. It never contains a key, a request or the AI's own text.
+- Privacy: table names and check results (never keys) are sent to Groq to write the explanation. A key, the project address, the canary row id, the reproducer and user ids are never sent.
+
 ### What happens to finding ids, tables and fixes between runs
 - A table that exists in both runs keeps the same finding `id`. A table that appears gets a new `id`, a `previousVerdict` of `null`, and `retest.status` by the rule above (so a new table that is `LEAKED` gets `failed`). A table that disappears is dropped from the list and is named in `lastRetest.tablesRemoved`; a dropped id is never reused. A table that disappeared is not proof that its leak was fixed, so the UI should show `tablesRemoved` to the user.
 - A finding that becomes `BLOCKED` or `INCONCLUSIVE` gets `fix: null` (those findings never have a fix). The approval is not kept; the `previousVerdict` of `LEAKED` and `retest.status = "passed"` tell the story.
@@ -267,7 +287,7 @@ Available only when ALL of these are true: the audit `status` is `completed` (no
 ```
 - `summary` is additive. It counts the findings of the run that made the audit eligible. `leaked` is not listed because it is always 0.
 - `issuedAt` is the time the latest completed run finished. It does not change between requests; it changes only after a new re-test.
-- `recordHash` is an integrity fingerprint, NOT a signature. It is the sha256 of the audit record (target label and URL, findings, summary, run times; never a key). It lets someone see that the record they hold matches the one that was hashed. It does not prove who made it, and anyone with the same record can compute the same value.
+- `recordHash` is an integrity fingerprint, NOT a signature. It is the sha256 of the audit record (target label and URL, findings without `explanation` and `explanationSource`, summary, run times; never a key). The wording of the explanation is not covered, because an AI may write it and it can differ between runs. It lets someone see that the record they hold matches the one that was hashed. It does not prove who made it, and anyone with the same record can compute the same value.
 - Wording: this is "no leak found by these checks". It is not a statement that the app is secure, safe or certified.
 
 ## Access code (all `/audits` routes)
