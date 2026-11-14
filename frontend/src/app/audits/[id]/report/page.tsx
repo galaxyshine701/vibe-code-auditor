@@ -10,6 +10,7 @@ import { CoverageNotes } from '@/components/coverage-notes';
 import { Disclaimer } from '@/components/disclaimer';
 import { ErrorBanner } from '@/components/error-banner';
 import { FindingCard } from '@/components/finding-card';
+import { FixProgress } from '@/components/fix-progress';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { RetestForm } from '@/components/retest-form';
 import { getAudit, getFindings, retest } from '@/lib/api';
@@ -424,6 +425,7 @@ export default function ReportPage() {
                 <strong>Blocked</strong>
               </div>
             </div>
+            <FixProgress findings={findings} retestActive={retestActive} />
             {leakedCount === 0 && blockedCount >= 1 ? (
               <>
                 <p className="no-leak-line">No leak found by these checks.</p>

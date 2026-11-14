@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.5)
+# Frontend specification: Vibe Code Auditor (v0.5.6)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.6 | 15 Nov 2026 | Fix progress on the Report screen: "N of M findings verified fixed" (R63). |
 | v0.5.5 | 14 Nov 2026 | Report agent (optional AI text): `finding.explanationSource`, `modules[].message`, the `report-agent` module and the Groq privacy line (R62). `recordHash` no longer covers the explanation text. |
 | v0.5.4 | 14 Nov 2026 | `retest.status` `passed` is kept by later Re-tests (R10, R53). |
 | v0.5.3 | 14 Nov 2026 | Disclaimer sentence changed (R35, R39). Coverage section on the Report screen (R61). |
@@ -284,6 +285,16 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R62.** Report agent (optional, additive fields). (a) If a module has a `message`, the Progress screen shows it as one line under that module's row. The frontend does not add modules (R11): the `report-agent` row is shown only when the backend returns it. (b) If a finding has `explanationSource` `"ai"`, the Report screen shows the small label "Written by AI" under the English explanation. Missing means `"template"` and no label. The Roman Urdu text is always the template text. (c) The Connect screen always shows this line under the description of the form: "Table names and check results (never keys) are sent to Groq to write the explanation." The frontend cannot know whether the Report agent is on, so the line is always shown.
 
+**R63.** Fix progress (Report screen). When at least one finding was LEAKED, the summary card shows "N of M findings verified fixed by a Re-test", with a bar. It is a count, not a score: no percentage, no grade, no ranking.
+- N counts findings with `verdict` `BLOCKED`, `retest.status` `passed` and `retest.previousVerdict` `LEAKED`. `passed` alone is not enough: the backend also gives `passed` to a finding that went from LEAKED to INCONCLUSIVE, and that is not a fix.
+- M counts findings that were LEAKED: `verdict` `LEAKED`, or `passed` with `previousVerdict` `LEAKED` (fixed, or INCONCLUSIVE now).
+- A finding that went from LEAKED to INCONCLUSIVE is in M, not in N. The screen says how many tables are INCONCLUSIVE after the Re-test and not counted as fixed.
+- When M is 0 nothing is shown (no "100%").
+- The numbers come from the real findings, not from the copies shown as `running` during a Re-test. While a Re-test runs, the last numbers stay and a line says so.
+- A failed Re-test changes nothing here (R51). If a Re-test makes a finding LEAKED again, N goes down.
+- Nothing is stored: the numbers are worked out from the findings each time.
+- The tests for fix progress run in the backend for now (`backend/test/frontend/progress.spec.ts`). Add vitest to the frontend when its `package-lock.json` can be generated on Linux.
+
 ---
 
 # Part 2: Screen guidance
@@ -432,3 +443,4 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 25. `frontend/README.md` has a "Design notes" section and eight screenshots: four screens in light and dark (R60).
 26. The Report screen has a coverage section with the lists Checked, Not covered and Limits (R61). The sentence in R39 is shown on the Report and Certificate screens.
 27. A module `message` is shown under its row; a finding with `explanationSource` `"ai"` shows "Written by AI"; the Connect screen shows the Groq line (R62).
+28. The summary card shows "N of M findings verified fixed by a Re-test" only when a leak was found; a LEAKED -> INCONCLUSIVE finding is not counted as fixed (R63).

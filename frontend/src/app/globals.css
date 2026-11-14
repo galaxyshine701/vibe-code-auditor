@@ -1664,6 +1664,23 @@ h4 {
   margin-top: 0;
 }
 
+.fix-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.fix-progress p {
+  margin: 0;
+}
+
+.fix-progress-line strong {
+  color: var(--ink);
+}
+
 .summary-card {
   padding: 20px;
 }
