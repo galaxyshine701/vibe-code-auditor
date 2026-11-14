@@ -317,7 +317,14 @@ async function checkTable(
       httpStatus: first.res.status,
       rowsReturned: first.res.rows.length,
     };
-    return buildFinding(findingId, input, [...new Set(leaks.map((l) => l.op))]);
+    const reached: Partial<Record<Culprit, AttackOperation[]>> = {};
+    for (const l of leaks) (reached[l.culprit] ??= []).push(l.op);
+    return buildFinding(
+      findingId,
+      input,
+      [...new Set(leaks.map((l) => l.op))],
+      reached,
+    );
   }
 
   // Nobody else got anything. That only counts as "protected" if the owner can

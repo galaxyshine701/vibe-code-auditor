@@ -1,4 +1,4 @@
-import { buildReproducer } from '../../src/prover/findings.js';
+import { buildFinding, buildReproducer } from '../../src/prover/findings.js';
 import { loadConfig } from '../../src/prover/config.js';
 import { runProver } from '../../src/prover/prover.js';
 import { redact } from '../../src/prover/redact.js';
@@ -307,6 +307,124 @@ describe('Owner positive control and INSERT', () => {
     expect(sql).toContain('for insert to authenticated with check');
     expect(sql).not.toContain('for update');
     expect(sql).not.toContain('for delete');
+  });
+});
+
+describe('LEAKED title and explanation match what was reached', () => {
+  type Ops = Array<'SELECT' | 'UPDATE' | 'DELETE'>;
+  const leaked = (reached: { user?: Ops; anon?: Ops }) => {
+    const all = [
+      ...new Set([...(reached.user ?? []), ...(reached.anon ?? [])]),
+    ];
+    return buildFinding(
+      'fnd_001',
+      {
+        table: 'bookings',
+        ownerColumn: 'user_id',
+        verdict: 'LEAKED',
+        operation: 'SELECT',
+        culprit: reached.user ? 'user' : 'anon',
+        ownerValue: 'u1',
+        httpStatus: 200,
+        rowsReturned: 1,
+        canaryRowId: 'c1',
+        operations: [],
+      },
+      all,
+      reached,
+    );
+  };
+
+  it('read only (a logged-in user)', () => {
+    const f = leaked({ user: ['SELECT'] });
+    expect(f.title).toBe(
+      `Any logged-in user can read other users' rows in "bookings"`,
+    );
+    expect(f.explanation.en).toContain('A logged-in user could read it.');
+    expect(f.explanation.en).not.toMatch(/change|delete/);
+    expect(f.explanation.ur).toContain('Login wala user ise parh sakta tha.');
+  });
+
+  it('read and update', () => {
+    const f = leaked({ user: ['SELECT', 'UPDATE'] });
+    expect(f.title).toBe(
+      `Any logged-in user can read and change other users' rows in "bookings"`,
+    );
+    expect(f.explanation.en).toContain(
+      'A logged-in user could read and change it.',
+    );
+    expect(f.explanation.en).not.toContain('delete');
+    expect(f.explanation.ur).toContain('parh aur badal sakta tha.');
+  });
+
+  it('read, update and delete', () => {
+    const f = leaked({ user: ['DELETE', 'SELECT', 'UPDATE'] }); // order does not matter
+    expect(f.title).toBe(
+      `Any logged-in user can read, change and delete other users' rows in "bookings"`,
+    );
+    expect(f.explanation.en).toContain(
+      'A logged-in user could read, change and delete it.',
+    );
+    expect(f.explanation.ur).toContain('parh, badal aur delete kar sakta tha.');
+  });
+
+  it('a visitor who can only read', () => {
+    const f = leaked({ anon: ['SELECT'] });
+    expect(f.title).toBe(
+      `Any visitor can read other users' rows in "bookings"`,
+    );
+    expect(f.explanation.en).toContain('A visitor could read it.');
+    expect(f.explanation.en).not.toContain('logged-in');
+  });
+
+  it('both actors: one exact sentence per actor', () => {
+    const f = leaked({
+      user: ['SELECT', 'UPDATE', 'DELETE'],
+      anon: ['SELECT'],
+    });
+    expect(f.title).toBe(
+      `Visitors and logged-in users can read, change and delete other users' rows in "bookings"`,
+    );
+    expect(f.explanation.en).toContain(
+      'A logged-in user could read, change and delete it. A visitor could read it.',
+    );
+    expect(f.explanation.ur).toContain(
+      'Login wala user ise parh, badal aur delete kar sakta tha. Bina login wala visitor ise parh sakta tha.',
+    );
+  });
+
+  it('from a real run: everything open gives read, change and delete', async () => {
+    const [f] = (
+      await runProver(
+        new FakeGateway([
+          { name: 'bookings', policy: 'off', ownerColumn: 'user_id' },
+        ]),
+      )
+    ).findings;
+    expect(f.title).toBe(
+      `Visitors and logged-in users can read, change and delete other users' rows in "bookings"`,
+    );
+    expect(f.explanation.en).toContain(
+      'A logged-in user could read, change and delete it. A visitor could read it.',
+    );
+  });
+
+  it('from a real run: read-only table gives read, and the verdict logic is the same', async () => {
+    const [f] = (
+      await runProver(
+        new FakeGateway([
+          { name: 'notes', policy: 'public-read', ownerColumn: 'owner_id' },
+        ]),
+      )
+    ).findings;
+    expect(f.title).toBe(
+      `Visitors and logged-in users can read other users' rows in "notes"`,
+    );
+    expect(f.explanation.en).not.toMatch(/change|delete/);
+    expect(f.verdict).toBe('LEAKED');
+    expect(f.severity).toBe('critical');
+    expect(f.operation).toBe('SELECT');
+    expect(f.fix!.sql).not.toContain('for update');
   });
 });
 
