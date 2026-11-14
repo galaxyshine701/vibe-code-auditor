@@ -74,10 +74,10 @@ const BOOKINGS_LEAKED: Finding = {
   operation: 'SELECT',
   verdict: 'LEAKED',
   severity: 'critical',
-  title: 'Any logged-in user can read other users\' rows in "bookings"',
+  title: 'Visitors and logged-in users can read, change and delete other users\' rows in "bookings"',
   explanation: {
-    en: 'The second test user was able to read a row that belongs to the first user. The table has no rule that limits rows to their owner.',
-    ur: 'Doosra test user ne pehle user ki row parh li. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare.',
+    en: 'A row that belongs to the first user was reached. A logged-in user could read, change and delete it. A visitor could read it. The table has no rule that limits rows to their owner.',
+    ur: 'Pehle user ki row tak doosre log pahunch gaye. Login wala user ise parh, badal aur delete kar sakta tha. Bina login wala visitor ise parh sakta tha. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare.',
   },
   evidence: {
     rowsReturned: 1,
@@ -120,7 +120,7 @@ const BOOKINGS_LEAKED: Finding = {
     status: 'proposed',
     description:
       'Turn on row-level security and let users reach only their own rows. If a broader policy already exists on this table, remove it, because policies add up. Review before applying.',
-    sql: 'alter table "bookings" enable row level security;\ncreate policy "Owners can select own rows" on "bookings" for select to authenticated using ((select auth.uid()) = "user_id");\ncreate policy "Owners can update own rows" on "bookings" for update to authenticated using ((select auth.uid()) = "user_id") with check ((select auth.uid()) = "user_id");\ncreate policy "Owners can delete own rows" on "bookings" for delete to authenticated using ((select auth.uid()) = "user_id");',
+    sql: 'alter table public."bookings" enable row level security;\ncreate policy "Owners can select own rows" on public."bookings" for select to authenticated using ((select auth.uid()) = "user_id");\ncreate policy "Owners can insert own rows" on public."bookings" for insert to authenticated with check ((select auth.uid()) = "user_id");\ncreate policy "Owners can update own rows" on public."bookings" for update to authenticated using ((select auth.uid()) = "user_id") with check ((select auth.uid()) = "user_id");\ncreate policy "Owners can delete own rows" on public."bookings" for delete to authenticated using ((select auth.uid()) = "user_id");',
   },
   retest: { status: 'not_run', lastRunAt: null },
 };

@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { ErrorBanner } from './error-banner';
+import { SecretInput } from './secret-input';
 
 // The keys live in the parent's memory state only (R26). The Re-test needs
 // both keys again every time and the test-project tick (R33, R6).
@@ -47,24 +48,18 @@ export function RetestForm({
       <div className="field-row">
         <label className="field">
           <span>Publishable key</span>
-          <input
-            type="password"
+          <SecretInput
             value={anonKey}
             onChange={(event) => onAnonKey(event.target.value)}
-            autoComplete="new-password"
-            spellCheck={false}
             maxLength={4096}
             required
           />
         </label>
         <label className="field">
           <span>Secret key</span>
-          <input
-            type="password"
+          <SecretInput
             value={serviceKey}
             onChange={(event) => onServiceKey(event.target.value)}
-            autoComplete="new-password"
-            spellCheck={false}
             maxLength={4096}
             required
           />

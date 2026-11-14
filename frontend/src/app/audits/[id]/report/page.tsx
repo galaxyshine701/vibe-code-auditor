@@ -18,6 +18,7 @@ import {
   RequestCancelledError,
 } from '@/lib/errors';
 import { sortFindings } from '@/lib/findings';
+import { unverifiedText } from '@/lib/format';
 import type { AuditStatusResponse, Finding } from '@/lib/types';
 import { useApiError } from '@/lib/use-api-error';
 
@@ -276,6 +277,7 @@ export default function ReportPage() {
       : findings;
   const leakedCount = audit?.summary.leaked ?? 0;
   const blockedCount = audit?.summary.blocked ?? 0;
+  const inconclusiveCount = audit?.summary.inconclusive ?? 0;
   const canOpenCertificate =
     audit?.status === 'completed' &&
     !retestActive &&
@@ -423,7 +425,14 @@ export default function ReportPage() {
               </div>
             </div>
             {leakedCount === 0 && blockedCount >= 1 ? (
-              <p className="no-leak-line">No leak found by these checks.</p>
+              <>
+                <p className="no-leak-line">No leak found by these checks.</p>
+                {inconclusiveCount > 0 ? (
+                  <p className="muted small">
+                    {unverifiedText(inconclusiveCount)}
+                  </p>
+                ) : null}
+              </>
             ) : null}
           </section>
 
@@ -465,9 +474,6 @@ export default function ReportPage() {
               ))
             : null}
 
-          <Disclaimer />
-          <CoverageNotes summary="What these checks cover and what they do not" />
-
           <div className="findings-heading">
             <h2>Findings</h2>
             {findings ? (
@@ -499,6 +505,10 @@ export default function ReportPage() {
               />
             ))}
           </div>
+
+          <Disclaimer>
+            <CoverageNotes summary="Checked, not covered and limits" />
+          </Disclaimer>
         </>
       )}
     </div>

@@ -30,6 +30,11 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** "1 table could not be verified." / "2 tables could not be verified." */
+export function unverifiedText(count: number): string {
+  return `${count} ${count === 1 ? 'table' : 'tables'} could not be verified.`;
+}
+
 export function progressWidth(progress: number): string {
   const safe = Math.max(0, Math.min(100, Math.round(progress)));
   return `${safe}%`;

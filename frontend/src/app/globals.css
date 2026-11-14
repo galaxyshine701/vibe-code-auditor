@@ -2054,6 +2054,31 @@ h4 {
   margin-bottom: 0;
 }
 
+.disclaimer-card .disclosure-body h3 {
+  margin: 18px 0 4px;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: inherit;
+}
+
+.disclaimer-card .disclosure-body h3:first-child {
+  margin-top: 0;
+}
+
+.disclaimer-card .disclosure-body ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.disclaimer-card .disclosure-body li {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
 .fix-disclosure {
   border-color: var(--line-strong);
 }

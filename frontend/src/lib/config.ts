@@ -1,3 +1,5 @@
+import { COVERAGE } from './coverage';
+
 const DEFAULT_API_BASE_URL = 'http://localhost:4000';
 
 export const API_BASE_URL = (
@@ -10,7 +12,6 @@ export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 export const NETWORK_ERROR_MESSAGE =
   'Cannot reach the server. Check your connection and try again.';
 
-export const DISCLAIMER =
-  'This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.';
+export const DISCLAIMER = COVERAGE.statement;
 
 export const REQUEST_TIMEOUT_MS = 20_000;
