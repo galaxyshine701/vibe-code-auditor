@@ -15,6 +15,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "prove": "nest build && node dist/prover/cli.js",
+    "smoke:groq": "nest build && node dist/report/smoke.js",
     "lint": "oxlint --type-aware src/ test/",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -194,6 +194,9 @@ export default function ProgressPage() {
                       style={{ width: progressWidth(module.progress) }}
                     />
                   </div>
+                  {module.message ? (
+                    <p className="muted small">{module.message}</p>
+                  ) : null}
                 </div>
               ))}
             </div>

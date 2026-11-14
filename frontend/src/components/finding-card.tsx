@@ -150,6 +150,9 @@ export function FindingCard({
 
       <h3>{finding.title}</h3>
       <p className="finding-explanation">{explanation}</p>
+      {finding.explanationSource === 'ai' && language !== 'ur' ? (
+        <p className="muted small">Written by AI</p>
+      ) : null}
 
       <ActorDiagram operations={operations} verdict={finding.verdict} />
 

@@ -8,5 +8,7 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
+    // The Report agent is off in tests, whatever the shell has set.
+    env: { REPORT_AGENT: 'off', GROQ_API_KEY: '', GROQ_MODEL: '' },
   },
 });
