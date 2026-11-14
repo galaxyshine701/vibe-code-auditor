@@ -1681,6 +1681,105 @@ h4 {
   color: var(--ink);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.badges-card h2 {
+  margin: 0 0 4px;
+}
+
+.badges-card p,
+.badge-notice p {
+  margin: 8px 0 0;
+}
+
+.badge-notice {
+  margin-top: 20px;
+}
+
+.badge-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.badge[data-earned="true"] {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.badge-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.badge[data-earned="true"] .badge-dot {
+  background: var(--ok);
+}
+
+.badge-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.badge-detail {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+/* The one animation: it runs once, for a badge the user's own action just
+   earned (R65). The decorative ring uses the canary colour; every text stays
+   --ink or --muted, so both themes keep their contrast. */
+.badge[data-celebrate="true"] {
+  animation: badgePop 0.7s ease-out 1 both;
+}
+
+@keyframes badgePop {
+  0% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 var(--canary-glow);
+  }
+  60% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge[data-celebrate="true"] {
+    animation: none;
+  }
+}
+
 .summary-card {
   padding: 20px;
 }

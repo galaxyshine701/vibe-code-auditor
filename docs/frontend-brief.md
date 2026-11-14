@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.6)
+# Frontend specification: Vibe Code Auditor (v0.5.7)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.7 | 15 Nov 2026 | Badges: First audit, First leak fixed, No leak found; kept in this browser; one animation (R64, R65). |
 | v0.5.6 | 15 Nov 2026 | Fix progress on the Report screen: "N of M findings verified fixed" (R63). |
 | v0.5.5 | 14 Nov 2026 | Report agent (optional AI text): `finding.explanationSource`, `modules[].message`, the `report-agent` module and the Groq privacy line (R62). `recordHash` no longer covers the explanation text. |
 | v0.5.4 | 14 Nov 2026 | `retest.status` `passed` is kept by later Re-tests (R10, R53). |
@@ -295,6 +296,19 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 - Nothing is stored: the numbers are worked out from the findings each time.
 - The tests for fix progress run in the backend for now (`backend/test/frontend/progress.spec.ts`). Add vitest to the frontend when its `package-lock.json` can be generated on Linux.
 
+**R64.** Badges (Report and Progress screens). Three badges, earned only from real results, kept in this browser (`localStorage`, key `vca-badges-v1`) and nowhere else:
+- First audit: the audit is `completed`.
+- First leak fixed: a Re-test finished and at least one finding is verified fixed (R63). A finding that became INCONCLUSIVE is not a fix.
+- No leak found (certificate eligible): `summary.leaked` is 0, `summary.blocked` is at least 1 and `cleanup` is not `failed` (the rule of R35). It is always shown with the sentence of R39. When `summary.inconclusive` is above 0, the badge also says "N tables could not be verified."
+- Nothing is earned while a Re-test runs, and nothing is earned from a failed Re-test (R51).
+- What is stored: for each badge the date it was earned and one flag. No key, address, access code, name of a table or id of an audit. Reading checks the shape and drops everything else. If the storage is blocked or full, the badges stay in memory for that page and nothing breaks. There is no sync between tabs.
+- Badges are an encouragement, not proof: a person can edit the storage. They are not part of the certificate or its `recordHash`, and the screen says they are saved in this browser only. The words "secure", "safe" and "certified" are never used (R38).
+- The Report screen shows all three. The Progress screen shows only a badge the user has just earned.
+- No score, no ranking, no leaderboard.
+- The tests run in the backend for now (`backend/test/frontend/badges.spec.ts`), like those of R63.
+
+**R65.** Badge animation. A badge plays one short animation, once, and only when the user's own action produced it: the Progress screen saw the audit the user started change from queued or running to completed, or the Report screen saw the Re-test the user started finish. A badge that is earned only because a page was opened (for example after a refresh, or in another browser) appears without animation. After the animation it is stored as shown and never plays again. With `prefers-reduced-motion: reduce` there is no animation; the line "Badge earned: ..." (`role="status"`) tells the user instead. Colours come from the CSS variables of both themes; the text is always `--ink` or `--muted`.
+
 ---
 
 # Part 2: Screen guidance
@@ -444,3 +458,5 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 26. The Report screen has a coverage section with the lists Checked, Not covered and Limits (R61). The sentence in R39 is shown on the Report and Certificate screens.
 27. A module `message` is shown under its row; a finding with `explanationSource` `"ai"` shows "Written by AI"; the Connect screen shows the Groq line (R62).
 28. The summary card shows "N of M findings verified fixed by a Re-test" only when a leak was found; a LEAKED -> INCONCLUSIVE finding is not counted as fixed (R63).
+29. Badges: First audit, First leak fixed and No leak found are earned only by the rules of R64, are stored only as a date and a flag under `vca-badges-v1`, and are not given for a failed or running Re-test. The text says "saved in this browser" and the R39 sentence is shown (R64).
+30. A badge animates once, only for the user's own action, never after a refresh, and not at all with reduced motion; both themes keep readable text (R65).

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessGate } from '@/components/access-gate';
 import { useApp } from '@/components/app-provider';
+import { BadgeStrip } from '@/components/badges';
 import { CleanupWarning } from '@/components/cleanup-warning';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { Disclaimer } from '@/components/disclaimer';
@@ -13,6 +14,7 @@ import { FindingCard } from '@/components/finding-card';
 import { FixProgress } from '@/components/fix-progress';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { RetestForm } from '@/components/retest-form';
+import { useBadges } from '@/components/use-badges';
 import { getAudit, getFindings, retest } from '@/lib/api';
 import {
   ApiError,
@@ -47,6 +49,11 @@ export default function ReportPage() {
   const [retestConfirmed, setRetestConfirmed] = useState(false);
   const [pollError, setPollError] = useState('');
   const [pollTick, setPollTick] = useState(0);
+  // Badges (R64). `retestAsked` is true after the user pressed Re-test, until
+  // this page has seen the result: only then a badge gets its animation (R65).
+  const badges = useBadges();
+  const evaluateBadges = badges.evaluate;
+  const retestAsked = useRef(false);
 
   useEffect(() => {
     if (!accessCode) return;
@@ -151,6 +158,23 @@ export default function ReportPage() {
     };
   }, [accessCode, handleApiError, id, pollTick, retestRunning]);
 
+  useEffect(() => {
+    if (!audit || !findings || loading || gone) return;
+    const retestActive = retestRunning || audit.lastRetest?.status === 'running';
+    evaluateBadges({
+      auditCompleted: audit.status === 'completed',
+      retestActive,
+      lastRetestStatus: audit.lastRetest?.status ?? null,
+      findings,
+      leaked: audit.summary.leaked,
+      blocked: audit.summary.blocked,
+      cleanup: audit.cleanup,
+      actionObserved: retestAsked.current,
+    });
+    // The result of the user's Re-test has been seen, finished or failed.
+    if (!retestActive) retestAsked.current = false;
+  }, [audit, evaluateBadges, findings, gone, loading, retestRunning]);
+
   async function startRetest() {
     if (!accessCode) return;
     setRetestError('');
@@ -170,6 +194,7 @@ export default function ReportPage() {
       setRetestServiceKey('');
       setRetestConfirmed(false);
       setShowRetestForm(false);
+      retestAsked.current = true;
       setRetestRunning(true);
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 404) {
@@ -437,6 +462,13 @@ export default function ReportPage() {
               </>
             ) : null}
           </section>
+
+          <BadgeStrip
+            state={badges.state}
+            celebrating={badges.celebrating}
+            onCelebrated={badges.finishCelebration}
+            inconclusiveCount={inconclusiveCount}
+          />
 
           {!retestActive && lastRetest?.status === 'completed' ? (
             <div className="notice notice-success" role="status">

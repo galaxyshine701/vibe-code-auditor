@@ -5,9 +5,11 @@ import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { AccessGate } from '@/components/access-gate';
 import { useApp } from '@/components/app-provider';
+import { BadgeNotice } from '@/components/badges';
 import { CleanupWarning } from '@/components/cleanup-warning';
 import { ErrorBanner } from '@/components/error-banner';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
+import { useBadges } from '@/components/use-badges';
 import { getAudit } from '@/lib/api';
 import { formatDate, progressWidth } from '@/lib/format';
 import {
@@ -37,6 +39,11 @@ export default function ProgressPage() {
   const [retryTick, setRetryTick] = useState(0);
 
   const timer = useRef<number | undefined>(undefined);
+  // Badges (R64). The audit was started by the user: if this page saw it
+  // queued or running, the badge it earns gets its animation (R65).
+  const badges = useBadges();
+  const evaluateBadges = badges.evaluate;
+  const sawRunning = useRef(false);
 
   useEffect(() => {
     if (!accessCode) return;
@@ -55,7 +62,19 @@ export default function ProgressPage() {
         setWaiting(false);
         setError('');
         if (result.status === 'queued' || result.status === 'running') {
+          sawRunning.current = true;
           timer.current = window.setTimeout(poll, 2_000);
+        } else if (result.status === 'completed') {
+          evaluateBadges({
+            auditCompleted: true,
+            retestActive: false,
+            lastRetestStatus: result.lastRetest?.status ?? null,
+            findings: null,
+            leaked: result.summary.leaked,
+            blocked: result.summary.blocked,
+            cleanup: result.cleanup,
+            actionObserved: sawRunning.current,
+          });
         }
       } catch (caught) {
         if (cancelled || caught instanceof RequestCancelledError) return;
@@ -77,7 +96,7 @@ export default function ProgressPage() {
       controller.abort();
       if (timer.current !== undefined) window.clearTimeout(timer.current);
     };
-  }, [accessCode, handleApiError, id, retryTick]);
+  }, [accessCode, evaluateBadges, handleApiError, id, retryTick]);
 
   if (!accessCode) {
     return (
@@ -216,6 +235,16 @@ export default function ProgressPage() {
                   <strong>Blocked</strong>
                 </div>
               </div>
+            ) : null}
+
+            {status === 'completed' ? (
+              <BadgeNotice
+                state={badges.state}
+                justEarned={badges.justEarned}
+                celebrating={badges.celebrating}
+                onCelebrated={badges.finishCelebration}
+                inconclusiveCount={audit.summary.inconclusive}
+              />
             ) : null}
 
             {status === 'completed' ? (
