@@ -24,7 +24,7 @@ Rules
 - `finding.severity`: `critical` | `high` | `medium` | `low` | `info`
 - `fix.status`: `proposed` | `approved` | `applied` | `rejected`
 - Version 1 returns only `proposed` and `approved`. `applied` and `rejected` are reserved.
-- `retest.status`: `not_run` | `running` | `passed` | `failed`. `running` on every finding while a re-test is going on. After a re-test: `failed` = the verdict is now `LEAKED`, `passed` = it was `LEAKED` and is not now, `not_run` = anything else (see "POST /audits/:id/retest").
+- `retest.status`: `not_run` | `running` | `passed` | `failed`. `running` on every finding while a re-test is going on. After a re-test: `failed` = the verdict is now `LEAKED`, `passed` = it was `LEAKED` and is not now (it stays `passed` in later re-tests while the verdict is not `LEAKED`), `not_run` = anything else (see "POST /audits/:id/retest").
 
 ## Endpoints
 
@@ -211,8 +211,8 @@ While the re-test runs
 
 When the re-test finishes successfully: `audit.status` is `completed` again, and each finding's `retest.status` is set by this rule, comparing the new verdict with the verdict from the run before:
 - `failed`: the verdict is now `LEAKED` (a leak was found again).
-- `passed`: the verdict was `LEAKED` and is not `LEAKED` now.
-- `not_run`: in every other case. In particular, a finding that was already `BLOCKED` or `INCONCLUSIVE` and still is gets `not_run`, and a second re-test resets an earlier `passed` to `not_run`. The history lives in `retest.previousVerdict`.
+- `passed`: the verdict was `LEAKED` and is not `LEAKED` now. `passed` is kept: in every later re-test a finding that is `passed` stays `passed` while its verdict is not `LEAKED`. Its `previousVerdict` stays `LEAKED`, and only `lastRunAt` changes. If its verdict is `LEAKED` again, the status is `failed` and `previousVerdict` is the verdict from the run before.
+- `not_run`: in every other case. In particular, a finding that was already `BLOCKED` or `INCONCLUSIVE` and still is gets `not_run`. A second re-test does not reset an earlier `passed`. The history lives in `retest.previousVerdict`.
 
 When the re-test fails (wrong keys, the Prover cannot run, network error)
 - The audit is NOT marked `failed`. `audit.status` goes back to `completed`, the old findings stay exactly as they were (their `retest.status` returns to the value it had before the re-test started), and the user can press Re-test again at once.
@@ -240,7 +240,7 @@ In `GET /audits/:id`. `null` until a re-test has been started.
 ```json
 "retest": { "status": "passed", "lastRunAt": "2026-11-12T12:20:40Z", "previousVerdict": "LEAKED" }
 ```
-- `previousVerdict`: `LEAKED` | `BLOCKED` | `INCONCLUSIVE` | `null`. The verdict of the same table in the run before. `null` when there was no run before (the first audit) or the table is new.
+- `previousVerdict`: `LEAKED` | `BLOCKED` | `INCONCLUSIVE` | `null`. The verdict of the same table in the run before; while `retest.status` is `passed` it stays `LEAKED`. `null` when there was no run before (the first audit) or the table is new.
 - `lastRunAt`: when the last successful re-test of this table finished; `null` if never. A failed re-test does not change it.
 - Findings are matched by `table`, never by position.
 

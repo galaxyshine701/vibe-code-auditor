@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.3)
+# Frontend specification: Vibe Code Auditor (v0.5.4)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.4 | 14 Nov 2026 | `retest.status` `passed` is kept by later Re-tests (R10, R53). |
 | v0.5.3 | 14 Nov 2026 | Disclaimer sentence changed (R35, R39). Coverage section on the Report screen (R61). |
 | v0.5.2 | 13 Nov 2026 | Approve fix, Re-test and Certificate are built (R2). Re-test sends the keys again and never `projectUrl` (R33). New fields `lastRetest` and `retest.previousVerdict`, and the fix status after a Re-test (R10, R14). Errors `NO_FIX_TO_APPROVE`, `NOT_ELIGIBLE` and Re-test `INVALID_INPUT` (R47 to R49). Re-test running, failed Re-test, added and removed tables, previous verdict (R50 to R53). Certificate rule and body changed (R35). Mock rules changed (R43 to R46). Design requirements (R54 to R60). |
 | v0.5.1 | 11 Nov 2026 | Keys are cleared only after a successful `202`. On `400`, `401`, `409`, `429` and network errors they stay in memory (R4, R18, R29, checklist 4 and 10). Priority rule over chat messages added. Re-test example in the contract changed to `running`. |
@@ -129,9 +130,9 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 - `reproducer` holds placeholders (`<PROJECT_URL>`, `<ANON_KEY>`, `<USER_B_JWT>`), never real values. It is `null` when there is nothing to reproduce.
 - `fix` is `null` when there is nothing to fix. A finding whose verdict is `BLOCKED` or `INCONCLUSIVE` has `fix` `null`. The frontend must not show an empty fix section.
 - `fix.status` is `proposed` or `approved` (R30).
-- `retest.status` is `not_run`, `running`, `passed` or `failed`. `running`: a Re-test is going on. `failed`: the verdict is now `LEAKED`. `passed`: the verdict was `LEAKED` and is not now. `not_run`: every other case.
+- `retest.status` is `not_run`, `running`, `passed` or `failed`. `running`: a Re-test is going on. `failed`: the verdict is now `LEAKED`. `passed`: the verdict was `LEAKED` and is not now; it stays `passed` in later Re-tests until the verdict is `LEAKED` again. `not_run`: every other case.
 - `retest.lastRunAt` is the time the last successful Re-test of this table finished, or `null`.
-- `retest.previousVerdict` is `LEAKED`, `BLOCKED`, `INCONCLUSIVE` or `null`. It is the verdict of the same table in the run before. It is `null` for the first audit and for a table that is new.
+- `retest.previousVerdict` is `LEAKED`, `BLOCKED`, `INCONCLUSIVE` or `null`. It is the verdict of the same table in the run before; while `retest.status` is `passed` it stays `LEAKED`. It is `null` for the first audit and for a table that is new.
 - After a Re-test, a table that was in both runs keeps the same finding `id`. The frontend must match findings by `id`.
 - After a Re-test, a finding that is still `LEAKED` has the fix proposed now. If the SQL is the same as before, `fix.status` stays as it was. If the SQL is different, `fix.status` is `proposed` again. The frontend must show the status it receives and must not keep an earlier "approved" for changed SQL.
 - After a Re-test, a finding that is now `BLOCKED` or `INCONCLUSIVE` has `fix` `null` and no approval.
@@ -238,7 +239,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R52.** If `lastRetest.tablesAdded` is not empty, the frontend must show the table names. If `lastRetest.tablesRemoved` is not empty, it must show the table names with the text "This table was not checked in the last re-test."
 
-**R53.** If `retest.previousVerdict` is not `null` and differs from `verdict`, the finding must show both, for example "was LEAKED, now BLOCKED". If `previousVerdict` is `null` or missing, it shows nothing.
+**R53.** If `retest.previousVerdict` is not `null` and differs from `verdict`, the finding must show both, for example "was LEAKED, now BLOCKED". If `previousVerdict` is `null` or missing, it shows nothing. After a second Re-test a fixed finding still shows `passed` and "was LEAKED, now BLOCKED".
 
 ## 1.7 Wording
 
