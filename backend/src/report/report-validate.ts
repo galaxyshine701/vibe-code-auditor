@@ -1,5 +1,6 @@
 import type { Finding } from '../prover/types.js';
 import { MAX_EXPLANATION_CHARS } from './limits.js';
+import { unknownWords } from './report-vocabulary.js';
 
 /** Claims the product must never make (R38). Run only after table names are removed. */
 const BANNED =
@@ -51,9 +52,46 @@ export function removeTableNames(text: string, tables: string[]): string {
   return out;
 }
 
+/** Typographic marks an AI often writes, with the plain ASCII mark for each. */
+const PLAIN_MARKS: [RegExp, string][] = [
+  [/[\u2018\u2019\u201a\u201b\u2032]/g, "'"],
+  [/[\u201c\u201d\u201e\u201f\u2033]/g, '"'],
+  [/[\u2010-\u2015\u2212]/g, '-'],
+  [/\u2026/g, '...'],
+];
+
+/**
+ * Makes the text plain before it is checked and before it is kept:
+ * NFKC (so full-width letters become normal letters), typographic quotes and
+ * dashes become ASCII, every space-like character (no-break space, narrow
+ * space, thin space, ideographic space ...) becomes one normal space.
+ * Anything that is still not plain ASCII (zero-width characters, letters of
+ * another alphabet that only look like ours, symbols) means the text is not
+ * used: it returns null. An invisible character could hide a banned word.
+ */
+export function sanitizeExplanation(text: string): string | null {
+  let out = text.normalize('NFKC');
+  for (const [pattern, plain] of PLAIN_MARKS) out = out.replace(pattern, plain);
+  out = out
+    .replace(/\p{Zs}/gu, ' ')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+  return /[^\x20-\x7e]/.test(out) ? null : out;
+}
+
+/** Splits a text into sentences at . ! ? followed by a space. */
+function sentencesOf(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+/).filter((part) => part.trim() !== '');
+}
+
 export type TextProblem =
   | 'length'
   | 'shape'
+  | 'characters'
+  | 'sentences'
+  | 'vocabulary'
+  | 'inconclusive-word'
+  | 'verdict-word'
   | 'claim'
   | 'severity'
   | 'hedge'
@@ -66,10 +104,13 @@ export function checkExplanation(
   finding: Pick<Finding, 'verdict'>,
   tables: string[],
 ): TextProblem | null {
-  if (text.length < 1 || text.length > MAX_EXPLANATION_CHARS) return 'length';
+  // Line breaks, tabs and other control characters are refused as they are.
   if (NOT_ALLOWED_SHAPE.some((pattern) => pattern.test(text))) return 'shape';
+  const clean = sanitizeExplanation(text);
+  if (clean === null) return 'characters';
+  if (clean.length < 1 || clean.length > MAX_EXPLANATION_CHARS) return 'length';
 
-  const stripped = removeTableNames(text, tables);
+  const stripped = removeTableNames(clean, tables);
   if (BANNED.test(stripped)) return 'claim';
   if (SEVERITY_WORDS.test(stripped)) return 'severity';
   if (finding.verdict !== 'INCONCLUSIVE' && HEDGE_WORDS.test(stripped)) {
@@ -88,7 +129,63 @@ export function checkExplanation(
       return 'contradicts-verdict';
     }
   }
+
+  // Exactly two sentences. The second is the result for the app owner and
+  // carries the verdict word, in capitals, as the Prover wrote it.
+  const sentences = sentencesOf(clean);
+  if (sentences.length !== 2) return 'sentences';
+  if (!sentences[1].includes(finding.verdict)) return 'verdict-word';
   return null;
+}
+
+/** Words an INCONCLUSIVE sentence must not use: they would sound like a clear answer. */
+const NOT_FOR_INCONCLUSIVE =
+  /\b(?:block(?:ed|s|ing)?|denied|deny|denies|denying|protect(?:ed|s|ing|ion)?|safe|secure[ds]?)\b/i;
+
+/**
+ * Checks the one sentence the AI writes, before the program adds the result
+ * sentence: only words of the closed vocabulary (table names are removed
+ * first), plain punctuation, and for INCONCLUSIVE none of the words that
+ * sound like a clear answer.
+ */
+export function checkSentence(
+  sentence: string,
+  finding: Pick<Finding, 'verdict'>,
+  tables: string[],
+): TextProblem | null {
+  const stripped = removeTableNames(sentence, tables);
+  if (
+    finding.verdict === 'INCONCLUSIVE' &&
+    NOT_FOR_INCONCLUSIVE.test(stripped)
+  ) {
+    return 'inconclusive-word';
+  }
+  if (/[^A-Za-z0-9 ,'_-]/.test(stripped)) return 'vocabulary';
+  if (unknownWords(stripped, finding.verdict).length > 0) return 'vocabulary';
+  return null;
+}
+
+/** The words outside the vocabulary, for the smoke script (never for logs). */
+export function wordsOutsideVocabulary(
+  sentence: string,
+  finding: Pick<Finding, 'verdict'>,
+  tables: string[],
+): string[] {
+  return unknownWords(removeTableNames(sentence, tables), finding.verdict);
+}
+
+/**
+ * Makes the sentence of the AI into the whole explanation. The program, not
+ * the AI, adds the second sentence with the verdict word.
+ * Returns null when the AI wrote more than one sentence or nothing.
+ */
+export function composeExplanation(
+  sentence: string,
+  finding: Pick<Finding, 'verdict'>,
+): string | null {
+  const body = sentence.replace(/[.!?\s]+$/, '');
+  if (body === '' || /[.!?]/.test(body)) return null;
+  return `${body}. The table is ${finding.verdict}.`;
 }
 
 export interface ParsedChunk {
@@ -126,23 +223,37 @@ export function parseChunk(content: string, chunk: Finding[]): ParsedChunk {
   const bad = new Set<string>();
   for (const item of (data as { items: unknown[] }).items) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-    const { id, explanation, ...extra } = item as Record<string, unknown>;
+    const { id, sentence, ...extra } = item as Record<string, unknown>;
     if (typeof id !== 'string' || !byId.has(id)) continue;
     if (seen.has(id)) {
       bad.add(id);
       continue;
     }
     seen.add(id);
-    if (typeof explanation !== 'string' || Object.keys(extra).length > 0) {
+    if (typeof sentence !== 'string' || Object.keys(extra).length > 0) {
       bad.add(id);
       continue;
     }
-    const text = explanation.trim();
-    if (checkExplanation(text, byId.get(id)!, tables) !== null) {
+    const finding = byId.get(id)!;
+    const clean = sanitizeExplanation(sentence);
+    if (
+      clean === null ||
+      checkSentence(clean.replace(/[.!?\s]+$/, ''), finding, tables) !== null
+    ) {
       bad.add(id);
       continue;
     }
-    accepted.set(id, text);
+    const composed = composeExplanation(clean, finding);
+    // the checks of the whole text (two sentences, the verdict word, claims,
+    // severity, soft words, the verdict) run on the text that is kept
+    if (
+      composed === null ||
+      checkExplanation(composed, finding, tables) !== null
+    ) {
+      bad.add(id);
+      continue;
+    }
+    accepted.set(id, composed);
   }
   // an id that appeared twice is not trusted at all
   for (const id of bad) accepted.delete(id);

@@ -227,8 +227,7 @@ describe('createReportAgent', () => {
           content: JSON.stringify({
             items: ids.map((id) => ({
               id,
-              explanation:
-                'User B was able to read the row. The table is LEAKED.',
+              sentence: 'User B was able to read the row.',
             })),
           }),
           finishReason: 'stop',
@@ -255,8 +254,7 @@ describe('createReportAgent', () => {
               JSON.parse(request.user) as { findings: { id: string }[] }
             ).findings.map((f) => ({
               id: f.id,
-              explanation:
-                'User B was able to read the row. The table is LEAKED.',
+              sentence: 'User B was able to read the row.',
             })),
           }),
           finishReason: 'stop',

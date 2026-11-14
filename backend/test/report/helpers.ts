@@ -110,11 +110,19 @@ export function idsIn(request: LlmRequest): string[] {
   return data.findings.map((f) => f.id);
 }
 
-/** The text goodAnswer writes: two sentences with the verdict word. */
-export const goodText = (verdict: string) =>
-  `Each actor was checked on the test row. The table is ${verdict}.`;
+/** The one sentence goodAnswer writes, in the closed vocabulary, for each verdict. */
+export const goodSentence = (verdict: string) =>
+  verdict === 'LEAKED'
+    ? 'User B was able to read the row, while the visitor was blocked.'
+    : verdict === 'BLOCKED'
+      ? 'User B and the visitor were blocked, and the owner was able to read the row.'
+      : 'User B and the visitor did not see any row, and the owner could not read its own row, so the result cannot be trusted.';
 
-/** A good answer for every finding of a request. */
+/** The whole explanation the program composes from that sentence. */
+export const goodText = (verdict: string) =>
+  `${goodSentence(verdict)} The table is ${verdict}.`;
+
+/** A good answer for every finding of a request: one sentence each. */
 export function goodAnswer(
   request: LlmRequest,
   text?: (id: string) => string,
@@ -126,7 +134,7 @@ export function goodAnswer(
     content: JSON.stringify({
       items: data.findings.map((f) => ({
         id: f.id,
-        explanation: text ? text(f.id) : goodText(f.verdict),
+        sentence: text ? text(f.id) : goodSentence(f.verdict),
       })),
     }),
     finishReason: 'stop',

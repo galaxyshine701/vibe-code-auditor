@@ -32,4 +32,4 @@ export const CALL_TIMEOUT_MS = 20_000;
 export const BUDGET_MS = 45_000;
 
 /** Change this number whenever the prompt changes. */
-export const PROMPT_VERSION = 1;
+export const PROMPT_VERSION = 2;
