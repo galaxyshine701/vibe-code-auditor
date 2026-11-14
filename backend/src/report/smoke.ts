@@ -185,6 +185,18 @@ function oddCharacters(text: string): string {
   return odd.length ? [...new Set(odd)].join(' ') : 'none';
 }
 
+/** The text with every character that is not plain ASCII written as \u{code}. */
+function escaped(text: string): string {
+  return [...text]
+    .map((c) => {
+      const code = c.codePointAt(0)!;
+      return code >= 0x20 && code <= 0x7e
+        ? c
+        : `\\u{${code.toString(16).toUpperCase()}}`;
+    })
+    .join('');
+}
+
 const client = createGroqClient({ apiKey, model, fetchImpl: peekingFetch });
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 let anyRejected = false;
@@ -240,10 +252,28 @@ async function call(label: string, findings: Finding[], showEach: boolean) {
         print(
           `  characters that are not plain ASCII: ${oddCharacters(sentence)}`,
         );
+        print(`  JSON.stringify(sentence): ${JSON.stringify(sentence)}`);
       }
       if (kept !== undefined) {
         print('  validator: accepted');
         print(`  final composed text: ${kept}`);
+        if (sentence !== undefined) {
+          // The sentence of the AI and the composed text without the line the
+          // program adds. Only a trailing full stop may differ.
+          const before = sentence.replace(/[.!?\s]+$/, '');
+          const after = kept
+            .replace(` The table is ${finding.verdict}.`, '')
+            .replace(/[.!?\s]+$/, '');
+          if (before !== after) {
+            print('  TEXT CHANGED:');
+            print(
+              `    before: ${JSON.stringify(before)}  ascii-escaped: ${escaped(before)}  length: ${before.length}`,
+            );
+            print(
+              `    after:  ${JSON.stringify(after)}  ascii-escaped: ${escaped(after)}  length: ${after.length}`,
+            );
+          }
+        }
       } else {
         const clean =
           sentence === undefined ? null : sanitizeExplanation(sentence);
