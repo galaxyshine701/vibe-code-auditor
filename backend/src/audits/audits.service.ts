@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { createProverAgent, type RunContext } from '../agents/prover-agent.js';
+import type { Agent, AgentState } from '../agents/agent.js';
 import { runPipeline } from '../agents/pipeline.js';
+import { createProverAgent, type RunContext } from '../agents/prover-agent.js';
 import { ApiError } from '../common/api-error.js';
 import type { Gateway } from '../prover/gateway.js';
 import { redact } from '../prover/redact.js';
@@ -14,6 +15,8 @@ import {
 import type { AuditInput, RetestInput } from './audit-input.js';
 import { buildCertificate, certificateBlocker } from './certificate.js';
 import { mergeRetest } from './retest-merge.js';
+import { createReportAgent, REPORT_AGENT_ID } from '../report/report-agent.js';
+import { REPORT_SETUP, type ReportSetup } from '../report/report-config.js';
 
 export type AuditStatus = 'queued' | 'running' | 'completed' | 'failed';
 
@@ -51,6 +54,16 @@ interface AuditRecord {
   /** the next finding number to hand out; a number is never used twice */
   nextFindingNumber: number;
   lastRetest: LastRetest | null;
+  /** The Prover has finished (used while the Report agent is still working). */
+  proverDone: boolean;
+  /** The Report agent's row. null when the Report agent is off. */
+  reportRow: ReportRow | null;
+}
+
+interface ReportRow {
+  status: AuditStatus;
+  progress: number;
+  message?: string;
 }
 
 const MODULE_ID = 'data-access-prover';
@@ -77,7 +90,15 @@ export class AuditsService {
 
   constructor(
     @Inject(GATEWAY_FACTORY) private readonly makeGateway: GatewayFactory,
+    @Inject(REPORT_SETUP) private readonly reportSetup: ReportSetup,
   ) {}
+
+  /** The Report agent's row at the start of a run; none when it is off. */
+  private initialReportRow(): ReportRow | null {
+    return this.reportSetup.mode === 'groq'
+      ? { status: 'queued', progress: 0 }
+      : null;
+  }
 
   /** Starts an audit and returns at once. The work continues in the background. */
   start(input: AuditInput): { id: string; status: AuditStatus } {
@@ -97,6 +118,8 @@ export class AuditsService {
       completedAt: null,
       nextFindingNumber: 1,
       lastRetest: null,
+      proverDone: false,
+      reportRow: this.initialReportRow(),
     };
     this.audits.set(record.id, record);
     this.runningId = record.id;
@@ -133,6 +156,8 @@ export class AuditsService {
     }
     record.status = 'running';
     record.progress = 0;
+    record.proverDone = false;
+    record.reportRow = this.initialReportRow();
     record.lastRetest = {
       status: 'running',
       startedAt: new Date().toISOString(),
@@ -207,9 +232,26 @@ export class AuditsService {
         {
           id: MODULE_ID,
           name: 'Data Access Prover',
-          status: record.status,
+          // While the Report agent still works, the Prover's own row is done.
+          status:
+            record.reportRow && record.proverDone
+              ? ('completed' as const)
+              : record.status,
           progress: record.progress,
         },
+        ...(record.reportRow
+          ? [
+              {
+                id: REPORT_AGENT_ID,
+                name: 'Report agent',
+                status: record.reportRow.status,
+                progress: record.reportRow.progress,
+                ...(record.reportRow.message
+                  ? { message: record.reportRow.message }
+                  : {}),
+              },
+            ]
+          : []),
       ],
       cleanup: record.cleanup,
       ...(record.cleanupNote ? { cleanupNote: record.cleanupNote } : {}),
@@ -240,23 +282,61 @@ export class AuditsService {
     return record;
   }
 
-  /** Runs the pipeline (today: the Prover only) and returns the Prover result. */
+  /**
+   * Runs the pipeline: the Prover, then the Report agent when it is on.
+   * Returns the Prover result; the Report agent has already put its text into
+   * the findings of that result.
+   */
   private async runAgents(
     gateway: Gateway,
     record: AuditRecord,
     secrets: string[],
   ): Promise<ProverResult> {
     const context: RunContext = {};
-    await runPipeline(
-      [
-        createProverAgent(gateway, (percent) => {
-          record.progress = percent;
-        }),
-      ],
-      context,
-      { redact: (text) => redact(text, secrets) },
-    );
+    const agents: Agent<RunContext>[] = [
+      createProverAgent(gateway, (percent) => {
+        record.progress = percent;
+      }),
+    ];
+    const setup = this.reportSetup;
+    if (setup.mode === 'groq') {
+      agents.push(
+        createReportAgent({ llm: setup.llm, problem: setup.problem }),
+      );
+    }
+    const allSecrets =
+      setup.mode === 'groq' ? [...secrets, setup.secret] : secrets;
+
+    await runPipeline(agents, context, {
+      redact: (text) => redact(text, allSecrets),
+      onState: (states) => this.showStates(record, states),
+    });
     return context.prover!;
+  }
+
+  /**
+   * The Prover failed, so the Report agent never started. Its row says so,
+   * instead of staying "queued" for ever.
+   */
+  private markReportNotRun(record: AuditRecord, message: string): void {
+    if (record.reportRow?.status === 'queued') {
+      record.reportRow = { status: 'failed', progress: 0, message };
+    }
+  }
+
+  /** Copies the agents' states to the record. Does nothing when only the Prover runs. */
+  private showStates(record: AuditRecord, states: AgentState[]): void {
+    const report = states[1];
+    if (!report) return;
+    if (states[0].status === 'completed') {
+      record.progress = 100;
+      record.proverDone = true;
+    }
+    record.reportRow = {
+      status: report.status,
+      progress: report.progress,
+      ...(report.message ? { message: report.message } : {}),
+    };
   }
 
   private async execute(
@@ -280,6 +360,7 @@ export class AuditsService {
       record.status = 'completed';
     } catch (error) {
       const known = error instanceof ProverError ? error : null;
+      this.markReportNotRun(record, 'Not run: the audit did not finish.');
       record.status = 'failed';
       record.cleanup = known?.cleanup ?? null;
       record.cleanupNote = known?.cleanupNote ?? null;
@@ -335,6 +416,7 @@ export class AuditsService {
       };
     } catch (error) {
       const known = error instanceof ProverError ? error : null;
+      this.markReportNotRun(record, 'Not run: the Re-test did not finish.');
       if (known?.cleanup) {
         record.cleanup = known.cleanup;
         record.cleanupNote = known.cleanupNote ?? null;

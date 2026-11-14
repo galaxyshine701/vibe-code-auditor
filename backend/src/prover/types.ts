@@ -47,6 +47,11 @@ export interface Finding {
   severity: Severity;
   title: string;
   explanation: { en: string; ur: string };
+  /**
+   * Who wrote explanation.en. Set only when the Report agent is on (REPORT_AGENT=groq);
+   * missing means the Prover's own template text.
+   */
+  explanationSource?: 'template' | 'ai';
   evidence: {
     rowsReturned: number | null;
     httpStatus: number | null;
