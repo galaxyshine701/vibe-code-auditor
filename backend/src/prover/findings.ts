@@ -128,7 +128,7 @@ export function buildFinding(
       ...base,
       verdict: 'BLOCKED',
       severity: 'info',
-      title: `"${input.table}" is protected`,
+      title: `"${input.table}": other users and visitors were blocked`,
       explanation: {
         en: "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
         ur: 'Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila.',

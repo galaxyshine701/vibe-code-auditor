@@ -169,8 +169,8 @@ export function ActorDiagram({
       </div>
 
       <p className="actor-legend">
-        Owner A is the control. User B and Anon are the attempts. A canary dot is
-        a test row, not a real user row.
+        Owner A is the control. User B and Anon are the attempts. The canary
+        row is a temporary row the auditor adds and removes.
       </p>
     </div>
   );

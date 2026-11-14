@@ -429,9 +429,6 @@ export function HeroMotion() {
       <p key={`${phase}-summary`} className="motion-summary">
         {copy.summary}
       </p>
-      <p className="motion-caption motion-caption-muted">
-        Evidence from these checks, not a guarantee.
-      </p>
 
       <div className="motion-controls">
         <span className="motion-controls-label">Example run</span>

@@ -7,7 +7,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Vibe Code Auditor',
   description:
-    'Test what another user can read or change in a Supabase test project.',
+    'Find out what another user can read, change or delete in a Supabase project.',
 };
 
 const themeScript = `(function(){try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='light'||q==='dark')?q:localStorage.getItem('vca-theme');if(t!=='light'&&t!=='dark'){t='dark';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
@@ -34,11 +34,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <main className="site-main">{children}</main>
           <footer className="site-footer">
             <div className="shell footer-inner">
-              <p>
-                Vibe Code Auditor checks test projects only. Results are
-                evidence from the checks that ran, not a guarantee.
-              </p>
-              <p className="footer-note">Evidence, not a guarantee.</p>
+              <p>Vibe Code Auditor · Supabase access checks</p>
             </div>
           </footer>
         </AppProvider>

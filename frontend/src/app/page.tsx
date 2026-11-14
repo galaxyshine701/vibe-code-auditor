@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
+import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroMotion } from '@/components/hero-motion';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
@@ -162,10 +163,13 @@ export default function ConnectPage() {
             <div>
               <h2 id="start-heading">Start an audit</h2>
               <p className="muted small">
-                Use a Supabase test project, never production.
+                Connect a staging or test project.
+              </p>
+              <p className="muted small">
+                The auditor adds two temporary users and one canary row per
+                table, then removes them.
               </p>
             </div>
-            <span className="pill pill-outline">Test project</span>
           </div>
 
           <form onSubmit={submit} className="stack" noValidate>
@@ -275,7 +279,7 @@ export default function ConnectPage() {
                 <div>
                   <strong>Two temporary users</strong>
                   <p>
-                    The auditor signs up user A and user B in your test project.
+                    The auditor signs up user A and user B in your project.
                   </p>
                 </div>
               </li>
@@ -306,8 +310,9 @@ export default function ConnectPage() {
             <h2>What this means</h2>
             <p>
               A clean result means <strong>no leak found by these checks</strong>
-              . It is not a guarantee that the app is secure.
+              .
             </p>
+            <CoverageNotes summary="See what they cover." />
             <dl className="truth-legend">
               <div>
                 <dt className="legend-dot legend-leaked" />

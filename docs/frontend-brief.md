@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.2)
+# Frontend specification: Vibe Code Auditor (v0.5.3)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.3 | 14 Nov 2026 | Disclaimer sentence changed (R35, R39). Coverage section on the Report screen (R61). |
 | v0.5.2 | 13 Nov 2026 | Approve fix, Re-test and Certificate are built (R2). Re-test sends the keys again and never `projectUrl` (R33). New fields `lastRetest` and `retest.previousVerdict`, and the fix status after a Re-test (R10, R14). Errors `NO_FIX_TO_APPROVE`, `NOT_ELIGIBLE` and Re-test `INVALID_INPUT` (R47 to R49). Re-test running, failed Re-test, added and removed tables, previous verdict (R50 to R53). Certificate rule and body changed (R35). Mock rules changed (R43 to R46). Design requirements (R54 to R60). |
 | v0.5.1 | 11 Nov 2026 | Keys are cleared only after a successful `202`. On `400`, `401`, `409`, `429` and network errors they stay in memory (R4, R18, R29, checklist 4 and 10). Priority rule over chat messages added. Re-test example in the contract changed to `running`. |
 | v0.5 | 11 Nov 2026 | Rewritten as a numbered specification. Four screens as in the contract. Decisions added for access code, offline handling, base address, ordering, language, fix status, certificate and re-test. Backend behaviour for unknown ids, failed audits, `label` and restarts stated from the code. |
@@ -218,7 +219,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
   "result": "NO_LEAK_FOUND_BY_THESE_CHECKS",
   "checksRun": ["data-access-prover"],
   "summary": { "blocked": 2, "inconclusive": 1 },
-  "disclaimer": "This is evidence that specific checks passed. It is not a guarantee that the app is secure.",
+  "disclaimer": "This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.",
   "recordHash": "<sha256 of the audit record>"
 }
 ```
@@ -243,7 +244,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R38.** The UI must say "no leak found by these checks". It must not use the phrase "certificate of security". It must not call a result "secure", "safe" or "certified".
 
-**R39.** The disclaimer "This is evidence that specific checks passed. It is not a guarantee that the app is secure." must appear on the Report screen and on the Certificate screen.
+**R39.** The sentence "This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor." must appear on the Report screen and on the Certificate screen.
 
 **R40.** An empty findings list must show "No findings". It must not claim that the app is secure.
 
@@ -276,6 +277,8 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 **R59.** The app must be an installable PWA, with a web app manifest and a service worker. The service worker must not cache any API response, and must not cache any request that carries the access code.
 
 **R60.** `frontend/README.md` must contain a short "Design notes" section and screenshots of the four screens in both themes (eight screenshots).
+
+**R61.** The Report screen must show a coverage section. It lists what is checked, what is not covered and the limits, as written in `frontend/src/lib/coverage.ts`. It states that tables where no owner column can be detected are reported as inconclusive.
 
 ---
 
@@ -423,3 +426,4 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 23. The key fields are labelled "Publishable key" and "Secret key". `anonKey` and `serviceKey` appear nowhere in the UI (R58).
 24. The app has a manifest and a service worker and can be installed. In DevTools > Application > Cache Storage there is no API response and no request that carried the access code (R59).
 25. `frontend/README.md` has a "Design notes" section and eight screenshots: four screens in light and dark (R60).
+26. The Report screen has a coverage section with the lists Checked, Not covered and Limits (R61). The sentence in R39 is shown on the Report and Certificate screens.

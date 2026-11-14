@@ -3,7 +3,7 @@ import type { Finding } from '../prover/types.js';
 
 export const CERTIFICATE_RESULT = 'NO_LEAK_FOUND_BY_THESE_CHECKS';
 export const CERTIFICATE_DISCLAIMER =
-  'This is evidence that specific checks passed. It is not a guarantee that the app is secure.';
+  'This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.';
 
 /** What the certificate needs to know about an audit. No keys, ever. */
 export interface CertificateSubject {

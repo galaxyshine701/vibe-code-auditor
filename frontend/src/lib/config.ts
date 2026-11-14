@@ -11,6 +11,6 @@ export const NETWORK_ERROR_MESSAGE =
   'Cannot reach the server. Check your connection and try again.';
 
 export const DISCLAIMER =
-  'This is evidence that specific checks passed. It is not a guarantee that the app is secure.';
+  'This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.';
 
 export const REQUEST_TIMEOUT_MS = 20_000;
