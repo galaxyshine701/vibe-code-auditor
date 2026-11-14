@@ -15,6 +15,7 @@ import {
   findingsOf,
   getAudit,
   goodAnswer,
+  goodText,
   groqSetup,
   idsIn,
   post,
@@ -102,7 +103,7 @@ describe('Report agent on, answers fine', () => {
     expect(findings).toHaveLength(3);
     for (const f of findings) {
       expect(f.explanationSource).toBe('ai');
-      expect(f.explanation.en).toBe(`AI text for ${f.id}.`);
+      expect(f.explanation.en).toBe(goodText(f.verdict));
     }
     expect(llm.requests).toHaveLength(1);
   });
@@ -178,7 +179,7 @@ describe('Report agent on, but the text cannot be used', () => {
 
       for (const f of await findingsOf(app, id)) {
         expect(f.explanationSource).toBe('template');
-        expect(f.explanation.en).not.toMatch(/^AI text/);
+        expect(f.explanation.en).not.toBe(goodText(f.verdict));
       }
     },
   );

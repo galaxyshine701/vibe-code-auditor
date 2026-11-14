@@ -110,14 +110,24 @@ export function idsIn(request: LlmRequest): string[] {
   return data.findings.map((f) => f.id);
 }
 
+/** The text goodAnswer writes: two sentences with the verdict word. */
+export const goodText = (verdict: string) =>
+  `Each actor was checked on the test row. The table is ${verdict}.`;
+
 /** A good answer for every finding of a request. */
 export function goodAnswer(
   request: LlmRequest,
-  text: (id: string) => string = (id) => `AI text for ${id}.`,
+  text?: (id: string) => string,
 ): LlmAnswer {
+  const data = JSON.parse(request.user) as {
+    findings: { id: string; verdict: string }[];
+  };
   return {
     content: JSON.stringify({
-      items: idsIn(request).map((id) => ({ id, explanation: text(id) })),
+      items: data.findings.map((f) => ({
+        id: f.id,
+        explanation: text ? text(f.id) : goodText(f.verdict),
+      })),
     }),
     finishReason: 'stop',
   };

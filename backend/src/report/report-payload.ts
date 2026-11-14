@@ -3,13 +3,13 @@ import type { Finding } from '../prover/types.js';
 /**
  * What the AI sees about one finding. Built field by field (an allowlist), so a
  * new field on Finding is never sent by accident. Not sent: keys, the project
- * address, the canary row id, the reproducer, user ids, the fix SQL.
+ * address, the canary row id, the reproducer, user ids, the fix SQL, and the
+ * severity (the text must not mention it).
  */
 export interface PayloadFinding {
   id: string;
   table: string;
   verdict: Finding['verdict'];
-  severity: Finding['severity'];
   hasFix: boolean;
   operations: {
     operation: string;
@@ -26,7 +26,6 @@ export function buildPayload(findings: Finding[]): PayloadFinding[] {
     id: f.id,
     table: f.table,
     verdict: f.verdict,
-    severity: f.severity,
     hasFix: f.fix !== null,
     operations: f.evidence.operations.map((o) => ({
       operation: o.operation,

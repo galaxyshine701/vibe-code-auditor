@@ -5,6 +5,18 @@ import { MAX_EXPLANATION_CHARS } from './limits.js';
 const BANNED =
   /\b(?:secure(?:d|s|ly)?|safe(?:ly|ty)?|certified|certificate|guarantee[ds]?)\b/i;
 
+/** The text must not rate the finding: the Prover's severity is not for the AI to restate. */
+const SEVERITY_WORDS =
+  /\b(?:critical|severe(?:ly)?|severity|high|major|medium|minor|low)\b/i;
+
+/**
+ * Words that soften a fact. Not allowed on LEAKED and BLOCKED. "could" is
+ * blocked only when it hedges ("could be", "could mean"): "could read" and
+ * "could not" describe what an actor was able to do, so they stay allowed.
+ */
+const HEDGE_WORDS =
+  /\b(?:indicat(?:e|es|ed|ing)|suggest(?:s|ed|ing)?|may|might|risks?|risky|potential(?:ly)?)\b|\bcould\s+(?:be|have|indicate|suggest|mean|lead|result|allow|expose|cause)\b/i;
+
 const NOT_ALLOWED_SHAPE: RegExp[] = [
   /https?:\/\/|www\./i,
   /eyJ/,
@@ -39,7 +51,14 @@ export function removeTableNames(text: string, tables: string[]): string {
   return out;
 }
 
-export type TextProblem = 'length' | 'shape' | 'claim' | 'contradicts-verdict';
+export type TextProblem =
+  | 'length'
+  | 'shape'
+  | 'claim'
+  | 'severity'
+  | 'hedge'
+  | 'contradicts-verdict'
+  | 'missing-leak';
 
 /** Returns what is wrong with an explanation, or null when it can be used. */
 export function checkExplanation(
@@ -52,11 +71,17 @@ export function checkExplanation(
 
   const stripped = removeTableNames(text, tables);
   if (BANNED.test(stripped)) return 'claim';
+  if (SEVERITY_WORDS.test(stripped)) return 'severity';
+  if (finding.verdict !== 'INCONCLUSIVE' && HEDGE_WORDS.test(stripped)) {
+    return 'hedge';
+  }
 
   if (finding.verdict === 'LEAKED') {
     if (/\bno leaks?\b|\bnot leak(?:ed|ing)?\b/i.test(stripped)) {
       return 'contradicts-verdict';
     }
+    // A LEAKED finding must say so.
+    if (!/\bleak(?:ed|s|ing)?\b/i.test(stripped)) return 'missing-leak';
   } else {
     const rest = stripped.replace(NO_LEAK_PHRASE, ' ');
     if (/\b(?:leaks?|leaked|leaking|exposed|vulnerable)\b/i.test(rest)) {

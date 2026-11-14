@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Finding } from '../../src/prover/types.js';
 import { buildPayload } from '../../src/report/report-payload.js';
+import { buildPrompt } from '../../src/report/report-prompt.js';
 import {
   checkExplanation,
   parseChunk,
@@ -46,23 +47,33 @@ const check = (text: string, verdict: Finding['verdict'], tables: string[]) =>
 describe('banned words, after table names are removed', () => {
   it('accepts a correct answer that names a table called safe_deposit', () => {
     const text =
-      'Another logged-in user could read, change and delete a row of safe_deposit.';
+      'Another logged-in user could read, change and delete a row of safe_deposit. The table is LEAKED.';
     expect(check(text, 'LEAKED', ['safe_deposit'])).toBeNull();
   });
 
   it('accepts a correct answer about a table whose whole name is a banned word', () => {
     expect(
-      check('Anyone could read rows of certificate.', 'LEAKED', [
-        'certificate',
-      ]),
+      check(
+        'Anyone could read rows of certificate. The table is LEAKED.',
+        'LEAKED',
+        ['certificate'],
+      ),
     ).toBeNull();
     expect(
-      check('A visitor could read the rows of safe.', 'LEAKED', ['safe']),
+      check(
+        'A visitor could read the rows of safe. The table is LEAKED.',
+        'LEAKED',
+        ['safe'],
+      ),
     ).toBeNull();
     // the same words without a table of that name are still claims
-    expect(check('A visitor could read the rows of safe.', 'LEAKED', [])).toBe(
-      'claim',
-    );
+    expect(
+      check(
+        'A visitor could read the rows of safe. The table is LEAKED.',
+        'LEAKED',
+        [],
+      ),
+    ).toBe('claim');
   });
 
   it('rejects "this table is safe"', () => {
@@ -130,7 +141,7 @@ describe('what an answer may not contain', () => {
 
   it('rejects an empty text and a text longer than 400 characters', () => {
     expect(check('', 'LEAKED', [])).toBe('length');
-    expect(check('a'.repeat(400), 'LEAKED', [])).toBeNull();
+    expect(check('a'.repeat(400), 'INCONCLUSIVE', [])).toBeNull();
     expect(check('a'.repeat(401), 'LEAKED', [])).toBe('length');
   });
 });
@@ -162,7 +173,10 @@ describe('parseChunk', () => {
   it('accepts good items and counts the rest', () => {
     const parsed = parseChunk(
       answer([
-        { id: 'f1', explanation: 'Anyone logged in could read bookings.' },
+        {
+          id: 'f1',
+          explanation: 'User B was able to read bookings. The table is LEAKED.',
+        },
         { id: 'f2', explanation: 'this table is safe' },
       ]),
       chunk,
@@ -175,8 +189,15 @@ describe('parseChunk', () => {
   it('accepts a correct answer about safe_deposit', () => {
     const parsed = parseChunk(
       answer([
-        { id: 'f1', explanation: 'A logged-in user could read bookings.' },
-        { id: 'f2', explanation: 'A visitor could read rows of safe_deposit.' },
+        {
+          id: 'f1',
+          explanation: 'User B was able to read bookings. The table is LEAKED.',
+        },
+        {
+          id: 'f2',
+          explanation:
+            'A visitor was able to read rows of safe_deposit. The table is LEAKED.',
+        },
       ]),
       chunk,
     );
@@ -228,7 +249,6 @@ describe('the payload', () => {
       'hasFix',
       'id',
       'operations',
-      'severity',
       'table',
       'verdict',
     ]);
@@ -242,5 +262,167 @@ describe('the payload', () => {
     const text = JSON.stringify(item);
     expect(text).not.toContain('canary-123');
     expect(text).not.toContain('supabase.co');
+  });
+});
+
+describe('the tightened rules', () => {
+  it('rejects the example that hedges and rates the finding', () => {
+    const text =
+      'User B was able to read and delete a row they should not access, while an anonymous visitor was blocked. The owner could read the row as expected. This indicates a critical data leak.';
+    expect(check(text, 'LEAKED', ['bookings'])).not.toBeNull();
+  });
+
+  it('accepts the example with two plain sentences and the verdict word', () => {
+    const text =
+      "User B could read and delete the owner's row, while an anonymous visitor was blocked. The table is LEAKED.";
+    expect(check(text, 'LEAKED', ['bookings'])).toBeNull();
+  });
+
+  it('accepts "could not" on INCONCLUSIVE', () => {
+    const text =
+      'The owner could not read the test row, so the other actors could not be compared. The table is INCONCLUSIVE.';
+    expect(check(text, 'INCONCLUSIVE', ['bookings'])).toBeNull();
+  });
+
+  it('rejects a LEAKED text that never says leak or LEAKED', () => {
+    expect(
+      check(
+        'User B was able to read the row, while the visitor was blocked. The table has a problem.',
+        'LEAKED',
+        [],
+      ),
+    ).toBe('missing-leak');
+    expect(
+      check(
+        'User B was able to read the row. The table is LEAKED.',
+        'LEAKED',
+        [],
+      ),
+    ).toBeNull();
+    expect(
+      check('User B was able to read the row. A leak was found.', 'LEAKED', []),
+    ).toBeNull();
+  });
+
+  describe('severity words, on every verdict', () => {
+    const words = ['critical', 'severe', 'severity', 'high', 'major', 'low'];
+    const verdicts = ['LEAKED', 'BLOCKED', 'INCONCLUSIVE'] as const;
+    for (const verdict of verdicts) {
+      it.each(words)(`rejects "%s" on ${verdict}`, (word) => {
+        const text = `This is a ${word} case. The table is ${verdict}.`;
+        expect(check(text, verdict, [])).toBe('severity');
+      });
+    }
+
+    it('does not reject a table whose name holds such a word', () => {
+      expect(
+        check(
+          'User B was able to read high_scores. The table is LEAKED.',
+          'LEAKED',
+          ['high_scores'],
+        ),
+      ).toBeNull();
+      expect(
+        check('User B was able to read low. The table is LEAKED.', 'LEAKED', [
+          'low',
+        ]),
+      ).toBeNull();
+    });
+  });
+
+  describe('hedge words', () => {
+    const hedges = [
+      'This indicates a leak.',
+      'This suggests a leak.',
+      'Data may leak.',
+      'Data might leak.',
+      'There is a risk of a leak.',
+      'This is a potential leak.',
+      'This could be a leak.',
+    ];
+    it.each(hedges)('rejects "%s" on LEAKED', (text) => {
+      expect(check(text, 'LEAKED', [])).toBe('hedge');
+    });
+    it.each([
+      'This indicates that nobody got rows.',
+      'It may be fine, it might not. The table is BLOCKED.',
+      'There is no risk found. The table is BLOCKED.',
+      'This could mean no rows came back. The table is BLOCKED.',
+    ])('rejects "%s" on BLOCKED', (text) => {
+      expect(check(text, 'BLOCKED', [])).toBe('hedge');
+    });
+    it('allows them on INCONCLUSIVE', () => {
+      expect(
+        check(
+          'This may mean the owner column is missing, so it could not be checked. The table is INCONCLUSIVE.',
+          'INCONCLUSIVE',
+          [],
+        ),
+      ).toBeNull();
+    });
+    it('does not treat "could read" or "could not" as a hedge', () => {
+      expect(
+        check('User B could read the row. The table is LEAKED.', 'LEAKED', []),
+      ).toBeNull();
+      expect(
+        check(
+          'User B could not read the row. The table is BLOCKED.',
+          'BLOCKED',
+          [],
+        ),
+      ).toBeNull();
+    });
+  });
+
+  it('keeps the old checks: a claim and a contradiction are still rejected', () => {
+    expect(
+      check('The app is secure. The table is BLOCKED.', 'BLOCKED', []),
+    ).toBe('claim');
+    expect(
+      check('There is no leak here. The table is LEAKED.', 'LEAKED', []),
+    ).toBe('contradicts-verdict');
+    expect(
+      check(
+        'Data was leaked to visitors. The table is BLOCKED.',
+        'BLOCKED',
+        [],
+      ),
+    ).toBe('contradicts-verdict');
+  });
+});
+
+describe('the prompt', () => {
+  const prompt = buildPrompt([finding('f1', 'bookings')]).system;
+
+  it('asks for exactly two sentences with the verdict word', () => {
+    expect(prompt).toContain('exactly two sentences');
+    expect(prompt).toContain('Sentence 1');
+    expect(prompt).toContain('Sentence 2');
+    for (const word of ['LEAKED', 'BLOCKED', 'INCONCLUSIVE']) {
+      expect(prompt).toContain(word);
+    }
+  });
+
+  it('forbids severity words and soft words', () => {
+    expect(prompt).toContain('Never mention severity');
+    for (const word of ['critical', 'severe', 'high', 'major', 'low']) {
+      expect(prompt).toContain(word);
+    }
+    for (const word of [
+      'indicates',
+      'suggests',
+      'may',
+      'might',
+      'could',
+      'risk',
+      'potential',
+    ]) {
+      expect(prompt).toContain(word);
+    }
+  });
+
+  it('keeps the meaning of allowed=false, and does not ask for the table name', () => {
+    expect(prompt).toContain('allowed=false means the actor got no rows');
+    expect(prompt).not.toMatch(/table name/i);
   });
 });
