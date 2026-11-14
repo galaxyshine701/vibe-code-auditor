@@ -283,6 +283,71 @@ describe('merging the findings of a re-test', () => {
     expect(m.tablesRemoved).toEqual([]);
   });
 
+  describe('"passed" is kept by a later re-test', () => {
+    const passedBefore = (table: string): Finding => ({
+      ...stub(table, 'BLOCKED', null, 'fnd_001'),
+      retest: {
+        status: 'passed',
+        lastRunAt: '2026-11-12T11:00:00.000Z',
+        previousVerdict: 'LEAKED',
+      },
+    });
+
+    it('keeps "passed" and the old previousVerdict, and only moves lastRunAt', () => {
+      const m = mergeRetest(
+        [passedBefore('a')],
+        [stub('a', 'BLOCKED')],
+        2,
+        NOW,
+      );
+      expect(m.findings[0].retest).toEqual({
+        status: 'passed',
+        lastRunAt: NOW,
+        previousVerdict: 'LEAKED',
+      });
+    });
+
+    it('keeps it through any number of re-tests', () => {
+      let list = [passedBefore('a')];
+      for (let i = 0; i < 3; i++) {
+        list = mergeRetest(list, [stub('a', 'BLOCKED')], 2, NOW).findings;
+      }
+      expect(list[0].retest.status).toBe('passed');
+      expect(list[0].retest.previousVerdict).toBe('LEAKED');
+    });
+
+    it('becomes "failed" when the verdict is LEAKED again, with the verdict before as previousVerdict', () => {
+      const m = mergeRetest([passedBefore('a')], [stub('a', 'LEAKED')], 2, NOW);
+      expect(m.findings[0].retest).toEqual({
+        status: 'failed',
+        lastRunAt: NOW,
+        previousVerdict: 'BLOCKED',
+      });
+    });
+
+    it('does not change a finding that was never "passed"', () => {
+      const old = [stub('a', 'BLOCKED', null, 'fnd_001')];
+      expect(
+        mergeRetest(old, [stub('a', 'BLOCKED')], 2, NOW).findings[0].retest,
+      ).toEqual({
+        status: 'not_run',
+        lastRunAt: NOW,
+        previousVerdict: 'BLOCKED',
+      });
+    });
+
+    it('keeps "passed" when the table is INCONCLUSIVE now (not LEAKED)', () => {
+      const m = mergeRetest(
+        [passedBefore('a')],
+        [stub('a', 'INCONCLUSIVE')],
+        2,
+        NOW,
+      );
+      expect(m.findings[0].retest.status).toBe('passed');
+      expect(m.findings[0].retest.previousVerdict).toBe('LEAKED');
+    });
+  });
+
   it('drops the fix when the finding is no longer LEAKED', () => {
     const old = [stub('a', 'LEAKED', fix('s', 'approved'), 'fnd_001')];
     expect(

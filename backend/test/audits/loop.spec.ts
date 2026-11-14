@@ -377,6 +377,113 @@ describe('Re-test: the loop LEAKED, fix, re-test, BLOCKED', () => {
     );
   });
 
+  it('keeps "passed" and the "was LEAKED, now BLOCKED" data on a second re-test', async () => {
+    const tables = demoTables();
+    const s = scripted([
+      () => new FakeGateway(tables),
+      () => new FakeGateway(tables),
+      () => new FakeGateway(tables),
+    ]);
+    app = await buildApp(s.factory);
+    const id = await auditDone(app);
+    tables[0].policy = 'own';
+    await retest(app, id);
+    const first = await waitUntilDone(app, id);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await retest(app, id); // nothing changed since
+    const second = await waitUntilDone(app, id);
+    expect(second.body.lastRetest.finishedAt).not.toBe(
+      first.body.lastRetest.finishedAt,
+    );
+    const bookings = byTable(await findingsOf(app, id), 'bookings');
+    expect(bookings.verdict).toBe('BLOCKED');
+    expect(bookings.retest.status).toBe('passed');
+    expect(bookings.retest.previousVerdict).toBe('LEAKED');
+    expect(bookings.retest.lastRunAt).toBe(second.body.lastRetest.finishedAt);
+    expect(byTable(await findingsOf(app, id), 'profiles').retest.status).toBe(
+      'not_run',
+    );
+    expect((await api(app).get(`${BASE}/${id}/certificate`)).status).toBe(200);
+  });
+
+  it('turns "passed" into "failed" when the table leaks again', async () => {
+    const tables = demoTables();
+    app = await buildApp(
+      scripted([
+        () => new FakeGateway(tables),
+        () => new FakeGateway(tables),
+        () => new FakeGateway(tables),
+      ]).factory,
+    );
+    const id = await auditDone(app);
+    tables[0].policy = 'own';
+    await retest(app, id);
+    await waitUntilDone(app, id);
+    expect(byTable(await findingsOf(app, id), 'bookings').retest.status).toBe(
+      'passed',
+    );
+    tables[0].policy = 'off'; // the fix was undone
+    await retest(app, id);
+    const done = await waitUntilDone(app, id);
+    expect(done.body.summary.leaked).toBe(1);
+    const bookings = byTable(await findingsOf(app, id), 'bookings');
+    expect(bookings.verdict).toBe('LEAKED');
+    expect(bookings.retest.status).toBe('failed');
+    expect(bookings.retest.previousVerdict).toBe('BLOCKED');
+    expect((await api(app).get(`${BASE}/${id}/certificate`)).status).toBe(409);
+  });
+
+  it('works with two leaked tables when only one is fixed at a time', async () => {
+    const tables: FakeTable[] = [
+      { name: 'bookings', policy: 'off', ownerColumn: 'user_id' },
+      { name: 'orders', policy: 'off', ownerColumn: 'user_id' },
+      { name: 'profiles', policy: 'own', ownerColumn: 'id' },
+    ];
+    app = await buildApp(
+      scripted([
+        () => new FakeGateway(tables),
+        () => new FakeGateway(tables),
+        () => new FakeGateway(tables),
+      ]).factory,
+    );
+    const id = await auditDone(app);
+    expect((await api(app).get(`${BASE}/${id}`)).body.summary.leaked).toBe(2);
+
+    tables[0].policy = 'own'; // fix bookings only
+    await retest(app, id);
+    const one = await waitUntilDone(app, id);
+    expect(one.body.summary).toEqual({
+      leaked: 1,
+      blocked: 2,
+      inconclusive: 0,
+    });
+    let list = await findingsOf(app, id);
+    expect(byTable(list, 'bookings').retest.status).toBe('passed');
+    expect(byTable(list, 'orders').retest.status).toBe('failed');
+    expect((await api(app).get(`${BASE}/${id}/certificate`)).status).toBe(409);
+
+    tables[1].policy = 'own'; // now fix orders
+    await retest(app, id);
+    const two = await waitUntilDone(app, id);
+    expect(two.body.summary).toEqual({
+      leaked: 0,
+      blocked: 3,
+      inconclusive: 0,
+    });
+    list = await findingsOf(app, id);
+    expect(byTable(list, 'bookings').retest).toMatchObject({
+      status: 'passed',
+      previousVerdict: 'LEAKED',
+      lastRunAt: two.body.lastRetest.finishedAt,
+    });
+    expect(byTable(list, 'orders').retest).toMatchObject({
+      status: 'passed',
+      previousVerdict: 'LEAKED',
+    });
+    expect(byTable(list, 'profiles').retest.status).toBe('not_run');
+    expect((await api(app).get(`${BASE}/${id}/certificate`)).status).toBe(200);
+  });
+
   it('keeps failed, and the approved fix, when the table still leaks the same way', async () => {
     const tables = demoTables();
     app = await buildApp(

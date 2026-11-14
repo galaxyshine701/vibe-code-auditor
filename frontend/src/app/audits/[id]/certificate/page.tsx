@@ -13,7 +13,7 @@ import {
   ApiError,
   RequestCancelledError,
 } from '@/lib/errors';
-import { formatDate } from '@/lib/format';
+import { formatDate, unverifiedText } from '@/lib/format';
 import type { Certificate } from '@/lib/types';
 import { useApiError } from '@/lib/use-api-error';
 
@@ -200,13 +200,7 @@ export default function CertificatePage() {
             {certificate.summary && certificate.summary.inconclusive > 0 ? (
               <div>
                 <dt>Not verified</dt>
-                <dd>
-                  {certificate.summary.inconclusive}{' '}
-                  {certificate.summary.inconclusive === 1
-                    ? 'table could'
-                    : 'tables could'}{' '}
-                  not be verified.
-                </dd>
+                <dd>{unverifiedText(certificate.summary.inconclusive)}</dd>
               </div>
             ) : null}
             <div className="certificate-hash">

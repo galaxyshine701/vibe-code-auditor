@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { useApp } from './app-provider';
+import { SecretInput } from './secret-input';
 import { RateLimitNotice } from './rate-limit-notice';
 
 export function AccessGate({
@@ -34,11 +35,9 @@ export function AccessGate({
         <form onSubmit={submit} className="stack">
           <label className="field">
             <span>Access code</span>
-            <input
-              type="password"
+            <SecretInput
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              autoComplete="new-password"
               autoFocus
               maxLength={4096}
               disabled={rateLimitSecondsLeft > 0}

@@ -79,10 +79,37 @@ function fixFor(
   };
 }
 
+const OP_ORDER: AttackOperation[] = ['SELECT', 'UPDATE', 'DELETE'];
+const OP_WORD: Record<AttackOperation, { en: string; ur: string }> = {
+  SELECT: { en: 'read', ur: 'parh' },
+  UPDATE: { en: 'change', ur: 'badal' },
+  DELETE: { en: 'delete', ur: 'delete kar' },
+};
+
+/** "read", "read and change", "read, change and delete" */
+function joinWords(words: string[], and: string): string {
+  if (words.length <= 1) return words.join('');
+  return `${words.slice(0, -1).join(', ')} ${and} ${words[words.length - 1]}`;
+}
+
+function opsText(ops: AttackOperation[], lang: 'en' | 'ur'): string {
+  const sorted = OP_ORDER.filter((op) => ops.includes(op));
+  return joinWords(
+    sorted.map((op) => OP_WORD[op][lang]),
+    lang === 'en' ? 'and' : 'aur',
+  );
+}
+
+/** What each actor reached, e.g. { user: [SELECT, UPDATE], anon: [SELECT] }. */
+export type Reached = Partial<Record<Culprit, AttackOperation[]>>;
+
 export function buildFinding(
   id: string,
   input: FindingInput,
   leakedOps: AttackOperation[] = [input.operation],
+  reached: Reached = {
+    [input.culprit === 'anon' ? 'anon' : 'user']: leakedOps,
+  },
 ): Finding {
   const base = {
     id,
@@ -100,23 +127,38 @@ export function buildFinding(
   };
 
   if (input.verdict === 'LEAKED') {
-    const who =
-      input.culprit === 'anon' ? 'anonymous visitor' : 'second test user';
-    const whoUr =
-      input.culprit === 'anon' ? 'bina login wala visitor' : 'doosra test user';
-    const what = {
-      SELECT: ['read', 'parh li'],
-      UPDATE: ['change', 'badal di'],
-      DELETE: ['delete', 'delete kar di'],
-    }[input.operation];
+    const userOps = reached.user ?? [];
+    const anonOps = reached.anon ?? [];
+    const allOps = [...new Set([...userOps, ...anonOps])];
+    const subject =
+      userOps.length > 0 && anonOps.length > 0
+        ? 'Visitors and logged-in users'
+        : anonOps.length > 0
+          ? 'Any visitor'
+          : 'Any logged-in user';
+    // One sentence per actor, so each one says exactly what that actor reached.
+    const sentencesEn = [
+      userOps.length > 0
+        ? `A logged-in user could ${opsText(userOps, 'en')} it.`
+        : '',
+      anonOps.length > 0 ? `A visitor could ${opsText(anonOps, 'en')} it.` : '',
+    ].filter(Boolean);
+    const sentencesUr = [
+      userOps.length > 0
+        ? `Login wala user ise ${opsText(userOps, 'ur')} sakta tha.`
+        : '',
+      anonOps.length > 0
+        ? `Bina login wala visitor ise ${opsText(anonOps, 'ur')} sakta tha.`
+        : '',
+    ].filter(Boolean);
     return {
       ...base,
       verdict: 'LEAKED',
       severity: 'critical',
-      title: `Any ${input.culprit === 'anon' ? 'visitor' : 'logged-in user'} can ${what[0]} other users' rows in "${input.table}"`,
+      title: `${subject} can ${opsText(allOps, 'en')} other users' rows in "${input.table}"`,
       explanation: {
-        en: `The ${who} was able to ${what[0]} a row that belongs to the first user. The table has no rule that limits rows to their owner.`,
-        ur: `${whoUr[0].toUpperCase()}${whoUr.slice(1)} ne pehle user ki row ${what[1]}. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare.`,
+        en: `A row that belongs to the first user was reached. ${sentencesEn.join(' ')} The table has no rule that limits rows to their owner.`,
+        ur: `Pehle user ki row tak doosre log pahunch gaye. ${sentencesUr.join(' ')} Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare.`,
       },
       evidence,
       fix: fixFor(input, leakedOps),

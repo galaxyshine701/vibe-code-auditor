@@ -1,6 +1,8 @@
 // What the checks cover. Taken from the Prover code (backend/src/prover):
 // prover.ts checkTable, schema.ts parseTables / findEditableTextColumn.
 export const COVERAGE = {
+  statement:
+    'This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor.',
   checked:
     "For each table the project's REST API lists, another signed-in user tries to read, update and delete a temporary canary row. A visitor without login tries to read it. The owner reads it as a control.",
   inconclusive:

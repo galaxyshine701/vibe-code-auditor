@@ -6,6 +6,7 @@ import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroMotion } from '@/components/hero-motion';
+import { SecretInput } from '@/components/secret-input';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
 import { ApiError, NetworkError } from '@/lib/errors';
@@ -36,6 +37,15 @@ export default function ConnectPage() {
   const effectiveAccessCode = accessCode || accessCodeInput;
   const startDisabled =
     submitting || !confirmed || rateLimitSecondsLeft > 0 || !effectiveAccessCode;
+  // Say what is missing, but not while submitting or rate-limited.
+  const missing = [
+    !effectiveAccessCode ? 'enter the access code' : '',
+    !confirmed ? 'tick the TEST project box' : '',
+  ].filter(Boolean);
+  const startHint =
+    !submitting && rateLimitSecondsLeft === 0 && missing.length > 0
+      ? `To start: ${missing.join(' and ')}.`
+      : '';
 
   async function runAudit() {
     if (!confirmed) {
@@ -119,14 +129,11 @@ export default function ConnectPage() {
             {!accessCode ? (
               <label className="field field-code">
                 <span>Access code</span>
-                <input
+                <SecretInput
                   id="access-code"
-                  type="password"
                   value={accessCodeInput}
                   onChange={(event) => setAccessCodeInput(event.target.value)}
                   placeholder="Enter the door"
-                  autoComplete="new-password"
-                  spellCheck={false}
                   maxLength={4096}
                 />
                 <small>
@@ -207,12 +214,9 @@ export default function ConnectPage() {
             <div className="field-row">
               <label className="field">
                 <span>Publishable key</span>
-                <input
-                  type="password"
+                <SecretInput
                   value={anonKey}
                   onChange={(event) => setAnonKey(event.target.value)}
-                  autoComplete="new-password"
-                  spellCheck={false}
                   maxLength={4096}
                   required
                 />
@@ -221,12 +225,9 @@ export default function ConnectPage() {
 
               <label className="field">
                 <span>Secret key</span>
-                <input
-                  type="password"
+                <SecretInput
                   value={serviceKey}
                   onChange={(event) => setServiceKey(event.target.value)}
-                  autoComplete="new-password"
-                  spellCheck={false}
                   maxLength={4096}
                   required
                 />
@@ -259,9 +260,15 @@ export default function ConnectPage() {
               type="submit"
               className="button button-primary button-large"
               disabled={startDisabled}
+              aria-describedby={startHint ? 'start-hint' : undefined}
             >
               {submitting ? 'Starting audit…' : 'Start audit'}
             </button>
+            {startHint ? (
+              <p className="muted small" id="start-hint" role="status">
+                {startHint}
+              </p>
+            ) : null}
             <p className="fine-print">
               Keys stay in memory only. They are cleared from the form after the
               server accepts the audit. Refreshing the page clears the access

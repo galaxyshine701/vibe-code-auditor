@@ -5,6 +5,7 @@ import type { Finding, Verdict } from '../prover/types.js';
  * - failed: the verdict is now LEAKED
  * - passed: it was LEAKED and is not now
  * - not_run: anything else
+ * mergeRetest keeps an earlier "passed" while the verdict is not LEAKED.
  */
 export function retestStatusFor(
   previous: Verdict | null,
@@ -47,7 +48,16 @@ export function mergeRetest(
   let next = nextFindingNumber;
   const findings = fresh.map((f): Finding => {
     const prev = before.get(f.table);
-    const previousVerdict = prev ? prev.verdict : null;
+    // "passed" is kept: a later re-test must not erase the proof that a leak
+    // was fixed. It holds until the verdict is LEAKED again (then "failed").
+    // The previousVerdict that came with it (the LEAKED) is kept too.
+    const keepsPassed =
+      prev?.retest.status === 'passed' && f.verdict !== 'LEAKED';
+    const previousVerdict = keepsPassed
+      ? (prev.retest.previousVerdict ?? null)
+      : prev
+        ? prev.verdict
+        : null;
     const fix =
       f.fix && prev?.fix && prev.fix.sql === f.fix.sql
         ? { ...f.fix, status: prev.fix.status }
@@ -57,7 +67,9 @@ export function mergeRetest(
       id: prev ? prev.id : findingId(next++),
       fix,
       retest: {
-        status: retestStatusFor(previousVerdict, f.verdict),
+        status: keepsPassed
+          ? 'passed'
+          : retestStatusFor(prev ? prev.verdict : null, f.verdict),
         lastRunAt: finishedAt,
         previousVerdict,
       },
