@@ -143,10 +143,10 @@ export interface AwardContext {
 /**
  * Which badges are newly earned, and which of them get the animation.
  *
- * - First audit: the audit is completed.
- * - First leak fixed: a Re-test finished and at least one finding is verified
+ * - First audit completed: the audit is completed.
+ * - First leak fixed (verified by Re-test): a Re-test finished and at least one finding is verified
  *   fixed (LEAKED -> BLOCKED; INCONCLUSIVE is not a fix).
- * - No leak found: the audit could be given a certificate (no leak, at least
+ * - Zero leaks reached: the audit could be given a certificate (no leak, at least
  *   one table BLOCKED, cleanup not failed): the same rule as the backend.
  * - Nothing is earned while a Re-test runs, and nothing from a failed Re-test.
  * - A badge is celebrated only when the user's own action produced it.

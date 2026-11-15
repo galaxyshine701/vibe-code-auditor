@@ -5,27 +5,23 @@ import { BADGE_IDS, shouldAnimate, type BadgeId, type BadgeState } from '@/lib/b
 import { COVERAGE } from '@/lib/coverage';
 import { formatDate, unverifiedText } from '@/lib/format';
 
-// Wording (R38, R39): never "secure", "safe" or "certified". "No leak found"
-// always comes with the sentence of what the checks cover.
-const BADGES: Record<
-  BadgeId,
-  { name: string; locked: string; earned: string }
-> = {
+// The ids stay as they are (they are what is stored). These are the names the
+// user sees (R64). Wording (R38, R39): never "secure", "safe" or "certified".
+// "Zero leaks reached" always comes with the sentence of what the checks cover.
+// Every earned badge shows "Earned <date>".
+const BADGES: Record<BadgeId, { name: string; locked: string }> = {
   first_audit: {
-    name: 'First audit',
+    name: 'First audit completed',
     locked: 'Finish your first audit.',
-    earned: 'Your first audit finished.',
   },
   first_fix: {
-    name: 'First leak fixed',
+    name: 'First leak fixed (verified by Re-test)',
     locked: 'Fix a leak, then run a Re-test that shows the table BLOCKED.',
-    earned: 'Verified by a Re-test.',
   },
   no_leak_found: {
-    name: 'No leak found',
+    name: 'Zero leaks reached',
     locked:
       'An audit with no leak and at least one table BLOCKED (certificate eligible).',
-    earned: 'No leak found by these checks (certificate eligible).',
   },
 };
 
@@ -77,7 +73,7 @@ function Badge({
       <span className="badge-dot" aria-hidden="true" />
       <strong className="badge-name">{copy.name}</strong>
       <span className="badge-detail">
-        {record ? `${copy.earned} Earned ${formatDate(record.at)}.` : copy.locked}
+        {record ? `Earned ${formatDate(record.at)}` : copy.locked}
       </span>
       {record && id === 'no_leak_found' && inconclusiveCount > 0 ? (
         <span className="badge-detail">{unverifiedText(inconclusiveCount)}</span>
@@ -96,7 +92,7 @@ export function BadgeStrip({
   state: BadgeState;
   celebrating: readonly BadgeId[];
   onCelebrated: (id: BadgeId) => void;
-  /** tables the checks could not decide: said next to "No leak found" */
+  /** tables the checks could not decide: said next to "Zero leaks reached" */
   inconclusiveCount: number;
 }) {
   useCelebrations(state, celebrating, onCelebrated);
