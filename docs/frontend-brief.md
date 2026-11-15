@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.8)
+# Frontend specification: Vibe Code Auditor (v0.5.9)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.9 | 15 Nov 2026 | Minimal PWA: manifest, own icons, a service worker that only shows an offline page and caches nothing else (R59). |
 | v0.5.8 | 15 Nov 2026 | Dark is the default theme, not the system setting; the choice is kept in the browser (R55). Contrast of both themes checked: text 4.5:1, control edges 3:1. |
 | v0.5.7 | 15 Nov 2026 | Badges: First audit completed, First leak fixed (verified by Re-test), Zero leaks reached; kept in this browser; one animation (R64, R65). |
 | v0.5.6 | 15 Nov 2026 | Fix progress on the Report screen: "N of M findings verified fixed" (R63). |
@@ -279,7 +280,12 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R58.** The user-facing names are "Publishable key" and "Secret key". The API field names `anonKey` and `serviceKey` stay as in the contract (R5) and must not be shown as labels.
 
-**R59.** The app must be an installable PWA, with a web app manifest and a service worker. The service worker must not cache any API response, and must not cache any request that carries the access code.
+**R59.** The app is an installable PWA, kept as small as possible.
+- Manifest (`src/app/manifest.ts`): `name`, `short_name`, `start_url` "/", `display` `standalone`, `background_color` and `theme_color` `#0f1114` (the dark page colour, R55), icons of 192 and 512 pixels, normal and maskable. The icons are our own drawing (a canary-yellow dot with two rings on the dark colour), made by `frontend/scripts/make-icons.mjs`.
+- Service worker (`public/sw.js`): it only shows `/offline.html` when a page cannot be loaded because the network is gone. It answers a request only when it is a page navigation (GET) of this site and not under `/api`. It never stores a response of the network, never touches the API, a script, a style, another address, or any request with an access code or a key, and does not precache the app's JS or CSS (an old deploy cannot be served from it). The only thing it stores is `/offline.html`, in a cache with a versioned name (`vca-offline-v1`).
+- Redeploy: `sw.js` is served with `Cache-Control: no-cache, no-store, must-revalidate` and registered with `updateViaCache: 'none'`, so the browser checks it on every visit. A changed file installs a new worker, which takes over at once (`skipWaiting`, `clients.claim`) and deletes every older `vca-offline-*` cache. Change the cache name (v1 -> v2) whenever `offline.html` changes. To remove the worker for good, deploy a `sw.js` that calls `self.registration.unregister()`.
+- The worker is registered only in a production build.
+- The tests run in the backend for now (`backend/test/frontend/pwa.spec.ts`).
 
 **R60.** `frontend/README.md` must contain a short "Design notes" section and screenshots of the four screens in both themes (eight screenshots).
 
@@ -455,7 +461,7 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 21. The first visit opens in the dark theme whatever the system setting is. The toggle on every screen changes the theme, the choice stays after a reload, and there is no flash on load (R55). Text has 4.5:1 and the edges of controls 3:1 in both themes.
 22. Every verdict shows text plus an SVG icon. No emoji is used as an icon (R56, R57).
 23. The key fields are labelled "Publishable key" and "Secret key". `anonKey` and `serviceKey` appear nowhere in the UI (R58).
-24. The app has a manifest and a service worker and can be installed. In DevTools > Application > Cache Storage there is no API response and no request that carried the access code (R59).
+24. The app has a manifest, icons (192 and 512, normal and maskable) and a small service worker, and can be installed. In DevTools > Application > Cache Storage the only cache is `vca-offline-v1` and it holds only `/offline.html`: no API response, no script or style, and no request that carried the access code. With the network off, a page that cannot load shows the offline page (R59).
 25. `frontend/README.md` has a "Design notes" section and eight screenshots: four screens in light and dark (R60).
 26. The Report screen has a coverage section with the lists Checked, Not covered and Limits (R61). The sentence in R39 is shown on the Report and Certificate screens.
 27. A module `message` is shown under its row; a finding with `explanationSource` `"ai"` shows "Written by AI"; the Connect screen shows the Groq line (R62).

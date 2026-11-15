@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
+import { ServiceWorkerRegister } from '@/components/sw-register';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
+        <ServiceWorkerRegister />
         <AppProvider>
           <AppHeader />
           <main className="site-main">{children}</main>
