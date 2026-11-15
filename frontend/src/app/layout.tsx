@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
 import { ServiceWorkerRegister } from '@/components/sw-register';
+import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -26,6 +27,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* decides before the first paint whether the intro runs (R70) */}
+        <script dangerouslySetInnerHTML={{ __html: INTRO_BOOT_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"

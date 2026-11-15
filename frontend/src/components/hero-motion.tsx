@@ -3,14 +3,23 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type CSSProperties,
 } from 'react';
+import {
+  chipState as statusChipState,
+  INTRO_HOLD_MS,
+  INTRO_SCALE,
+  INTRO_STORY_MS,
+  phaseAt,
+  type Actor,
+  type ChipState,
+  type Phase,
+} from '@/lib/intro';
 import type { Verdict } from '@/lib/types';
 import { VerdictIcon } from './verdict';
-
-type Phase = 'idle' | 'owner' | 'leaked' | 'fixing' | 'blocked';
 
 const PHASE_COPY: Record<
   Phase,
@@ -18,7 +27,8 @@ const PHASE_COPY: Record<
 > = {
   idle: {
     pill: 'Checks running',
-    summary: 'Owner A can use the row. User B and Anon are trying to reach it.',
+    summary:
+      'Owner A can use the row. User B and the Visitor are trying to reach it.',
     verdict: null,
     active: true,
   },
@@ -30,7 +40,7 @@ const PHASE_COPY: Record<
   },
   leaked: {
     pill: 'LEAKED',
-    summary: '4 of 4 attacker checks reached the canary row.',
+    summary: 'User B and the Visitor both reached the canary row.',
     verdict: 'LEAKED',
     active: false,
   },
@@ -50,20 +60,10 @@ const PHASE_COPY: Record<
 
 const ATTACK_OPERATIONS = {
   user_b: ['SELECT', 'UPDATE', 'DELETE'],
-  anon: ['SELECT'],
+  visitor: ['SELECT'],
 } as const;
 
-function statusChipState(
-  actor: 'owner' | 'user_b' | 'anon',
-  phase: Phase,
-): 'idle' | 'allowed' | 'reached' | 'blocked' {
-  if (actor === 'owner') return phase === 'idle' ? 'idle' : 'allowed';
-  if (phase === 'leaked') return 'reached';
-  if (phase === 'blocked') return 'blocked';
-  return 'idle';
-}
-
-function ChipIcon({ state }: { state: 'idle' | 'allowed' | 'reached' | 'blocked' }) {
+function ChipIcon({ state }: { state: ChipState }) {
   if (state === 'allowed' || state === 'blocked') {
     return (
       <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
@@ -102,79 +102,71 @@ function PillMark({ active, verdict }: { active: boolean; verdict: Verdict | nul
   );
 }
 
-export function HeroMotion() {
-  const [phase, setPhase] = useState<Phase>('blocked');
-  const [ready, setReady] = useState(false);
-  const [isFinal, setIsFinal] = useState(true);
+/**
+ * The example run (a canary row, a policy, three actors). It is used twice:
+ * as the intro of the home page (mode "intro", one run, then `onFinish`), and in
+ * the hero as the last frame (mode "static", no timers).
+ */
+export function HeroMotion({
+  mode,
+  onFinish,
+}: {
+  mode: 'intro' | 'static';
+  onFinish?: () => void;
+}) {
+  const intro = mode === 'intro';
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  const [phase, setPhase] = useState<Phase>(intro ? 'idle' : 'blocked');
+  const [ready, setReady] = useState(!intro);
   const [runId, setRunId] = useState(0);
   const timers = useRef<number[]>([]);
+  const finish = useRef(onFinish);
+
+  useEffect(() => {
+    finish.current = onFinish;
+  }, [onFinish]);
 
   const clearTimers = useCallback(() => {
     timers.current.forEach((timer) => window.clearTimeout(timer));
     timers.current = [];
   }, []);
 
-  const nudgeAccessCode = useCallback(() => {
-    const input = document.getElementById('access-code');
-    if (!(input instanceof HTMLInputElement)) return;
-    input.classList.remove('field-nudge');
-    void input.offsetWidth;
-    input.classList.add('field-nudge');
-    timers.current.push(
-      window.setTimeout(() => input.classList.remove('field-nudge'), 1_700),
-    );
-  }, []);
-
-  const startStory = useCallback(() => {
-    clearTimers();
-
-    const reduce =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (reduce) {
-      setIsFinal(true);
-      setPhase('blocked');
-      setReady(true);
-      return;
-    }
-
-    setIsFinal(false);
+  useEffect(() => {
+    if (!intro) return;
+    // The stage is built again so that its CSS animations start together with
+    // these timers, not at the first paint of the server's HTML.
+    setRunId((id) => id + 1);
     setPhase('idle');
     setReady(true);
-
     timers.current = [
-      window.setTimeout(() => setPhase('owner'), 2_300),
-      window.setTimeout(() => setPhase('leaked'), 3_700),
-      window.setTimeout(() => setPhase('fixing'), 4_900),
-      window.setTimeout(() => setPhase('blocked'), 6_600),
-      window.setTimeout(nudgeAccessCode, 7_400),
+      window.setTimeout(() => setPhase('owner'), phaseAt('owner')),
+      window.setTimeout(() => setPhase('leaked'), phaseAt('leaked')),
+      window.setTimeout(() => setPhase('fixing'), phaseAt('fixing')),
+      window.setTimeout(() => setPhase('blocked'), phaseAt('blocked')),
+      window.setTimeout(() => finish.current?.(), INTRO_STORY_MS + INTRO_HOLD_MS),
     ];
-  }, [clearTimers, nudgeAccessCode]);
-
-  useEffect(() => {
-    startStory();
     return clearTimers;
-  }, [runId, startStory, clearTimers]);
-
-  const replay = useCallback(() => {
-    setReady(false);
-    setRunId((id) => id + 1);
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('vca:replay-hero', replay);
-    return () => window.removeEventListener('vca:replay-hero', replay);
-  }, [replay]);
-
-  function skip() {
-    clearTimers();
-    setIsFinal(true);
-    setPhase('blocked');
-  }
+  }, [intro, clearTimers]);
 
   const copy = PHASE_COPY[phase];
-  const finalFrame = isFinal || phase === 'blocked';
+  const finalFrame = !intro || phase === 'blocked';
+  const stageStyle = { '--hs': intro ? INTRO_SCALE : 1 } as CSSProperties;
+
+  /** The Visitor's verdict follows User B's, as its streak does. */
+  function chipDelay(actor: Actor): CSSProperties | undefined {
+    if (!intro || actor !== 'visitor') return undefined;
+    if (phase === 'leaked') {
+      return { transitionDelay: `${Math.round(800 * INTRO_SCALE)}ms` };
+    }
+    if (phase === 'blocked') {
+      return { transitionDelay: `${Math.round(200 * INTRO_SCALE)}ms` };
+    }
+    return undefined;
+  }
+
+  const blurId = `motion-blur-${uid}`;
+  const openClip = `attack-clip-open-${uid}`;
+  const gateClip = `attack-clip-gate-${uid}`;
 
   return (
     <section className="motion-panel" aria-label="Example run">
@@ -196,10 +188,11 @@ export function HeroMotion() {
       </div>
 
       <div
-        className={`motion-stage ${isFinal ? 'is-final' : ''}`}
+        className={`motion-stage ${intro ? '' : 'is-final'}`}
         data-phase={phase}
         data-ready={ready ? 'true' : 'false'}
         data-final={finalFrame ? 'true' : 'false'}
+        style={stageStyle}
         key={runId}
       >
         <div className="motion-glow motion-glow-canary" aria-hidden="true" />
@@ -209,11 +202,11 @@ export function HeroMotion() {
           className="motion-svg"
           viewBox="0 0 720 380"
           role="img"
-          aria-label="Animated test: Owner A, User B and Anon try to reach one canary row in the bookings table"
+          aria-label="Example run: Owner A, User B and a Visitor try to reach one canary row in the bookings table"
         >
           <defs>
             <filter
-              id="motion-blur"
+              id={blurId}
               filterUnits="userSpaceOnUse"
               x="0"
               y="0"
@@ -222,10 +215,10 @@ export function HeroMotion() {
             >
               <feGaussianBlur stdDeviation="5" />
             </filter>
-            <clipPath id="attack-clip-open">
+            <clipPath id={openClip}>
               <rect x="0" y="0" width="720" height="380" />
             </clipPath>
-            <clipPath id="attack-clip-gate">
+            <clipPath id={gateClip}>
               <rect x="0" y="0" width="468" height="380" />
             </clipPath>
           </defs>
@@ -252,6 +245,16 @@ export function HeroMotion() {
           <text className="motion-canary-label" x="548" y="194">
             canary
           </text>
+
+          {/* the lock of the canary row: open until the policy is added, closed after */}
+          <g className="motion-lock" aria-hidden="true">
+            <rect className="motion-lock-body" x="656" y="188" width="16" height="11" rx="2.5" />
+            <path
+              className="motion-lock-shackle"
+              d="M659 188 V185 a5 5 0 0 1 10 0 V188"
+              fill="none"
+            />
+          </g>
 
           <g className="motion-gate" aria-hidden="true">
             <line x1="470" y1="26" x2="470" y2="360" />
@@ -282,7 +285,7 @@ export function HeroMotion() {
               ?
             </text>
             <text className="motion-actor-name" x="60" y="284">
-              Anon
+              Visitor
             </text>
           </g>
 
@@ -290,6 +293,7 @@ export function HeroMotion() {
             <path
               className="motion-streak motion-streak-glow motion-owner"
               pathLength={1}
+              filter={`url(#${blurId})`}
               d="M82 60 C 260 60, 340 190, 514 190"
             />
             <path
@@ -299,48 +303,53 @@ export function HeroMotion() {
             />
           </g>
 
-          <g clipPath="url(#attack-clip-open)" aria-hidden="true">
+          {/* before the policy: User B reaches the row first, then the Visitor */}
+          <g clipPath={`url(#${openClip})`} aria-hidden="true">
             <path
-              className="motion-streak motion-streak-glow motion-attack-leak"
+              className="motion-streak motion-streak-glow motion-attack-leak motion-leak-b"
+              pathLength={1}
+              filter={`url(#${blurId})`}
+              d="M82 190 C 260 190, 340 190, 514 190"
+            />
+            <path
+              className="motion-streak motion-streak-core motion-attack-leak motion-leak-b"
               pathLength={1}
               d="M82 190 C 260 190, 340 190, 514 190"
             />
             <path
-              className="motion-streak motion-streak-core motion-attack-leak"
+              className="motion-streak motion-streak-glow motion-attack-leak motion-leak-v"
               pathLength={1}
-              d="M82 190 C 260 190, 340 190, 514 190"
-            />
-            <path
-              className="motion-streak motion-streak-glow motion-attack-leak"
-              pathLength={1}
+              filter={`url(#${blurId})`}
               d="M82 320 C 260 320, 340 190, 514 190"
             />
             <path
-              className="motion-streak motion-streak-core motion-attack-leak"
-              pathLength={1}
-              d="M82 320 C 260 320, 340 190, 514 190"
-            />
-
-            <path
-              className="motion-streak motion-streak-glow motion-attack-blocked"
-              pathLength={1}
-              d="M82 190 C 260 190, 340 190, 514 190"
-            />
-            <path
-              className="motion-streak motion-streak-core motion-attack-leak"
+              className="motion-streak motion-streak-core motion-attack-leak motion-leak-v"
               pathLength={1}
               d="M82 320 C 260 320, 340 190, 514 190"
             />
           </g>
 
-          <g clipPath="url(#attack-clip-gate)" aria-hidden="true">
+          {/* after the policy: both stop at it, User B first */}
+          <g clipPath={`url(#${gateClip})`} aria-hidden="true">
             <path
-              className="motion-streak motion-streak-glow motion-attack-blocked"
+              className="motion-streak motion-streak-glow motion-attack-blocked motion-block-b"
               pathLength={1}
+              filter={`url(#${blurId})`}
+              d="M82 190 C 260 190, 340 190, 514 190"
+            />
+            <path
+              className="motion-streak motion-streak-core motion-attack-blocked motion-block-b"
+              pathLength={1}
+              d="M82 190 C 260 190, 340 190, 514 190"
+            />
+            <path
+              className="motion-streak motion-streak-glow motion-attack-blocked motion-block-v"
+              pathLength={1}
+              filter={`url(#${blurId})`}
               d="M82 320 C 260 320, 340 190, 514 190"
             />
             <path
-              className="motion-streak motion-streak-core motion-attack-blocked"
+              className="motion-streak motion-streak-core motion-attack-blocked motion-block-v"
               pathLength={1}
               d="M82 320 C 260 320, 340 190, 514 190"
             />
@@ -399,7 +408,11 @@ export function HeroMotion() {
             {ATTACK_OPERATIONS.user_b.map((operation) => {
               const state = statusChipState('user_b', phase);
               return (
-                <span className={`motion-chip motion-chip-${state}`} key={operation}>
+                <span
+                  className={`motion-chip motion-chip-${state}`}
+                  key={operation}
+                  style={chipDelay('user_b')}
+                >
                   <ChipIcon state={state} />
                   <b>{operation}</b>
                   <span>{state}</span>
@@ -410,12 +423,16 @@ export function HeroMotion() {
         </div>
 
         <div className="motion-lane">
-          <span className="motion-lane-name">Anon</span>
+          <span className="motion-lane-name">Visitor</span>
           <div className="motion-chips">
-            {ATTACK_OPERATIONS.anon.map((operation) => {
-              const state = statusChipState('anon', phase);
+            {ATTACK_OPERATIONS.visitor.map((operation) => {
+              const state = statusChipState('visitor', phase);
               return (
-                <span className={`motion-chip motion-chip-${state}`} key={operation}>
+                <span
+                  className={`motion-chip motion-chip-${state}`}
+                  key={operation}
+                  style={chipDelay('visitor')}
+                >
                   <ChipIcon state={state} />
                   <b>{operation}</b>
                   <span>{state}</span>
@@ -430,20 +447,18 @@ export function HeroMotion() {
         {copy.summary}
       </p>
 
-      <div className="motion-controls">
-        <span className="motion-controls-label">Example run</span>
-        <button
-          type="button"
-          className="button button-small"
-          onClick={skip}
-          disabled={finalFrame}
-        >
-          Skip animation
-        </button>
-        <button type="button" className="button button-small" onClick={replay}>
-          Replay
-        </button>
-      </div>
+      {!intro ? (
+        <div className="motion-controls">
+          <span className="motion-controls-label">Last frame of the intro</span>
+          <button
+            type="button"
+            className="button button-small motion-replay"
+            onClick={() => window.dispatchEvent(new Event('vca:replay-hero'))}
+          >
+            Replay intro
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

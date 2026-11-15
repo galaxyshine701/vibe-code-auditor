@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.6.0)
+# Frontend specification: Vibe Code Auditor (v0.6.1)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.6.1 | 15 Nov 2026 | Intro of the home page: the example run on the whole screen, once per tab, with Visitor, a lock and one verdict per chip (R70). |
 | v0.6.0 | 15 Nov 2026 | "Fix confirmed" seal, Before -> After strip and certificate lock with an unlock animation (R66 to R69). |
 | v0.5.9 | 15 Nov 2026 | Minimal PWA: manifest, own icons, a service worker that only shows an offline page and caches nothing else (R59). |
 | v0.5.8 | 15 Nov 2026 | Dark is the default theme, not the system setting; the choice is kept in the browser (R55). Contrast of both themes checked: text 4.5:1, control edges 3:1. |
@@ -326,6 +327,8 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R69.** Animation limits. Every animation in R65, R66 and R68 runs once and lasts under 800 ms (the longest, the badge, is 700 ms). With `prefers-reduced-motion: reduce` none of them runs and the final state is shown at once. They work in both themes and at 375 px. The tests read the CSS and fail if one lasts 800 ms or more or repeats.
 
+**R70.** Intro of the home page. The example run (a canary row behind a lock, Owner A, User B and a Visitor, a policy) opens the home page on the whole screen, once per browser tab, and only on `/`. (a) A script in the `<head>` decides before the first paint (`INTRO_BOOT_SCRIPT` in `frontend/src/lib/intro.ts`): on `/`, without `prefers-reduced-motion: reduce`, and without the flag `vca-intro-v1` in `sessionStorage`, it sets the flag and `data-intro="pending"` on `<html>`. If `sessionStorage` cannot be used there is no intro (it would repeat on every load). With reduced motion there is no intro at all and the page opens directly. (b) The story takes about 3.5 s (`INTRO_SCALE` multiplies every delay of the CSS and every timer; the list of `data-phase` values is unchanged: idle, owner, leaked, fixing, blocked). User B reaches the row first, then the Visitor; the lock is open while the row leaks and closes when the policy arrives. Each verdict chip changes once: waiting, then LEAKED, then BLOCKED, never back to waiting in between. The last frame stays 0.5 s, the overlay fades out in 0.35 s (`data-intro="leaving"`), and only then `data-intro="done"` lets the headline start word by word. The scene and the headline never run together. After the intro the access code field is nudged once so it is clear where to start. (c) Skip: a Skip button (it has the focus), a tap or click anywhere, or Esc. Tab cannot leave the overlay while it runs. The overlay is a dialog. (d) The app is never blocked: the head script arms a timer, and the page's code replaces it by one that starts when it takes over (the story plus 1.5 s); a CSS animation also hides the overlay after 5 s with no script at all. (e) In the hero the scene is shown as its last frame (closed lock, BLOCKED) on a wide screen only, with a Replay intro button; on a screen of 980 px or less the scene is not shown and a Replay intro button stands under the access code. Clicking the brand on the home page replays the intro. With reduced motion there is no replay. (f) The actor is called "Visitor" everywhere in the scene (text, chips, summary and the label for screen readers). (g) The scene uses only the words LEAKED and BLOCKED for results.
+
 ---
 
 # Part 2: Screen guidance
@@ -480,3 +483,4 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 31. A finding card shows "Fix confirmed" only for a finding that a Re-test moved from LEAKED to BLOCKED (not for LEAKED -> INCONCLUSIVE); the seal animates once after the user's own Re-test and not after a refresh (R66).
 32. After a completed Re-test a strip shows Leaked, Inconclusive and Blocked as before -> after, from the real findings; it is not shown for a failed Re-test; tables that were not re-checked or are new are left out and named (R67).
 33. "Open certificate view" is locked with the reason next to it ("Fix the leaks and Re-test to unlock." for leaks), opens with one short animation only after the user's own Re-test, and has no new rule of eligibility (R68). No animation lasts 800 ms or more, and none runs with reduced motion (R69).
+34. On the home page the first visit of a tab opens the example run on the whole screen (about 3.5 s) with a Skip button, tap and Esc; the headline starts only after it; a refresh in the same tab skips it; with reduced motion there is no intro; at 375 px the scene fits and the hero has a Replay intro button (R70).

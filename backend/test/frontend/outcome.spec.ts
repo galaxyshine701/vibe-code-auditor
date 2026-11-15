@@ -386,8 +386,9 @@ describe('the files', () => {
   });
 
   it('with reduced motion none of them animates', () => {
+    const listAt = css.indexOf('.fix-seal.is-animating .seal-ring,');
     const block = css.slice(
-      css.lastIndexOf('@media (prefers-reduced-motion: reduce)'),
+      css.lastIndexOf('@media (prefers-reduced-motion: reduce)', listAt),
     );
     for (const selector of [
       '.fix-seal.is-animating .seal-ring',

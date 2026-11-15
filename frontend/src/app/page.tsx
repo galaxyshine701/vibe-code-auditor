@@ -6,6 +6,7 @@ import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroMotion } from '@/components/hero-motion';
+import { IntroOverlay } from '@/components/intro-overlay';
 import { SecretInput } from '@/components/secret-input';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
@@ -104,6 +105,7 @@ export default function ConnectPage() {
 
   return (
     <div className="shell page-stack">
+      <IntroOverlay />
       <section className="hero">
         <div className="hero-copy">
           <p className="hero-kicker">Data access prover</p>
@@ -158,10 +160,20 @@ export default function ConnectPage() {
               This is the door. The temporary users and canary rows are created
               only after you enter it.
             </p>
+            <button
+              type="button"
+              className="button button-ghost button-small hero-replay"
+              onClick={() => window.dispatchEvent(new Event('vca:replay-hero'))}
+            >
+              Replay intro
+            </button>
           </div>
         </div>
 
-        <HeroMotion />
+        {/* the example run is the intro now; here is its last frame (a wide screen only) */}
+        <div className="hero-scene">
+          <HeroMotion mode="static" />
+        </div>
       </section>
 
       <div className="connect-grid">
