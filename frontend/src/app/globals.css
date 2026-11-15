@@ -11,14 +11,16 @@
   --surface-soft: rgba(255, 255, 255, 0.035);
   --line: rgba(255, 255, 255, 0.12);
   --line-strong: rgba(255, 255, 255, 0.2);
+  /* the edge of an input or a button: 3:1 on the page, the field and the card */
+  --control-border: rgba(255, 255, 255, 0.36);
   --ink: #f2f0ea;
   --ink-soft: #d8d8d2;
   --muted: #a3a8af;
-  --muted-2: #7d838b;
+  --muted-2: #898f96;
   --canary: #f2c94c;
   --canary-soft: rgba(242, 201, 76, 0.12);
   --canary-glow: rgba(242, 201, 76, 0.22);
-  --leak: #f0555b;
+  --leak: #f15c62;
   --leak-soft: rgba(240, 85, 91, 0.14);
   --leak-glow: rgba(240, 85, 91, 0.2);
   --ok: #3fb27f;
@@ -48,19 +50,20 @@
   --surface-soft: rgba(20, 22, 26, 0.035);
   --line: rgba(20, 22, 26, 0.14);
   --line-strong: rgba(20, 22, 26, 0.24);
+  --control-border: rgba(20, 22, 26, 0.5);
   --ink: #15171a;
   --ink-soft: #2a2d32;
   --muted: #5c626a;
-  --muted-2: #767c84;
+  --muted-2: #5d6168;
   --canary: #d39b00;
   --canary-soft: rgba(211, 155, 0, 0.14);
   --canary-glow: rgba(211, 155, 0, 0.2);
-  --leak: #c93a40;
+  --leak: #b03338;
   --leak-soft: rgba(201, 58, 64, 0.12);
   --leak-glow: rgba(201, 58, 64, 0.18);
-  --ok: #1e8a5a;
+  --ok: #186e48;
   --ok-soft: rgba(30, 138, 90, 0.12);
-  --grey: #6b7178;
+  --grey: #5c6167;
   --grey-soft: rgba(20, 22, 26, 0.06);
   --btn-bg: #15171a;
   --btn-ink: #f2f0ea;
@@ -284,7 +287,7 @@ h4 {
   gap: 7px;
   min-height: 32px;
   padding: 5px 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: 999px;
   color: var(--muted);
   background: transparent;
@@ -294,7 +297,7 @@ h4 {
 }
 
 .theme-toggle:hover {
-  border-color: var(--line-strong);
+  border-color: var(--ink);
   color: var(--ink);
   background: var(--surface-soft);
 }
@@ -410,7 +413,7 @@ h4 {
   gap: 8px;
   min-height: 42px;
   padding: 9px 16px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-border);
   border-radius: 11px;
   color: var(--ink);
   background: transparent;
@@ -443,7 +446,7 @@ h4 {
 
 .button-ghost {
   color: var(--ink);
-  border-color: var(--line-strong);
+  border-color: var(--control-border);
   background: transparent;
 }
 
@@ -567,7 +570,7 @@ h4 {
   width: 100%;
   min-height: 48px;
   padding: 11px 13px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-border);
   border-radius: 12px;
   color: var(--ink);
   background: var(--field);
@@ -1864,7 +1867,7 @@ h4 {
 .segmented {
   display: inline-flex;
   padding: 3px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: 10px;
   background: var(--surface-soft);
 }

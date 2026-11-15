@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.7)
+# Frontend specification: Vibe Code Auditor (v0.5.8)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.8 | 15 Nov 2026 | Dark is the default theme, not the system setting; the choice is kept in the browser (R55). Contrast of both themes checked: text 4.5:1, control edges 3:1. |
 | v0.5.7 | 15 Nov 2026 | Badges: First audit completed, First leak fixed (verified by Re-test), Zero leaks reached; kept in this browser; one animation (R64, R65). |
 | v0.5.6 | 15 Nov 2026 | Fix progress on the Report screen: "N of M findings verified fixed" (R63). |
 | v0.5.5 | 14 Nov 2026 | Report agent (optional AI text): `finding.explanationSource`, `modules[].message`, the `report-agent` module and the Groq privacy line (R62). `recordHash` no longer covers the explanation text. |
@@ -270,7 +271,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R54.** All four screens must be usable at widths of 375, 768 and 1280 px.
 
-**R55.** The app must have a light and a dark theme. The theme follows the system setting by default. A manual toggle must be available on all four screens.
+**R55.** The app has a dark and a light theme. The first visit opens in the dark theme; the system setting is not used. A manual toggle is available on all four screens, and its choice is kept in the browser (`localStorage`, key `vca-theme`). A small script in the page head sets the theme before the first paint, so there is no flash. The query `?theme=light` or `?theme=dark` overrides it for one visit (used for screenshots) and is not stored. In both themes text has a contrast of at least 4.5:1, and the edges of inputs, buttons and toggles at least 3:1, against what is behind them (decorative card borders are not counted). The browser bar colour follows the theme.
 
 **R56.** A verdict must be shown as text plus an icon. Colour alone must never carry the verdict.
 
@@ -451,7 +452,7 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 18. The certificate action appears only when `summary.leaked` is 0, `summary.blocked` is at least 1 and `cleanup` is not `"failed"`. A `409 NOT_ELIGIBLE` shows `error.message`. `recordHash` is labelled "integrity fingerprint, not a signature" (R35).
 19. The mock switch is off by default. With it off, all six audit routes in R2 (not `/health`) use the backend (R43, R44).
 20. All four screens are usable at 375, 768 and 1280 px (R54).
-21. The theme follows the system setting, and the manual toggle on every screen overrides it (R55).
+21. The first visit opens in the dark theme whatever the system setting is. The toggle on every screen changes the theme, the choice stays after a reload, and there is no flash on load (R55). Text has 4.5:1 and the edges of controls 3:1 in both themes.
 22. Every verdict shows text plus an SVG icon. No emoji is used as an icon (R56, R57).
 23. The key fields are labelled "Publishable key" and "Secret key". `anonKey` and `serviceKey` appear nowhere in the UI (R58).
 24. The app has a manifest and a service worker and can be installed. In DevTools > Application > Cache Storage there is no API response and no request that carried the access code (R59).
