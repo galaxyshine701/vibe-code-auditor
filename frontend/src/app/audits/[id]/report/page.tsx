@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessGate } from '@/components/access-gate';
 import { useApp } from '@/components/app-provider';
 import { BadgeStrip } from '@/components/badges';
+import { BeforeAfter } from '@/components/before-after';
+import { CertificateAction } from '@/components/certificate-action';
 import { CleanupWarning } from '@/components/cleanup-warning';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { Disclaimer } from '@/components/disclaimer';
@@ -22,6 +24,12 @@ import {
 } from '@/lib/errors';
 import { sortFindings } from '@/lib/findings';
 import { unverifiedText } from '@/lib/format';
+import {
+  certificateLock,
+  newlyFixedIds,
+  shouldPlayUnlock,
+} from '@/lib/outcome';
+import { isVerifiedFixed } from '@/lib/progress';
 import type { AuditStatusResponse, Finding } from '@/lib/types';
 import { useApiError } from '@/lib/use-api-error';
 
@@ -54,6 +62,21 @@ export default function ReportPage() {
   const badges = useBadges();
   const evaluateBadges = badges.evaluate;
   const retestAsked = useRef(false);
+  // The seal and the certificate unlock (R66, R68) animate once, and only for
+  // what the user's own Re-test changed in this page session.
+  const findingsRef = useRef<Finding[] | null>(null);
+  const [sealAnimating, setSealAnimating] = useState<string[]>([]);
+  const eligibleAtStart = useRef(false);
+  const unlockPlayed = useRef(false);
+  const [playUnlock, setPlayUnlock] = useState(false);
+  const finishSeal = useCallback((findingId: string) => {
+    setSealAnimating((current) => current.filter((item) => item !== findingId));
+  }, []);
+  const finishUnlock = useCallback(() => setPlayUnlock(false), []);
+
+  useEffect(() => {
+    findingsRef.current = findings;
+  }, [findings]);
 
   useEffect(() => {
     if (!accessCode) return;
@@ -133,7 +156,13 @@ export default function ReportPage() {
         ) {
           const result = await getFindings(id, accessCode, controller.signal);
           if (cancelled) return;
-          setFindings(sortFindings(result.findings));
+          const sorted = sortFindings(result.findings);
+          // a finding that this Re-test moved from LEAKED to BLOCKED gets the seal animation
+          if (retestAsked.current) {
+            const fresh = newlyFixedIds(findingsRef.current, sorted);
+            if (fresh.length > 0) setSealAnimating(fresh);
+          }
+          setFindings(sorted);
         }
         setRetestRunning(false);
       } catch (caught) {
@@ -171,6 +200,29 @@ export default function ReportPage() {
       cleanup: audit.cleanup,
       actionObserved: retestAsked.current,
     });
+    if (!retestActive) {
+      // The certificate lock opens with an animation only when this Re-test
+      // made the audit eligible (R68). A refresh shows it open, without it.
+      const lock = certificateLock({
+        status: audit.status,
+        retestActive,
+        leaked: audit.summary.leaked,
+        blocked: audit.summary.blocked,
+        cleanup: audit.cleanup,
+      });
+      if (
+        shouldPlayUnlock({
+          eligibleAtStart: eligibleAtStart.current,
+          eligibleNow: lock.eligible,
+          actionObserved:
+            retestAsked.current && audit.lastRetest?.status === 'completed',
+          alreadyPlayed: unlockPlayed.current,
+        })
+      ) {
+        unlockPlayed.current = true;
+        setPlayUnlock(true);
+      }
+    }
     // The result of the user's Re-test has been seen, finished or failed.
     if (!retestActive) retestAsked.current = false;
   }, [audit, evaluateBadges, findings, gone, loading, retestRunning]);
@@ -194,6 +246,14 @@ export default function ReportPage() {
       setRetestServiceKey('');
       setRetestConfirmed(false);
       setShowRetestForm(false);
+      eligibleAtStart.current = certificateLock({
+        status: audit?.status,
+        retestActive: false,
+        leaked: audit?.summary.leaked ?? 0,
+        blocked: audit?.summary.blocked ?? 0,
+        cleanup: audit?.cleanup,
+      }).eligible;
+      unlockPlayed.current = false;
       retestAsked.current = true;
       setRetestRunning(true);
     } catch (caught) {
@@ -304,12 +364,17 @@ export default function ReportPage() {
   const leakedCount = audit?.summary.leaked ?? 0;
   const blockedCount = audit?.summary.blocked ?? 0;
   const inconclusiveCount = audit?.summary.inconclusive ?? 0;
-  const canOpenCertificate =
-    audit?.status === 'completed' &&
-    !retestActive &&
-    leakedCount === 0 &&
-    blockedCount >= 1 &&
-    audit.cleanup !== 'failed';
+  // The same rule as before, in one place (R68).
+  const lock = certificateLock({
+    status: audit?.status,
+    retestActive,
+    leaked: leakedCount,
+    blocked: blockedCount,
+    cleanup: audit?.cleanup,
+  });
+  const fixedIds = new Set(
+    (findings ?? []).filter(isVerifiedFixed).map((finding) => finding.id),
+  );
 
   return (
     <div className="shell page-stack">
@@ -342,6 +407,11 @@ export default function ReportPage() {
         </>
       ) : (
         <>
+          <BeforeAfter
+            findings={findings}
+            lastRetest={retestActive ? null : lastRetest}
+          />
+
           <section className="card report-toolbar">
             <div className="toolbar-row">
               <div className="toolbar-group">
@@ -383,13 +453,13 @@ export default function ReportPage() {
                     ? 'Re-test running…'
                     : 'Re-test'}
                 </button>
-                {canOpenCertificate ? (
-                  <Link
-                    href={`/audits/${id}/certificate`}
-                    className="button button-ghost"
-                  >
-                    Open certificate view
-                  </Link>
+                {audit?.status === 'completed' ? (
+                  <CertificateAction
+                    auditId={id}
+                    lock={lock}
+                    playUnlock={playUnlock}
+                    onPlayed={finishUnlock}
+                  />
                 ) : null}
               </div>
             </div>
@@ -534,6 +604,9 @@ export default function ReportPage() {
                 actionsDisabled={
                   retestActive || retestStarting || audit?.status === 'running'
                 }
+                sealed={fixedIds.has(finding.id)}
+                sealAnimate={sealAnimating.includes(finding.id)}
+                onSealDone={finishSeal}
                 onUpdated={updateFinding}
                 onNotFound={() => void checkAuditStillExists()}
               />

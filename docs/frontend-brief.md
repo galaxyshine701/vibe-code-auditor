@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.9)
+# Frontend specification: Vibe Code Auditor (v0.6.0)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.6.0 | 15 Nov 2026 | "Fix confirmed" seal, Before -> After strip and certificate lock with an unlock animation (R66 to R69). |
 | v0.5.9 | 15 Nov 2026 | Minimal PWA: manifest, own icons, a service worker that only shows an offline page and caches nothing else (R59). |
 | v0.5.8 | 15 Nov 2026 | Dark is the default theme, not the system setting; the choice is kept in the browser (R55). Contrast of both themes checked: text 4.5:1, control edges 3:1. |
 | v0.5.7 | 15 Nov 2026 | Badges: First audit completed, First leak fixed (verified by Re-test), Zero leaks reached; kept in this browser; one animation (R64, R65). |
@@ -317,6 +318,14 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R65.** Badge animation. A badge plays one short animation, once, and only when the user's own action produced it: the Progress screen saw the audit the user started change from queued or running to completed, or the Report screen saw the Re-test the user started finish. A badge that is earned only because a page was opened (for example after a refresh, or in another browser) appears without animation. After the animation it is stored as shown and never plays again. With `prefers-reduced-motion: reduce` there is no animation; the line "Badge earned: ..." (`role="status"`) tells the user instead. Colours come from the CSS variables of both themes; the text is always `--ink` or `--muted`.
 
+**R66.** "Fix confirmed" seal (Report screen). A finding card shows the seal only when a Re-test moved that finding from LEAKED to BLOCKED, that is `isVerifiedFixed` (`verdict` BLOCKED, `retest.status` `passed`, `retest.previousVerdict` LEAKED). `retest.status` `passed` alone is not enough: the backend also gives `passed` to a finding that went from LEAKED to INCONCLUSIVE, and that finding gets no seal. The seal is a ring and a tick with a small canary dot: first the alarm (a red ring and the dot flaring), then calm (a green ring, the tick drawn, the dot at rest). It animates once (under 650 ms), only for a finding that became fixed through the user's own Re-test in this page session. A page that is opened or refreshed shows the calm seal at once. The words "Fix confirmed" and "Re-test: LEAKED, now BLOCKED" are always there, so colour is never the only message. While a Re-test runs the seal stays (it is worked out from the real findings, not the copies shown as "running").
+
+**R67.** Before and after (Report screen, above the toolbar). After a Re-test whose `lastRetest.status` is `completed`, a strip shows Leaked, Inconclusive and Blocked as "before -> after", for example Leaked 1 -> 0, Blocked 1 -> 2. Before is `retest.previousVerdict` (or the verdict when there is none), after is `verdict`, both from the real findings (not `shownFindings`). Nothing is shown for a failed or a running Re-test, or when no Re-test was run. A table that the Re-test did not check (`tablesRemoved`) is not in the findings any more, so it is counted on neither side, and the strip says so. A table found for the first time in the Re-test (`tablesAdded`) has no before, so it is also left out on both sides, and the strip says so. It is a count, not a score. No animation.
+
+**R68.** Certificate lock (Report screen). "Open certificate view" is always there once the audit is completed. It is locked (`aria-disabled`, still reachable by keyboard) until the rule that was already on the Report screen holds: audit completed, no Re-test running, no LEAKED finding, at least one BLOCKED, cleanup not failed (the same as the backend `certificateBlocker`). `certificateLock` in `frontend/src/lib/outcome.ts` is that rule in one place, and it gives the reason in a sentence written next to the button, never only in a tooltip: with leaks, "Fix the leaks and Re-test to unlock."; a running Re-test, no BLOCKED table and a failed cleanup each have their own sentence. When the user's own Re-test makes it eligible, the padlock opens with one short animation (under 650 ms). A page that is opened already eligible (a refresh) shows the open padlock without animation.
+
+**R69.** Animation limits. Every animation in R65, R66 and R68 runs once and lasts under 800 ms (the longest, the badge, is 700 ms). With `prefers-reduced-motion: reduce` none of them runs and the final state is shown at once. They work in both themes and at 375 px. The tests read the CSS and fail if one lasts 800 ms or more or repeats.
+
 ---
 
 # Part 2: Screen guidance
@@ -468,3 +477,6 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 28. The summary card shows "N of M findings verified fixed by a Re-test" only when a leak was found; a LEAKED -> INCONCLUSIVE finding is not counted as fixed (R63).
 29. Badges: First audit completed, First leak fixed (verified by Re-test) and Zero leaks reached are earned only by the rules of R64, are stored only as a date and a flag under `vca-badges-v1`, and are not given for a failed or running Re-test. The text says "saved in this browser" and the R39 sentence is shown (R64).
 30. A badge animates once, only for the user's own action, never after a refresh, and not at all with reduced motion; both themes keep readable text (R65).
+31. A finding card shows "Fix confirmed" only for a finding that a Re-test moved from LEAKED to BLOCKED (not for LEAKED -> INCONCLUSIVE); the seal animates once after the user's own Re-test and not after a refresh (R66).
+32. After a completed Re-test a strip shows Leaked, Inconclusive and Blocked as before -> after, from the real findings; it is not shown for a failed Re-test; tables that were not re-checked or are new are left out and named (R67).
+33. "Open certificate view" is locked with the reason next to it ("Fix the leaks and Re-test to unlock." for leaks), opens with one short animation only after the user's own Re-test, and has no new rule of eligibility (R68). No animation lasts 800 ms or more, and none runs with reduced motion (R69).

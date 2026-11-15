@@ -2967,3 +2967,261 @@ h4 {
     stroke-dashoffset: 0;
   }
 }
+
+/* ---- Fix confirmed seal, Before and after, certificate lock (R66, R67, R68) ----
+   Every animation runs once and lasts under 800 ms. Texts stay --ink or --muted;
+   the colours of the shapes are decoration, the words say the same thing. */
+.fix-seal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 2px;
+}
+
+.fix-seal svg {
+  flex: none;
+  overflow: visible;
+}
+
+.fix-seal-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.seal-ring {
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.seal-check {
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.seal-canary {
+  fill: var(--canary);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* alarm first (red ring, the canary dot flares), then calm */
+.fix-seal.is-animating .seal-ring {
+  animation: sealRing 0.65s ease-out 1 both;
+}
+
+.fix-seal.is-animating .seal-check {
+  animation: sealCheck 0.3s ease-out 0.35s 1 both;
+}
+
+.fix-seal.is-animating .seal-canary {
+  animation: sealCanary 0.65s ease-out 1 both;
+}
+
+@keyframes sealRing {
+  0% {
+    stroke: var(--leak);
+    transform: scale(1.14);
+  }
+  40% {
+    stroke: var(--leak);
+    transform: scale(1);
+  }
+  100% {
+    stroke: var(--ok);
+    transform: scale(1);
+  }
+}
+
+@keyframes sealCheck {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes sealCanary {
+  0% {
+    fill: var(--leak);
+    transform: scale(1.9);
+  }
+  45% {
+    fill: var(--leak);
+    transform: scale(1);
+  }
+  100% {
+    fill: var(--canary);
+    transform: scale(1);
+  }
+}
+
+.before-after {
+  padding: 16px 20px;
+}
+
+.before-after-title {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+}
+
+.ba-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ba-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 12px;
+}
+
+.ba-leaked {
+  border-left-color: var(--leak);
+}
+
+.ba-inconclusive {
+  border-left-color: var(--grey);
+}
+
+.ba-blocked {
+  border-left-color: var(--ok);
+}
+
+.ba-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ba-numbers {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 1.35rem;
+}
+
+.ba-arrow {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.before-after .muted {
+  margin: 10px 0 0;
+}
+
+.cert-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cert-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cert-button.is-locked {
+  cursor: not-allowed;
+  color: var(--muted);
+}
+
+.cert-reason {
+  max-width: 34ch;
+  margin: 0;
+}
+
+.padlock {
+  flex: none;
+  overflow: visible;
+}
+
+.padlock-body {
+  fill: currentColor;
+}
+
+.padlock-shackle {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+}
+
+.padlock.is-open .padlock-shackle {
+  transform: translateY(-1.6px) rotate(24deg);
+}
+
+.cert-action.is-unlocking .padlock-shackle {
+  animation: shackleOpen 0.6s ease-out 1 both;
+}
+
+.cert-action.is-unlocking .cert-button {
+  animation: certGlow 0.6s ease-out 1 both;
+}
+
+@keyframes shackleOpen {
+  from {
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    transform: translateY(-1.6px) rotate(24deg);
+  }
+}
+
+@keyframes certGlow {
+  0% {
+    box-shadow: 0 0 0 0 var(--canary-glow);
+  }
+  60% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (max-width: 480px) {
+  .ba-grid {
+    gap: 6px;
+  }
+
+  .ba-item {
+    padding: 8px;
+  }
+
+  .ba-numbers {
+    font-size: 1.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fix-seal.is-animating .seal-ring,
+  .fix-seal.is-animating .seal-check,
+  .fix-seal.is-animating .seal-canary,
+  .cert-action.is-unlocking .padlock-shackle,
+  .cert-action.is-unlocking .cert-button {
+    animation: none;
+  }
+}
