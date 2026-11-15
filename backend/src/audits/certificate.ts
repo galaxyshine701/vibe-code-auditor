@@ -70,8 +70,9 @@ function sortKeys(value: unknown): unknown {
 }
 
 /**
- * sha256 of the audit record: target label and URL, findings, summary and run
- * times. Never a key. An integrity fingerprint, not a signature.
+ * sha256 of the audit record: target label and URL, findings (without the
+ * explanation text), summary and run times. Never a key. An integrity
+ * fingerprint, not a signature.
  */
 export function recordHash(s: CertificateSubject): string {
   const lr = s.lastRetest;
@@ -95,7 +96,11 @@ export function recordHash(s: CertificateSubject): string {
       inconclusive: count(s.findings, 'INCONCLUSIVE'),
       leaked: count(s.findings, 'LEAKED'),
     },
-    findings: s.findings,
+    // The wording of the explanation is left out: an AI can write it and it can
+    // differ between runs. Verdicts, evidence, titles and fix SQL are covered.
+    findings: s.findings.map(
+      ({ explanation: _text, explanationSource: _source, ...rest }) => rest,
+    ),
   };
   return createHash('sha256').update(canonicalJson(record)).digest('hex');
 }

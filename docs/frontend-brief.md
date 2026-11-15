@@ -1,4 +1,4 @@
-# Frontend specification: Vibe Code Auditor (v0.5.4)
+# Frontend specification: Vibe Code Auditor (v0.5.5)
 
 Derived from: `docs/api-contract.md`, `docs/prover-spec.md`, `docs/roadmap.md` and `docs/evidence/*.json`. Where this document adds a rule or a decision, the rule is part of this specification.
 
@@ -8,6 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
+| v0.5.5 | 14 Nov 2026 | Report agent (optional AI text): `finding.explanationSource`, `modules[].message`, the `report-agent` module and the Groq privacy line (R62). `recordHash` no longer covers the explanation text. |
 | v0.5.4 | 14 Nov 2026 | `retest.status` `passed` is kept by later Re-tests (R10, R53). |
 | v0.5.3 | 14 Nov 2026 | Disclaimer sentence changed (R35, R39). Coverage section on the Report screen (R61). |
 | v0.5.2 | 13 Nov 2026 | Approve fix, Re-test and Certificate are built (R2). Re-test sends the keys again and never `projectUrl` (R33). New fields `lastRetest` and `retest.previousVerdict`, and the fix status after a Re-test (R10, R14). Errors `NO_FIX_TO_APPROVE`, `NOT_ELIGIBLE` and Re-test `INVALID_INPUT` (R47 to R49). Re-test running, failed Re-test, added and removed tables, previous verdict (R50 to R53). Certificate rule and body changed (R35). Mock rules changed (R43 to R46). Design requirements (R54 to R60). |
@@ -281,6 +282,8 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R61.** The Report screen must show a coverage section. It lists what is checked, what is not covered and the limits, as written in `frontend/src/lib/coverage.ts`. It states that tables where no owner column can be detected are reported as inconclusive.
 
+**R62.** Report agent (optional, additive fields). (a) If a module has a `message`, the Progress screen shows it as one line under that module's row. The frontend does not add modules (R11): the `report-agent` row is shown only when the backend returns it. (b) If a finding has `explanationSource` `"ai"`, the Report screen shows the small label "Written by AI" under the English explanation. Missing means `"template"` and no label. The Roman Urdu text is always the template text. (c) The Connect screen always shows this line under the description of the form: "Table names and check results (never keys) are sent to Groq to write the explanation." The frontend cannot know whether the Report agent is on, so the line is always shown.
+
 ---
 
 # Part 2: Screen guidance
@@ -316,7 +319,7 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 **Data.**
 - `target.label` and `target.projectUrl`.
 - Overall `status`.
-- One row per item of `modules`: `name`, `status`, `progress` (R10, R11).
+- One row per item of `modules`: `name`, `status`, `progress`, and `message` when present (R10, R11, R62).
 - `summary` counts when the audit is `completed`.
 - `cleanup` and `cleanupNote` (R25).
 
@@ -344,7 +347,7 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 
 **Data.**
 - The findings, sorted as in R15, read after the status is `completed` (R12).
-- Per finding: verdict (text plus icon, R56), severity, table, title, explanation in the chosen language (R42), evidence, operations (R16), fix (R14), `retest` with `previousVerdict` (R53).
+- Per finding: verdict (text plus icon, R56), severity, table, title, explanation in the chosen language (R42) with the label "Written by AI" when `explanationSource` is `"ai"` (R62), evidence, operations (R16), fix (R14), `retest` with `previousVerdict` (R53).
 - The audit `summary`, and the cleanup warning (R25).
 - `lastRetest`, with `tablesAdded` and `tablesRemoved` (R52).
 
@@ -428,3 +431,4 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 24. The app has a manifest and a service worker and can be installed. In DevTools > Application > Cache Storage there is no API response and no request that carried the access code (R59).
 25. `frontend/README.md` has a "Design notes" section and eight screenshots: four screens in light and dark (R60).
 26. The Report screen has a coverage section with the lists Checked, Not covered and Limits (R61). The sentence in R39 is shown on the Report and Certificate screens.
+27. A module `message` is shown under its row; a finding with `explanationSource` `"ai"` shows "Written by AI"; the Connect screen shows the Groq line (R62).

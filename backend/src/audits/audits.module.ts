@@ -13,6 +13,7 @@ import { AttemptLimiter } from '../access/attempt-limiter.js';
 import { SupabaseGateway } from '../prover/gateway.js';
 import { AuditsController } from './audits.controller.js';
 import { AuditsService, GATEWAY_FACTORY } from './audits.service.js';
+import { REPORT_SETUP, resolveReportSetup } from '../report/report-config.js';
 
 @Module({
   controllers: [AuditsController],
@@ -52,6 +53,17 @@ import { AuditsService, GATEWAY_FACTORY } from './audits.service.js';
       },
     },
     { provide: ATTEMPT_LIMITER, useFactory: () => new AttemptLimiter() },
+    {
+      // Off unless REPORT_AGENT=groq. Warnings are fixed sentences, no values.
+      provide: REPORT_SETUP,
+      useFactory: () => {
+        const { setup, warnings } = resolveReportSetup(process.env);
+        const log = new Logger('Report');
+        for (const warning of warnings) log.warn(warning);
+        log.log(`Report agent: ${setup.mode}`);
+        return setup;
+      },
+    },
   ],
 })
 export class AuditsModule {}

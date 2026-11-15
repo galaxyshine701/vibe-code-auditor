@@ -176,6 +176,9 @@ export default function ConnectPage() {
                 The auditor adds two temporary users and one canary row per
                 table, then removes them.
               </p>
+              <p className="muted small">
+                Table names and check results (never keys) are sent to Groq to write the explanation.
+              </p>
             </div>
           </div>
 

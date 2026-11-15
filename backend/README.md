@@ -37,6 +37,14 @@ Tests a Supabase **test** project and prints JSON findings (LEAKED, BLOCKED or I
 - Every request to Supabase has its own 20 second timeout (one constant, `REQUEST_TIMEOUT_MS`). A stalled call gives the plain error "Supabase did not answer in time." Cleanup calls have their own timeouts too, so a slow request cannot stop the cleanup.
 - If a "create user" call never answers, the user may exist without us knowing its id. Cleanup then looks for that exact email (made in this run, no wildcard) and deletes it. If it cannot, the result is `cleanup: "failed"` with a note to delete `vca-*@example.com` users by hand in Supabase Auth.
 
+## Report agent (optional, off by default)
+- `REPORT_AGENT=off|groq`. Default `off`: nothing is sent anywhere and the text is the Prover's own template text. Tests always run with it off.
+- With `REPORT_AGENT=groq` a Report agent runs after the Prover (and after a Re-test) and may rewrite **only** `explanation.en`. Verdict, severity, title, `explanation.ur`, evidence and the fix SQL always stay as the Prover made them.
+- `GROQ_API_KEY` and `GROQ_MODEL` (for example `openai/gpt-oss-20b`) come from `backend/.env` and Railway Variables only. If one is missing the server starts anyway (one warning, no value), the audit completes with template text, and the `report-agent` module shows `failed`.
+- What is sent to Groq: table names and check results (verdict, severity, per-actor results). Never keys, the project address, the canary row id, the reproducer, user ids or the fix SQL. The request and the answer are never logged.
+- If the AI service fails or its text does not pass the checks, the audit still completes with the template text.
+- Manual check with one real call (made-up finding): set the two values in `backend/.env`, then `npm run smoke:groq`. It prints the status, token counts and the decision, never the key.
+
 ## Access code (`/api/v1/audits`)
 - Every `/api/v1/audits` route needs the header `X-Access-Code`. `/health` stays open.
 - Set `AUDIT_ACCESS_CODE` in `backend/.env` (and in Railway Variables): a secret of **at least 24 characters**. Never put it in code, logs or chat.
