@@ -39,6 +39,7 @@ export function buildCoverage(
     skipped: [],
     outOfScope: [],
     failedToRun: [],
+    nothingToTest: [],
     limits: [],
   };
   const seenLimits = new Set<string>();
@@ -48,6 +49,12 @@ export function buildCoverage(
     switch (result?.status) {
       case 'completed':
         coverage.checked.push(definition.id);
+        if (result.nothingToTest) {
+          coverage.nothingToTest.push({
+            id: definition.id,
+            note: result.nothingToTest,
+          });
+        }
         break;
       case 'partial':
         coverage.partial.push({

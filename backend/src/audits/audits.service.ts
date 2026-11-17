@@ -590,7 +590,11 @@ export class AuditsService implements OnModuleDestroy {
       record.lockC = runStages({
         findings: record.findings,
         cleanup: record.cleanup,
-        dataAccess: { status: 'completed' },
+        // The Prover makes one finding per table: none means no table at all.
+        dataAccess: {
+          status: 'completed',
+          zeroTables: record.findings.length === 0,
+        },
       });
       record.progress = 100;
       record.completedAt = new Date().toISOString();
@@ -655,7 +659,10 @@ export class AuditsService implements OnModuleDestroy {
       record.lockC = runStages({
         findings: record.findings,
         cleanup: record.cleanup,
-        dataAccess: { status: 'completed' },
+        dataAccess: {
+          status: 'completed',
+          zeroTables: record.findings.length === 0,
+        },
       });
       record.lastRetest = {
         status: 'completed',

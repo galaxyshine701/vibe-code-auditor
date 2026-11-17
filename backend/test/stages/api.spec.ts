@@ -177,6 +177,7 @@ describe('stages in the API (additive fields)', () => {
     expect(res.body.coverage.outOfScope).toEqual([]);
     expect(res.body.coverage.partial).toEqual([]);
     expect(res.body.coverage.failedToRun).toEqual([]);
+    expect(res.body.coverage.nothingToTest).toEqual([]);
     expect(res.body.coverage.limits.map((l: { ur: string }) => l.ur)).toContain(
       'Doosre origin ki scripts scan nahi hotin.',
     );
@@ -223,6 +224,23 @@ describe('stages in the API (additive fields)', () => {
     // the key is redacted here too
     expect(JSON.stringify(evidence)).not.toContain(SECRET);
     expect(JSON.stringify(res.body)).not.toContain(SECRET);
+  });
+
+  it('zero tables today: the Prover still ends the audit as failed (NO_TABLES), so the gate is not_ready', async () => {
+    const app = await open(
+      new InMemoryAuditRepository(),
+      () => new FakeGateway([]),
+    );
+    const id = (await api(app).post(BASE).send(body())).body.id as string;
+    const res = await waitUntilDone(app, id);
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error.code).toBe('NO_TABLES');
+    expect(res.body.gate.decision).toBe('not_ready');
+    const evidence = (await api(app).get(`${BASE}/${id}/evidence`)).body;
+    expect(evidence.coverage.nothingToTest).toEqual([]);
+    expect(
+      evidence.coverage.failedToRun.map((c: { id: string }) => c.id),
+    ).toEqual(['data-access-prover']);
   });
 
   it('the stage fields survive a restart (they are stored with the audit)', async () => {

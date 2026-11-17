@@ -2,6 +2,7 @@ import { buildFinding } from '../../src/prover/findings.js';
 import type { Finding } from '../../src/prover/types.js';
 import { buildCoverage, buildEvidence } from '../../src/stages/evidence.js';
 import { evaluateGate } from '../../src/stages/gate.js';
+import { ZERO_TABLES_NOTE } from '../../src/stages/inspectors.js';
 import {
   BUNDLE_SCAN_LIMITS,
   CHECKS,
@@ -25,6 +26,7 @@ const emptyCoverage = (): Coverage => ({
   skipped: [],
   outOfScope: [],
   failedToRun: [],
+  nothingToTest: [],
   limits: [],
 });
 
@@ -227,6 +229,143 @@ describe('gate: the rules', () => {
         /certif|\bsecure\b|\bsafe\b|guarantee/,
       );
     }
+  });
+});
+
+describe('gate: zero tables is a state of its own', () => {
+  const DATA = 'data-access-prover';
+  const dataAccessPlan = (): PlannedCheck[] => [
+    {
+      id: DATA,
+      title: text('Data access'),
+      mode: 'keyed',
+      required: true,
+    },
+  ];
+  const zero = (): Parameters<typeof evaluateGate>[0] => ({
+    plan: dataAccessPlan(),
+    coverage: {
+      ...emptyCoverage(),
+      checked: [DATA],
+      nothingToTest: [{ id: DATA, note: ZERO_TABLES_NOTE }],
+    },
+    evidence: [],
+    cleanup: 'ok',
+  });
+
+  it('can be ready: the check completed, there was nothing to test, nothing is left behind', () => {
+    expect(evaluateGate(zero())).toEqual({
+      decision: 'ready_by_these_checks',
+      reasons: [],
+    });
+  });
+
+  it('is not the same as "nothing was blocked": without the zero-tables note the same input is not ready', () => {
+    const input = zero();
+    input.coverage = { ...emptyCoverage(), checked: [DATA] };
+    const gate = evaluateGate(input);
+    expect(gate.decision).toBe('not_ready');
+    expect(gate.reasons.map((r) => r.en).join(' ')).toContain(
+      'No table was shown to be blocked',
+    );
+  });
+
+  it('is not an empty coverage: the check is in `checked`', () => {
+    const input = zero();
+    expect(input.coverage.checked).toEqual([DATA]);
+    expect(evaluateGate(input).decision).toBe('ready_by_these_checks');
+  });
+
+  it('still needs every OTHER required check', () => {
+    const input = zero();
+    input.plan = [
+      ...dataAccessPlan(),
+      {
+        id: 'tls-headers',
+        title: text('Headers'),
+        mode: 'passive',
+        required: true,
+      },
+    ];
+    input.coverage.skipped.push({ id: 'tls-headers', reason: text('later') });
+    const gate = evaluateGate(input);
+    expect(gate.decision).toBe('not_ready');
+    expect(gate.reasons.map((r) => r.en).join(' ')).toContain('Headers');
+  });
+
+  it('a failed cleanup and a leak still win', () => {
+    const failedCleanup = zero();
+    failedCleanup.cleanup = 'failed';
+    expect(evaluateGate(failedCleanup).decision).toBe('not_ready');
+    const leak = zero();
+    leak.evidence = [evidenceItem('LEAKED')];
+    expect(evaluateGate(leak).decision).toBe('not_ready');
+  });
+
+  it('a Prover that FAILED is not zero tables, even if a note were present', () => {
+    const input = zero();
+    input.coverage = {
+      ...emptyCoverage(),
+      failedToRun: [{ id: DATA, reason: text('broke') }],
+      nothingToTest: [{ id: DATA, note: ZERO_TABLES_NOTE }],
+    };
+    expect(evaluateGate(input).decision).toBe('not_ready');
+  });
+
+  it('a "nothing to test" note on ANOTHER check does not excuse "nothing was blocked"', () => {
+    const input = zero();
+    input.plan = [
+      { id: 'other', title: text('Other'), mode: 'passive', required: true },
+    ];
+    input.coverage = {
+      ...emptyCoverage(),
+      checked: ['other'],
+      nothingToTest: [{ id: 'other', note: text('nothing here') }],
+    };
+    expect(evaluateGate(input).decision).toBe('not_ready');
+  });
+
+  it('end to end: no findings and zeroTables gives a note in the coverage, in both languages', () => {
+    const onlyDataAccess = CHECKS.filter((c) => c.id === DATA);
+    const lock = runStages(
+      {
+        findings: [],
+        cleanup: 'ok',
+        dataAccess: { status: 'completed', zeroTables: true },
+      },
+      onlyDataAccess,
+    );
+    expect(lock.coverage.checked).toEqual([DATA]);
+    expect(lock.coverage.nothingToTest).toEqual([
+      { id: DATA, note: ZERO_TABLES_NOTE },
+    ]);
+    expect(lock.coverage.nothingToTest[0].note.en).toContain(
+      'No exposed tables',
+    );
+    expect(lock.coverage.nothingToTest[0].note.ur.length).toBeGreaterThan(0);
+    expect(lock.gate.decision).toBe('ready_by_these_checks');
+  });
+
+  it('with the real plan the gate is still not_ready today (the other required checks are skipped), but the note is there', () => {
+    const lock = runStages({
+      findings: [],
+      cleanup: 'ok',
+      dataAccess: { status: 'completed', zeroTables: true },
+    });
+    expect(lock.coverage.nothingToTest.map((n) => n.id)).toEqual([DATA]);
+    expect(lock.gate.decision).toBe('not_ready');
+    // the reasons name the skipped inspectors, not "no table blocked"
+    const said = lock.gate.reasons.map((r) => r.en).join(' ');
+    expect(said).not.toContain('No table was shown to be blocked');
+  });
+
+  it('a normal run (with tables) has no zero-tables note', () => {
+    const lock = runStages({
+      findings: [finding('fnd_001', 'BLOCKED')],
+      cleanup: 'ok',
+      dataAccess: { status: 'completed' },
+    });
+    expect(lock.coverage.nothingToTest).toEqual([]);
   });
 });
 

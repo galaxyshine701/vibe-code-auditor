@@ -34,6 +34,12 @@ export interface CheckResult {
   status: CheckStatus;
   /** For partial, skipped and failedToRun: why. */
   reason?: Text;
+  /**
+   * Set on a COMPLETED check that found nothing to test (for example the
+   * Data Access Prover when no table is exposed). The text is the note that
+   * goes into the coverage. This is not a failure and not a skip.
+   */
+  nothingToTest?: Text;
   /** For partial: what was not read (a name and a reason each). */
   notRead?: { name: string; reason: Text }[];
   /**
@@ -69,6 +75,8 @@ export interface Coverage {
   /** named things left out on purpose, with the reason */
   outOfScope: { name: string; reason: Text }[];
   failedToRun: { id: string; reason: Text }[];
+  /** completed checks that had nothing to test, with a note (for example zero tables) */
+  nothingToTest: { id: string; note: Text }[];
   /** what these checks can not tell, in plain words */
   limits: Text[];
 }

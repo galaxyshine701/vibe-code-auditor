@@ -19,7 +19,10 @@ export interface GateInput {
  *  2. every REQUIRED check completed (not skipped, not partial, not failed),
  *  3. no leak found, and still there,
  *  4. the temporary test users and rows were removed,
- *  5. at least one table was shown to be blocked.
+ *  5. at least one table was shown to be blocked, OR the Data Access Prover
+ *     completed with no exposed table at all ("zero tables"). That is a state
+ *     of its own: it can be ready, and the coverage carries a note that no
+ *     table data was tested.
  * Anything else is `not_ready`, and `reasons` says why. The words are always
  * "by these checks": this is never a promise that an app is secure.
  */
@@ -68,8 +71,14 @@ export function evaluateGate(input: GateInput): Gate {
     });
   }
 
+  // zero tables: the Prover completed and had nothing to test. Only that check
+  // counts; a note on another check does not excuse "nothing was blocked".
+  const zeroTables = coverage.nothingToTest.some(
+    (n) => n.id === 'data-access-prover' && coverage.checked.includes(n.id),
+  );
   if (
     coverage.checked.length > 0 &&
+    !zeroTables &&
     !evidence.some((e) => e.verdict === 'BLOCKED')
   ) {
     reasons.push({

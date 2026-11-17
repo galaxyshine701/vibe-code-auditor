@@ -290,7 +290,7 @@ Added to `GET /audits/:id` and a new route `GET /audits/:id/evidence`. Nothing i
 - `schemaVersion`: `2` while these fields exist.
 - `ownership.status`: `skipped` | `proven` | `not_proven`. Today it is always `skipped`, with a `reason`. `proven` and `not_proven` are reserved for the day ownership of the site is checked.
 - `plan`: the checks of this run, in order. Every check is listed, also one that is not built yet. `mode`: `passive` (reads what any visitor can read), `keyed` (runs with the keys the user typed in) or `active` (sends probes to the site; allowed only after ownership is proven). `required`: a required check that did not complete keeps `gate.decision` at `not_ready`.
-- `gate.decision`: `ready_by_these_checks` | `not_ready`. It is `ready_by_these_checks` only when ALL of these are true: at least one check completed; every required check completed (not skipped, not partial, not failed to run); no leak was found; `cleanup` is not `"failed"`; and at least one table was shown to be blocked. An empty coverage is never ready. `gate.reasons` says why it is `not_ready` and is empty when it is ready. The words are always "by these checks": this is never a statement that an app is secure.
+- `gate.decision`: `ready_by_these_checks` | `not_ready`. It is `ready_by_these_checks` only when ALL of these are true: at least one check completed; every required check completed (not skipped, not partial, not failed to run); no leak was found; `cleanup` is not `"failed"`; and at least one table was shown to be blocked, or the Data Access Prover completed with no exposed table at all ("zero tables", see `coverage.nothingToTest`, reserved: not produced by the API today). An empty coverage is never ready. `gate.reasons` says why it is `not_ready` and is empty when it is ready. The words are always "by these checks": this is never a statement that an app is secure.
 - Today the gate is always `not_ready`: the checks `tls-headers` and `bundle-secrets` are required but not built yet, so they are `skipped`.
 - Every text that is `{ "en", "ur" }` has both languages.
 
@@ -318,6 +318,7 @@ New route. `404` `NOT_FOUND` for an unknown audit, and also for an audit that ha
     ],
     "outOfScope": [],
     "failedToRun": [],
+    "nothingToTest": [],
     "limits": [
       { "en": "Scripts from other origins are not scanned.", "ur": "Doosre origin ki scripts scan nahi hotin." }
     ]
@@ -329,6 +330,7 @@ New route. `404` `NOT_FOUND` for an unknown audit, and also for an audit that ha
   - `checked`: ids of the checks that completed.
   - `partial`: `{ "id", "reason", "notRead": [{ "name", "reason" }] }`. The check ran but could not read part of what it should (a size cap or a time limit); `notRead` names each part. A required check that is `partial` keeps the gate at `not_ready`.
   - `skipped` and `failedToRun`: `{ "id", "reason" }`.
+  - `nothingToTest`: **Reserved: not produced by the API today.** The list is always `[]` for now. `{ "id", "note" }`. A check that completed but found nothing to test, for example the Data Access Prover when no table is exposed ("zero tables"). It is in `checked` too, it is not a failure and not a skip, and the note says that no table data was tested. For `data-access-prover` it lets the gate be ready without a blocked table. The Prover still ends an audit with no exposed table as `failed` with `error.code` `NO_TABLES` (that does not change), so a client must not wait for this list to be filled. If the Prover ever completes an audit with zero tables, this list will carry the note and the gate rule above will apply.
   - `outOfScope`: `{ "name", "reason" }`. Things left out on purpose, named one by one (for example a script of another origin). Out of scope is NOT partial and does not hold the gate back.
   - `limits`: what these checks can not tell, in plain words.
 
