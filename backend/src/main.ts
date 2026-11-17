@@ -6,6 +6,8 @@ import {
   resolveClientIpHeader,
 } from './access/access-config.js';
 import { AppModule } from './app.module.js';
+import { resolvePlatformConfig } from './audits/platform-config.js';
+import { AuditsService } from './audits/audits.service.js';
 import { configureApp } from './app.setup.js';
 
 // backend/.env (this file lives in backend/dist/ after the build)
@@ -15,8 +17,15 @@ async function bootstrap() {
   // Check the protection settings first: no access code means no server.
   resolveAccessConfig(process.env);
   resolveClientIpHeader(process.env);
+  // The audit store needs its own Supabase project (not the tested one).
+  resolvePlatformConfig(process.env);
   const app = await NestFactory.create(AppModule, { abortOnError: false });
   configureApp(app);
+  // Before listening: the audit store must work, and every audit that a
+  // restart left `running` is closed as INTERRUPTED. If this throws, the
+  // server does not start (the message is a fixed sentence, never an address).
+  await app.init();
+  await app.get(AuditsService).bootCheck();
   // 4000 by default, because the Next.js frontend uses 3000
   await app.listen(process.env.PORT ?? 4000);
 }
