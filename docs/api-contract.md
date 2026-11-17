@@ -264,6 +264,74 @@ Optional. They appear only when the backend runs with the Report agent on (`REPO
 - `modules[].message`: optional, only on a `failed` row. One plain sentence. It never contains a key, a request or the AI's own text.
 - Privacy: table names and check results (never keys) are sent to Groq to write the explanation. A key, the project address, the canary row id, the reproducer and user ids are never sent.
 
+### Additive fields: the stages (`schemaVersion` 2)
+Added to `GET /audits/:id` and a new route `GET /audits/:id/evidence`. Nothing is renamed or removed. An audit that finished a run (an audit or a re-test) after the stages were added has the fields below; an older audit does not. A client treats a missing `schemaVersion` as `1` and shows no stage fields for it.
+
+`GET /audits/:id` gets four more fields:
+```json
+"schemaVersion": 2,
+"ownership": {
+  "status": "skipped",
+  "reason": { "en": "Ownership of the site is not checked yet.", "ur": "Site ki malkiyat abhi check nahi hoti." }
+},
+"plan": [
+  { "id": "data-access-prover", "title": { "en": "...", "ur": "..." }, "mode": "keyed", "required": true },
+  { "id": "tls-headers", "title": { "en": "...", "ur": "..." }, "mode": "passive", "required": true },
+  { "id": "bundle-secrets", "title": { "en": "...", "ur": "..." }, "mode": "passive", "required": true },
+  { "id": "active-checks", "title": { "en": "...", "ur": "..." }, "mode": "active", "required": false }
+],
+"gate": {
+  "decision": "not_ready",
+  "reasons": [
+    { "en": "The required check \"Certificate and security headers of the site\" was skipped.", "ur": "..." }
+  ]
+}
+```
+- `schemaVersion`: `2` while these fields exist.
+- `ownership.status`: `skipped` | `proven` | `not_proven`. Today it is always `skipped`, with a `reason`. `proven` and `not_proven` are reserved for the day ownership of the site is checked.
+- `plan`: the checks of this run, in order. Every check is listed, also one that is not built yet. `mode`: `passive` (reads what any visitor can read), `keyed` (runs with the keys the user typed in) or `active` (sends probes to the site; allowed only after ownership is proven). `required`: a required check that did not complete keeps `gate.decision` at `not_ready`.
+- `gate.decision`: `ready_by_these_checks` | `not_ready`. It is `ready_by_these_checks` only when ALL of these are true: at least one check completed; every required check completed (not skipped, not partial, not failed to run); no leak was found; `cleanup` is not `"failed"`; and at least one table was shown to be blocked. An empty coverage is never ready. `gate.reasons` says why it is `not_ready` and is empty when it is ready. The words are always "by these checks": this is never a statement that an app is secure.
+- Today the gate is always `not_ready`: the checks `tls-headers` and `bundle-secrets` are required but not built yet, so they are `skipped`.
+- Every text that is `{ "en", "ur" }` has both languages.
+
+### GET /audits/:id/evidence
+New route. `404` `NOT_FOUND` for an unknown audit, and also for an audit that has no stage fields (an older audit).
+```json
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "ev_fnd_001",
+      "check": "data-access-prover",
+      "findingId": "fnd_001",
+      "table": "bookings",
+      "verdict": "LEAKED",
+      "proof": "PROVEN",
+      "summary": { "en": "...", "ur": "..." }
+    }
+  ],
+  "coverage": {
+    "checked": ["data-access-prover"],
+    "partial": [],
+    "skipped": [
+      { "id": "tls-headers", "reason": { "en": "Not implemented yet.", "ur": "Abhi bana nahi." } }
+    ],
+    "outOfScope": [],
+    "failedToRun": [],
+    "limits": [
+      { "en": "Scripts from other origins are not scanned.", "ur": "Doosre origin ki scripts scan nahi hotin." }
+    ]
+  }
+}
+```
+- `items`: one per finding of the Data Access Prover. `findingId` is an id from `GET /audits/:id/findings`. `proof`: `PROVEN` (the check saw it directly: a leak, or a table that held up) or `UNVERIFIED` (the check could not tell: `INCONCLUSIVE`). `summary` is the finding's `explanation`.
+- `coverage`: what was and was not looked at. Every planned check is in exactly one of `checked`, `partial`, `skipped` or `failedToRun`; a check that reported nothing counts as `skipped`, so a gap never looks like a pass.
+  - `checked`: ids of the checks that completed.
+  - `partial`: `{ "id", "reason", "notRead": [{ "name", "reason" }] }`. The check ran but could not read part of what it should (a size cap or a time limit); `notRead` names each part. A required check that is `partial` keeps the gate at `not_ready`.
+  - `skipped` and `failedToRun`: `{ "id", "reason" }`.
+  - `outOfScope`: `{ "name", "reason" }`. Things left out on purpose, named one by one (for example a script of another origin). Out of scope is NOT partial and does not hold the gate back.
+  - `limits`: what these checks can not tell, in plain words.
+
 ### What happens to finding ids, tables and fixes between runs
 - A table that exists in both runs keeps the same finding `id`. A table that appears gets a new `id`, a `previousVerdict` of `null`, and `retest.status` by the rule above (so a new table that is `LEAKED` gets `failed`). A table that disappears is dropped from the list and is named in `lastRetest.tablesRemoved`; a dropped id is never reused. A table that disappeared is not proof that its leak was fixed, so the UI should show `tablesRemoved` to the user.
 - A finding that becomes `BLOCKED` or `INCONCLUSIVE` gets `fix: null` (those findings never have a fix). The approval is not kept; the `previousVerdict` of `LEAKED` and `retest.status = "passed"` tell the story.

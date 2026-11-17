@@ -1,4 +1,5 @@
 import type { Finding } from '../prover/types.js';
+import type { LockC } from '../stages/types.js';
 
 export type AuditStatus = 'queued' | 'running' | 'completed' | 'failed';
 
@@ -44,4 +45,9 @@ export interface AuditRecord {
   proverDone: boolean;
   /** The Report agent's row. null when the Report agent is off. */
   reportRow: ReportRow | null;
+  /**
+   * Plan, evidence, coverage and gate of the latest finished run. Missing on an
+   * audit that was stored before the stages existed.
+   */
+  lockC?: LockC;
 }

@@ -29,6 +29,7 @@ import { buildCertificate, certificateBlocker } from './certificate.js';
 import { redactForStorage } from './redact-for-storage.js';
 import { mergeRetest } from './retest-merge.js';
 import { sweepInterrupted } from './sweeper.js';
+import { runStages } from '../stages/run-stages.js';
 import { createReportAgent, REPORT_AGENT_ID } from '../report/report-agent.js';
 import { REPORT_SETUP, type ReportSetup } from '../report/report-config.js';
 
@@ -347,6 +348,32 @@ export class AuditsService implements OnModuleDestroy {
       ...(record.cleanupNote ? { cleanupNote: record.cleanupNote } : {}),
       ...(record.error ? { error: record.error } : {}),
       lastRetest: record.lastRetest,
+      // Additive (stages). Missing on an audit stored before the stages existed.
+      ...(record.lockC
+        ? {
+            schemaVersion: record.lockC.schemaVersion,
+            ownership: record.lockC.ownership,
+            plan: record.lockC.plan,
+            gate: record.lockC.gate,
+          }
+        : {}),
+    };
+  }
+
+  /** Evidence items and coverage (additive). */
+  async evidence(id: string) {
+    const record = await this.readRecord(id);
+    if (!record.lockC) {
+      throw new ApiError(
+        404,
+        'NOT_FOUND',
+        'This audit has no evidence list (it was run before the stages existed).',
+      );
+    }
+    return {
+      schemaVersion: record.lockC.schemaVersion,
+      items: record.lockC.evidence,
+      coverage: record.lockC.coverage,
     };
   }
 
@@ -560,6 +587,11 @@ export class AuditsService implements OnModuleDestroy {
       record.nextFindingNumber = result.findings.length + 1;
       record.cleanup = result.cleanup;
       record.cleanupNote = result.cleanupNote ?? null;
+      record.lockC = runStages({
+        findings: record.findings,
+        cleanup: record.cleanup,
+        dataAccess: { status: 'completed' },
+      });
       record.progress = 100;
       record.completedAt = new Date().toISOString();
       record.status = 'completed';
@@ -578,6 +610,11 @@ export class AuditsService implements OnModuleDestroy {
           run.secrets,
         ),
       };
+      record.lockC = runStages({
+        findings: [],
+        cleanup: record.cleanup,
+        dataAccess: { status: 'failedToRun', message: record.error.message },
+      });
     } finally {
       this.runningId = null;
       this.logger.log(`${record.id} ${record.status}`);
@@ -615,6 +652,11 @@ export class AuditsService implements OnModuleDestroy {
       record.cleanup = result.cleanup;
       record.cleanupNote = result.cleanupNote ?? null;
       record.completedAt = finishedAt;
+      record.lockC = runStages({
+        findings: record.findings,
+        cleanup: record.cleanup,
+        dataAccess: { status: 'completed' },
+      });
       record.lastRetest = {
         status: 'completed',
         startedAt: lastRetest.startedAt,

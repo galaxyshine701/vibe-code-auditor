@@ -30,6 +30,11 @@ export class AuditsController {
     return this.audits.get(id);
   }
 
+  @Get(':id/evidence')
+  evidence(@Param('id') id: string) {
+    return this.audits.evidence(id);
+  }
+
   @Get(':id/findings')
   findings(@Param('id') id: string) {
     return this.audits.getFindings(id);
