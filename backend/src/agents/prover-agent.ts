@@ -21,7 +21,7 @@ export function createProverAgent(
     id: 'data-access-prover',
     name: 'Data Access Prover',
     critical: true,
-    async run(context, setProgress) {
+    async run(context, setProgress, control) {
       context.prover = await runProver(
         gateway,
         () => {},
@@ -29,7 +29,8 @@ export function createProverAgent(
           setProgress(percent);
           onProgress(percent);
         },
-        shouldStop,
+        // the run-level flag, or this agent's own deadline
+        () => (shouldStop?.() ?? false) || (control?.shouldStop() ?? false),
       );
     },
   };

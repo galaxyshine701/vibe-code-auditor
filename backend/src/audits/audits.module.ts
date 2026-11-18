@@ -10,6 +10,7 @@ import {
   AccessCodeGuard,
 } from '../access/access-code.guard.js';
 import { AttemptLimiter } from '../access/attempt-limiter.js';
+import { AGENTS_SETUP, resolveAgentsSetup } from '../agents/agents-config.js';
 import { SupabaseGateway } from '../prover/gateway.js';
 import { AUDIT_REPOSITORY } from './audit-repository.js';
 import { AuditsController } from './audits.controller.js';
@@ -71,6 +72,17 @@ import { SupabaseAuditRepository } from './supabase-audit-repository.js';
       },
     },
     { provide: ATTEMPT_LIMITER, useFactory: () => new AttemptLimiter() },
+    {
+      // Off unless LOCK_C_AGENTS=on. Warnings are fixed sentences, no values.
+      provide: AGENTS_SETUP,
+      useFactory: () => {
+        const { setup, warnings } = resolveAgentsSetup(process.env);
+        const log = new Logger('Agents');
+        for (const warning of warnings) log.warn(warning);
+        log.log(`Lock C agents: ${setup.enabled ? 'on' : 'off'}`);
+        return setup;
+      },
+    },
     {
       // Off unless REPORT_AGENT=groq. Warnings are fixed sentences, no values.
       provide: REPORT_SETUP,

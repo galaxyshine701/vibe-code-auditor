@@ -7,6 +7,11 @@ import {
   type OnModuleDestroy,
 } from '@nestjs/common';
 import type { Agent, AgentState } from '../agents/agent.js';
+import {
+  AGENTS_OFF,
+  AGENTS_SETUP,
+  type AgentsSetup,
+} from '../agents/agents-config.js';
 import { runPipeline } from '../agents/pipeline.js';
 import { createProverAgent, type RunContext } from '../agents/prover-agent.js';
 import { ApiError } from '../common/api-error.js';
@@ -65,6 +70,10 @@ interface ActiveRun {
   secrets: string[];
   /** a guarded write changed 0 rows: the row is not ours any more */
   stopped: boolean;
+  /** the audit watchdog fired (LOCK_C_AGENTS only): every agent is told to stop */
+  watchdogHit: boolean;
+  /** the Data Access Prover ran out of its own time (LOCK_C_AGENTS only) */
+  proverTimedOut: boolean;
   /** the final write was started: no more progress writes */
   closed: boolean;
   dirty: boolean;
@@ -76,6 +85,11 @@ interface ActiveRun {
 
 const MODULE_ID = 'data-access-prover';
 const MAX_KEPT_AUDITS = 50;
+
+const TIMEOUT_MESSAGE = 'The audit reached its time limit and was stopped.';
+/** The Prover did not end in time, so nobody knows if its users are gone. */
+const TIMEOUT_CLEANUP_NOTE =
+  'The audit was stopped by its time limit before the cleanup was confirmed. Look in the test project for users whose email starts with "vca-" and ends with "@example.com", and delete them by hand.';
 
 const inProgress = () =>
   new ApiError(
@@ -100,6 +114,8 @@ export class AuditsService implements OnModuleDestroy {
   private runningId: string | null = null;
   private destroyed = false;
   private readonly timing: AuditTiming;
+  /** LOCK_C_AGENTS: off unless the module says otherwise. */
+  private readonly agents: AgentsSetup;
   /**
    * Runs that have finished but whose final write is not in the store yet
    * (the store was unreachable). GET answers from here while it retries.
@@ -111,8 +127,10 @@ export class AuditsService implements OnModuleDestroy {
     @Inject(REPORT_SETUP) private readonly reportSetup: ReportSetup,
     @Inject(AUDIT_REPOSITORY) private readonly repo: AuditRepository,
     @Optional() @Inject(AUDIT_TIMING) timing?: AuditTiming,
+    @Optional() @Inject(AGENTS_SETUP) agents?: AgentsSetup,
   ) {
     this.timing = timing ?? DEFAULT_AUDIT_TIMING;
+    this.agents = agents ?? AGENTS_OFF;
   }
 
   onModuleDestroy(): void {
@@ -147,6 +165,8 @@ export class AuditsService implements OnModuleDestroy {
       record,
       secrets: [...secrets, ...this.repo.ownSecrets],
       stopped: false,
+      watchdogHit: false,
+      proverTimedOut: false,
       closed: false,
       dirty: false,
       timer: null,
@@ -229,6 +249,7 @@ export class AuditsService implements OnModuleDestroy {
     record.progress = 0;
     record.proverDone = false;
     record.reportRow = this.initialReportRow();
+    delete record.moduleRows;
     record.lastRetest = {
       status: 'running',
       startedAt: new Date().toISOString(),
@@ -340,9 +361,21 @@ export class AuditsService implements OnModuleDestroy {
                 ...(record.reportRow.message
                   ? { message: record.reportRow.message }
                   : {}),
+                ...(record.reportRow.reason
+                  ? { reason: record.reportRow.reason }
+                  : {}),
               },
             ]
           : []),
+        // Additive (LOCK_C_AGENTS). Missing when the flag is off.
+        ...Object.entries(record.moduleRows ?? {}).map(([id, row]) => ({
+          id,
+          name: row.name,
+          status: row.status,
+          progress: row.progress,
+          ...(row.message ? { message: row.message } : {}),
+          ...(row.reason ? { reason: row.reason } : {}),
+        })),
       ],
       cleanup: record.cleanup,
       ...(record.cleanupNote ? { cleanupNote: record.cleanupNote } : {}),
@@ -523,26 +556,47 @@ export class AuditsService implements OnModuleDestroy {
   ): Promise<ProverResult> {
     const context: RunContext = {};
     const record = run.record;
+    const flag = this.agents;
+    // The run is told to stop when its record was changed elsewhere, or (flag
+    // on) when the audit watchdog fired.
+    const shouldStop = () => run.stopped || run.watchdogHit;
+    const prover = createProverAgent(
+      gateway,
+      (percent) => {
+        record.progress = percent;
+        this.touch(run);
+      },
+      shouldStop,
+    );
     const agents: Agent<RunContext>[] = [
-      createProverAgent(
-        gateway,
-        (percent) => {
-          record.progress = percent;
-          this.touch(run);
-        },
-        () => run.stopped,
-      ),
+      flag.enabled
+        ? {
+            ...prover,
+            deadlineMs: flag.proverDeadlineMs,
+            // It has temporary users to remove, so it is not given up on at once.
+            abandonOnDeadline: false,
+            graceMs: flag.proverGraceMs,
+          }
+        : prover,
     ];
     const setup = this.reportSetup;
     if (setup.mode === 'groq') {
+      const report = createReportAgent({
+        llm: setup.llm,
+        problem: setup.problem,
+      });
       agents.push(
-        createReportAgent({ llm: setup.llm, problem: setup.problem }),
+        flag.enabled
+          ? { ...report, deadlineMs: flag.reportDeadlineMs }
+          : report,
       );
     }
 
     await runPipeline(agents, context, {
       redact: (text) => redact(text, run.secrets),
       onState: (states) => this.showStates(run, states),
+      shouldStop,
+      skipRemaining: flag.enabled,
     });
     return context.prover!;
   }
@@ -553,30 +607,102 @@ export class AuditsService implements OnModuleDestroy {
    */
   private markReportNotRun(record: AuditRecord, message: string): void {
     if (record.reportRow?.status === 'queued') {
-      record.reportRow = { status: 'failed', progress: 0, message };
+      record.reportRow = this.agents.enabled
+        ? {
+            status: 'skipped',
+            progress: 0,
+            reason: {
+              en: message,
+              ur: 'Nahi chala: audit poora nahi hua.',
+            },
+          }
+        : { status: 'failed', progress: 0, message };
     }
   }
 
   /** Copies the agents' states to the record. Does nothing when only the Prover runs. */
   private showStates(run: ActiveRun, states: AgentState[]): void {
     const record = run.record;
-    const report = states[1];
-    if (!report) return;
-    if (states[0].status === 'completed') {
-      record.progress = 100;
-      record.proverDone = true;
+    // Found by id, not by position, so more agents can be added.
+    const prover = states.find((s) => s.id === MODULE_ID);
+    const report = states.find((s) => s.id === REPORT_AGENT_ID);
+    const others = states.filter(
+      (s) => s.id !== MODULE_ID && s.id !== REPORT_AGENT_ID,
+    );
+    if (prover?.code === 'TIMEOUT') run.proverTimedOut = true;
+    if (!report && others.length === 0) return;
+    if (report) {
+      if (prover?.status === 'completed') {
+        record.progress = 100;
+        record.proverDone = true;
+      }
+      record.reportRow = {
+        status: report.status,
+        progress: report.progress,
+        ...(report.message ? { message: report.message } : {}),
+        ...(report.reason ? { reason: report.reason } : {}),
+      };
     }
-    record.reportRow = {
-      status: report.status,
-      progress: report.progress,
-      ...(report.message ? { message: report.message } : {}),
-    };
+    if (others.length > 0) {
+      record.moduleRows = Object.fromEntries(
+        others.map((s) => [
+          s.id,
+          {
+            name: s.name,
+            status: s.status,
+            progress: s.progress,
+            ...(s.message ? { message: s.message } : {}),
+            ...(s.reason ? { reason: s.reason } : {}),
+          },
+        ]),
+      );
+    }
     this.touch(run);
+  }
+
+  /** From the start of a run until the audit watchdog fires (flag on only). */
+  private armWatchdog(run: ActiveRun): NodeJS.Timeout | null {
+    if (!this.agents.enabled) return null;
+    const timer = setTimeout(() => {
+      run.watchdogHit = true;
+      this.logger.warn(`${run.id} reached its time limit`);
+    }, this.agents.auditWatchdogMs);
+    timer.unref();
+    return timer;
+  }
+
+  /**
+   * The code, the text and the cleanup state of a run that failed. A run that
+   * ran out of time says so with a fixed sentence (and, when the Prover was
+   * given up on, the cleanup is not confirmed). Anything else is as before.
+   */
+  private describeFailure(run: ActiveRun, error: unknown, fallback: string) {
+    const known = error instanceof ProverError ? error : null;
+    const timedOut =
+      run.proverTimedOut || (run.watchdogHit && known?.code === 'RUN_STOPPED');
+    if (timedOut) {
+      return {
+        code: 'TIMEOUT',
+        message: TIMEOUT_MESSAGE,
+        cleanup: known?.cleanup ?? ('failed' as const),
+        cleanupNote: known?.cleanup ? known.cleanupNote : TIMEOUT_CLEANUP_NOTE,
+      };
+    }
+    return {
+      code: known?.code ?? 'PROVER_FAILED',
+      message: redact(
+        error instanceof Error ? error.message : fallback,
+        run.secrets,
+      ),
+      cleanup: known?.cleanup ?? null,
+      cleanupNote: known?.cleanupNote,
+    };
   }
 
   private async execute(run: ActiveRun, config: ProverConfig): Promise<void> {
     const record = run.record;
     this.logger.log(`${record.id} started`);
+    const watchdog = this.armWatchdog(run);
     try {
       const gateway = this.makeGateway(config);
       const result = await this.runAgents(gateway, run);
@@ -600,26 +726,23 @@ export class AuditsService implements OnModuleDestroy {
       record.completedAt = new Date().toISOString();
       record.status = 'completed';
     } catch (error) {
-      const known = error instanceof ProverError ? error : null;
+      const failure = this.describeFailure(
+        run,
+        error,
+        'The audit stopped unexpectedly.',
+      );
       this.markReportNotRun(record, 'Not run: the audit did not finish.');
       record.status = 'failed';
-      record.cleanup = known?.cleanup ?? null;
-      record.cleanupNote = known?.cleanupNote ?? null;
-      record.error = {
-        code: known?.code ?? 'PROVER_FAILED',
-        message: redact(
-          error instanceof Error
-            ? error.message
-            : 'The audit stopped unexpectedly.',
-          run.secrets,
-        ),
-      };
+      record.cleanup = failure.cleanup;
+      record.cleanupNote = failure.cleanupNote ?? null;
+      record.error = { code: failure.code, message: failure.message };
       record.lockC = runStages({
         findings: [],
         cleanup: record.cleanup,
         dataAccess: { status: 'failedToRun', message: record.error.message },
       });
     } finally {
+      if (watchdog) clearTimeout(watchdog);
       this.runningId = null;
       this.logger.log(`${record.id} ${record.status}`);
       void this.persistFinal(
@@ -640,6 +763,7 @@ export class AuditsService implements OnModuleDestroy {
     const record = run.record;
     const lastRetest = record.lastRetest!;
     this.logger.log(`${record.id} re-test started`);
+    const watchdog = this.armWatchdog(run);
     try {
       const gateway = this.makeGateway(config);
       const result = await this.runAgents(gateway, run);
@@ -673,11 +797,15 @@ export class AuditsService implements OnModuleDestroy {
         error: null,
       };
     } catch (error) {
-      const known = error instanceof ProverError ? error : null;
+      const failure = this.describeFailure(
+        run,
+        error,
+        'The re-test stopped unexpectedly.',
+      );
       this.markReportNotRun(record, 'Not run: the Re-test did not finish.');
-      if (known?.cleanup) {
-        record.cleanup = known.cleanup;
-        record.cleanupNote = known.cleanupNote ?? null;
+      if (failure.cleanup) {
+        record.cleanup = failure.cleanup;
+        record.cleanupNote = failure.cleanupNote ?? null;
       }
       record.lastRetest = {
         status: 'failed',
@@ -685,17 +813,10 @@ export class AuditsService implements OnModuleDestroy {
         finishedAt: new Date().toISOString(),
         tablesAdded: [],
         tablesRemoved: [],
-        error: {
-          code: known?.code ?? 'PROVER_FAILED',
-          message: redact(
-            error instanceof Error
-              ? error.message
-              : 'The re-test stopped unexpectedly.',
-            run.secrets,
-          ),
-        },
+        error: { code: failure.code, message: failure.message },
       };
     } finally {
+      if (watchdog) clearTimeout(watchdog);
       record.status = 'completed';
       record.progress = 100;
       this.runningId = null;
