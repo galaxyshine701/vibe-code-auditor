@@ -1,0 +1,2 @@
+Recorded from commit 9ec533d (branch anam/lock-c-stages), before the stage agents existed.
+Source code at that commit: Planner/Evidence/Guide/Ownership run only through runStages() in audits.service.ts.

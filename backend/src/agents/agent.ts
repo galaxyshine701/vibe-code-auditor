@@ -30,6 +30,25 @@ export interface AgentControl {
    * (the Prover still cleans up). It is a plain flag: nothing is aborted.
    */
   shouldStop(): boolean;
+  /** Takes the secrets of this run out of a text. Use it on every text you copy. */
+  redact(text: string): string;
+  /**
+   * A copy of the states of all agents so far, including the row of the agent
+   * that asks. Changing the copy changes nothing. Used to READ, never to decide
+   * a result.
+   */
+  states(): AgentState[];
+  /** The error of the critical agent that failed, or null. Only a finalizer sees one. */
+  failure(): unknown;
+}
+
+/**
+ * What `run` may return instead of nothing: the agent did not do its work on
+ * purpose (for example ownership is not checked yet). Its row becomes
+ * `skipped` with this reason. This is not a failure.
+ */
+export interface AgentSkipped {
+  skipped: Text;
 }
 
 /**
@@ -56,6 +75,13 @@ export interface Agent<Context> {
   abandonOnDeadline?: boolean;
   graceMs?: number;
   /**
+   * A finalizer: it still runs after a critical failure or when the run was
+   * told to stop (the other agents are skipped then), and its own stop flag
+   * ignores the run-level flag. Give it a short `deadlineMs`: it must not be
+   * able to keep a finished run waiting.
+   */
+  alwaysRun?: boolean;
+  /**
    * `control` is always given by the pipeline runner; it is optional in the
    * type only so a test can call run() by hand.
    */
@@ -63,5 +89,5 @@ export interface Agent<Context> {
     context: Context,
     setProgress: (percent: number) => void,
     control?: AgentControl,
-  ): Promise<void>;
+  ): Promise<void | AgentSkipped>;
 }

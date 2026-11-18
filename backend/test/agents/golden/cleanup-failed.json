@@ -1,0 +1,375 @@
+{
+  "audit": {
+    "id": "<AUD_ID>",
+    "status": "completed",
+    "createdAt": "<TIME>",
+    "target": {
+      "label": "Demo project",
+      "projectUrl": "https://abcdefghijklmnopqrst.supabase.co"
+    },
+    "summary": {
+      "leaked": 1,
+      "blocked": 1,
+      "inconclusive": 1
+    },
+    "modules": [
+      {
+        "id": "data-access-prover",
+        "name": "Data Access Prover",
+        "status": "completed",
+        "progress": 100
+      }
+    ],
+    "cleanup": "failed",
+    "cleanupNote": "Test users may be left behind in Supabase Auth. Delete the users with an email like vca-*@example.com by hand (Authentication > Users). Possible leftovers: <EMAIL>, <EMAIL>.",
+    "lastRetest": null,
+    "schemaVersion": 2,
+    "ownership": {
+      "status": "skipped",
+      "reason": {
+        "en": "Ownership of the site is not checked yet.",
+        "ur": "Site ki malkiyat abhi check nahi hoti."
+      }
+    },
+    "plan": [
+      {
+        "id": "data-access-prover",
+        "title": {
+          "en": "Data access (can another user or a visitor reach a row?)",
+          "ur": "Data access (kya doosra user ya visitor kisi row tak pahunch sakta hai?)"
+        },
+        "mode": "keyed",
+        "required": true
+      },
+      {
+        "id": "tls-headers",
+        "title": {
+          "en": "Certificate and security headers of the site",
+          "ur": "Site ka certificate aur security headers"
+        },
+        "mode": "passive",
+        "required": true
+      },
+      {
+        "id": "bundle-secrets",
+        "title": {
+          "en": "Secret keys inside the scripts of the site",
+          "ur": "Site ki scripts ke andar chhupi hui secret keys"
+        },
+        "mode": "passive",
+        "required": true
+      },
+      {
+        "id": "active-checks",
+        "title": {
+          "en": "Active checks (probes sent to the site)",
+          "ur": "Active checks (site par bheje gaye probes)"
+        },
+        "mode": "active",
+        "required": false
+      }
+    ],
+    "gate": {
+      "decision": "not_ready",
+      "reasons": [
+        {
+          "en": "The required check \"Certificate and security headers of the site\" was skipped.",
+          "ur": "Zaroori check \"Site ka certificate aur security headers\" skip hua."
+        },
+        {
+          "en": "The required check \"Secret keys inside the scripts of the site\" was skipped.",
+          "ur": "Zaroori check \"Site ki scripts ke andar chhupi hui secret keys\" skip hua."
+        },
+        {
+          "en": "A leak was found and is still there. Fix it, then run a re-test.",
+          "ur": "Ek leak mila aur abhi maujood hai. Isse theek karein, phir re-test chalayein."
+        },
+        {
+          "en": "The temporary test users could not be removed. Clean them up by hand, then run a re-test.",
+          "ur": "Aarzi test users hataye nahi ja sake. Unhein haath se hatayein, phir re-test chalayein."
+        }
+      ]
+    }
+  },
+  "findings": {
+    "findings": [
+      {
+        "id": "fnd_001",
+        "module": "data-access-prover",
+        "table": "bookings",
+        "operation": "SELECT",
+        "retest": {
+          "status": "not_run",
+          "lastRunAt": null,
+          "previousVerdict": null
+        },
+        "verdict": "LEAKED",
+        "severity": "critical",
+        "title": "Visitors and logged-in users can read, change and delete other users' rows in \"bookings\"",
+        "explanation": {
+          "en": "A row that belongs to the first user was reached. A logged-in user could read, change and delete it. A visitor could read it. The table has no rule that limits rows to their owner.",
+          "ur": "Pehle user ki row tak doosre log pahunch gaye. Login wala user ise parh, badal aur delete kar sakta tha. Bina login wala visitor ise parh sakta tha. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare."
+        },
+        "evidence": {
+          "rowsReturned": 1,
+          "httpStatus": 200,
+          "canaryRowId": "<UUID>",
+          "reproducer": "curl -H 'apikey: <ANON_KEY>' -H 'Authorization: Bearer <USER_B_JWT>' '<PROJECT_URL>/rest/v1/bookings?user_id=eq.<UUID>'",
+          "operations": [
+            {
+              "operation": "SELECT",
+              "actor": "user_b",
+              "allowed": true,
+              "httpStatus": 200,
+              "rowsReturned": 1
+            },
+            {
+              "operation": "UPDATE",
+              "actor": "user_b",
+              "allowed": true,
+              "httpStatus": 200,
+              "rowsReturned": 1
+            },
+            {
+              "operation": "DELETE",
+              "actor": "user_b",
+              "allowed": true,
+              "httpStatus": 200,
+              "rowsReturned": 1
+            },
+            {
+              "operation": "SELECT",
+              "actor": "anon",
+              "allowed": true,
+              "httpStatus": 200,
+              "rowsReturned": 1
+            },
+            {
+              "operation": "SELECT",
+              "actor": "owner",
+              "allowed": true,
+              "httpStatus": 200,
+              "rowsReturned": 1
+            },
+            {
+              "operation": "INSERT",
+              "actor": "owner",
+              "httpStatus": 201,
+              "rowsReturned": 1,
+              "allowed": true
+            }
+          ]
+        },
+        "fix": {
+          "status": "proposed",
+          "description": "Turn on row-level security and let users reach only their own rows. If a broader policy already exists on this table, remove it, because policies add up. Review before applying.",
+          "sql": "alter table public.\"bookings\" enable row level security;\ncreate policy \"Owners can select own rows\" on public.\"bookings\" for select to authenticated using ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can insert own rows\" on public.\"bookings\" for insert to authenticated with check ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can update own rows\" on public.\"bookings\" for update to authenticated using ((select auth.uid()) = \"user_id\") with check ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can delete own rows\" on public.\"bookings\" for delete to authenticated using ((select auth.uid()) = \"user_id\");"
+        }
+      },
+      {
+        "id": "fnd_002",
+        "module": "data-access-prover",
+        "table": "profiles",
+        "operation": "SELECT",
+        "retest": {
+          "status": "not_run",
+          "lastRunAt": null,
+          "previousVerdict": null
+        },
+        "verdict": "BLOCKED",
+        "severity": "info",
+        "title": "\"profiles\": other users and visitors were blocked",
+        "explanation": {
+          "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+          "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+        },
+        "evidence": {
+          "rowsReturned": 0,
+          "httpStatus": 200,
+          "canaryRowId": "<UUID>",
+          "reproducer": null,
+          "operations": [
+            {
+              "operation": "SELECT",
+              "actor": "user_b",
+              "allowed": false,
+              "httpStatus": 200,
+              "rowsReturned": 0
+            },
+            {
+              "operation": "UPDATE",
+              "actor": "user_b",
+              "allowed": false,
+              "httpStatus": 200,
+              "rowsReturned": 0
+            },
+            {
+              "operation": "DELETE",
+              "actor": "user_b",
+              "allowed": false,
+              "httpStatus": 200,
+              "rowsReturned": 0
+            },
+            {
+              "operation": "SELECT",
+              "actor": "anon",
+              "allowed": false,
+              "httpStatus": 200,
+              "rowsReturned": 0
+            },
+            {
+              "operation": "SELECT",
+              "actor": "owner",
+              "allowed": true,
+              "httpStatus": 200,
+              "rowsReturned": 1
+            },
+            {
+              "operation": "INSERT",
+              "actor": "owner",
+              "allowed": null,
+              "httpStatus": null,
+              "rowsReturned": null,
+              "note": "Not tested: the owner column is the primary key, so the owner cannot add a second row."
+            }
+          ]
+        },
+        "fix": null
+      },
+      {
+        "id": "fnd_003",
+        "module": "data-access-prover",
+        "table": "hotels",
+        "operation": "SELECT",
+        "retest": {
+          "status": "not_run",
+          "lastRunAt": null,
+          "previousVerdict": null
+        },
+        "verdict": "INCONCLUSIVE",
+        "severity": "low",
+        "title": "\"hotels\": no owner column, is this intended?",
+        "explanation": {
+          "en": "This table has no column that links a row to a user, so a canary row could not be planted. If it holds public information such as a hotel list, that is fine. Please confirm.",
+          "ur": "Is table me aisa column nahi jo row ko kisi user se jore, isliye canary row nahi daali ja saki. Agar isme sirf public maloomat hain (jaise hotel list) to theek hai. Barae meharbani confirm karein."
+        },
+        "evidence": {
+          "rowsReturned": 0,
+          "httpStatus": 200,
+          "canaryRowId": null,
+          "reproducer": null,
+          "operations": [
+            {
+              "operation": "SELECT",
+              "actor": "anon",
+              "allowed": false,
+              "httpStatus": 200,
+              "rowsReturned": 0,
+              "note": "No owner column, so no canary row was planted."
+            }
+          ]
+        },
+        "fix": null
+      }
+    ]
+  },
+  "evidence": {
+    "schemaVersion": 2,
+    "items": [
+      {
+        "id": "ev_fnd_001",
+        "check": "data-access-prover",
+        "findingId": "fnd_001",
+        "table": "bookings",
+        "verdict": "LEAKED",
+        "proof": "PROVEN",
+        "summary": {
+          "en": "A row that belongs to the first user was reached. A logged-in user could read, change and delete it. A visitor could read it. The table has no rule that limits rows to their owner.",
+          "ur": "Pehle user ki row tak doosre log pahunch gaye. Login wala user ise parh, badal aur delete kar sakta tha. Bina login wala visitor ise parh sakta tha. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare."
+        }
+      },
+      {
+        "id": "ev_fnd_002",
+        "check": "data-access-prover",
+        "findingId": "fnd_002",
+        "table": "profiles",
+        "verdict": "BLOCKED",
+        "proof": "PROVEN",
+        "summary": {
+          "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+          "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+        }
+      },
+      {
+        "id": "ev_fnd_003",
+        "check": "data-access-prover",
+        "findingId": "fnd_003",
+        "table": "hotels",
+        "verdict": "INCONCLUSIVE",
+        "proof": "UNVERIFIED",
+        "summary": {
+          "en": "This table has no column that links a row to a user, so a canary row could not be planted. If it holds public information such as a hotel list, that is fine. Please confirm.",
+          "ur": "Is table me aisa column nahi jo row ko kisi user se jore, isliye canary row nahi daali ja saki. Agar isme sirf public maloomat hain (jaise hotel list) to theek hai. Barae meharbani confirm karein."
+        }
+      }
+    ],
+    "coverage": {
+      "checked": [
+        "data-access-prover"
+      ],
+      "partial": [],
+      "skipped": [
+        {
+          "id": "tls-headers",
+          "reason": {
+            "en": "Not implemented yet.",
+            "ur": "Abhi bana nahi."
+          }
+        },
+        {
+          "id": "bundle-secrets",
+          "reason": {
+            "en": "Not implemented yet.",
+            "ur": "Abhi bana nahi."
+          }
+        },
+        {
+          "id": "active-checks",
+          "reason": {
+            "en": "Not implemented yet. Active checks also need proven ownership of the site, and ownership is not checked yet.",
+            "ur": "Abhi bana nahi. Active checks ke liye site ki malkiyat sabit karna bhi zaroori hai, aur malkiyat abhi check nahi hoti."
+          }
+        }
+      ],
+      "outOfScope": [],
+      "failedToRun": [],
+      "nothingToTest": [],
+      "limits": [
+        {
+          "en": "Only table data is tested: read, update and delete as another signed-in user, and read as a visitor. Tables without an owner column are reported as inconclusive.",
+          "ur": "Sirf table ka data test hota hai: doosre login user ki tarah parhna, badalna, delete karna, aur visitor ki tarah parhna. Jis table mein owner column na ho wo inconclusive aata hai."
+        },
+        {
+          "en": "Only the front page is read. Cookie settings, TLS versions and other pages are not checked.",
+          "ur": "Sirf pehla page parha jata hai. Cookie settings, TLS versions aur doosre pages check nahi hote."
+        },
+        {
+          "en": "The bundle scan reads at most 30 script files of the same origin, each at most 2 MB after decompression and 15 MB in total. Scripts it could not read for these reasons are listed as not read.",
+          "ur": "Bundle scan zyada se zyada 30 same-origin script files parhta hai, har file decompress ke baad 2 MB tak aur kul 15 MB. In wajah se jo scripts na parhi ja sakin unka naam \"not read\" mein aata hai."
+        },
+        {
+          "en": "Scripts from other origins are not scanned.",
+          "ur": "Doosre origin ki scripts scan nahi hotin."
+        },
+        {
+          "en": "A key that is found is reported as exposed. Whether it still works is not tested.",
+          "ur": "Jo key milti hai use \"exposed\" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota."
+        },
+        {
+          "en": "No active check is built yet.",
+          "ur": "Abhi koi active check bana nahi."
+        }
+      ]
+    }
+  }
+}
