@@ -50,7 +50,7 @@
       },
       "why": {
         "en": "Without this header a browser may still try plain http for your site.",
-        "ur": "Is header ke baghair browser ab bhi aapki site ke liye sada http aazma sakta hai."
+        "ur": "Is header ke baghair browser ab bhi aapki site ke liye seedha http aazma sakta hai."
       },
       "steps": [
         {

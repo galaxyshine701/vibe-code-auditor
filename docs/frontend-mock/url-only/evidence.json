@@ -26,7 +26,7 @@
       "proof": "PROVEN",
       "summary": {
         "en": "The Strict-Transport-Security header is missing or too weak, so a browser may still try plain http.",
-        "ur": "Strict-Transport-Security header nahi hai ya bahut kamzor hai, isliye browser ab bhi sada http aazma sakta hai."
+        "ur": "Strict-Transport-Security header nahi hai ya bahut kamzor hai, isliye browser ab bhi seedha http aazma sakta hai."
       }
     },
     {

@@ -87,7 +87,7 @@ const HEADER_ADVICE: Record<
     },
     why: {
       en: 'The site was reached over plain http, so what visitors send and receive is not encrypted.',
-      ur: 'Site sada http par khuli, isliye visitors jo bhejte aur parhte hain wo encrypt nahi hota.',
+      ur: 'Site seedha http par khuli, isliye visitors jo bhejte aur parhte hain wo encrypt nahi hota.',
     },
     steps: [
       {
@@ -108,7 +108,7 @@ const HEADER_ADVICE: Record<
     },
     why: {
       en: 'Without this header a browser may still try plain http for your site.',
-      ur: 'Is header ke baghair browser ab bhi aapki site ke liye sada http aazma sakta hai.',
+      ur: 'Is header ke baghair browser ab bhi aapki site ke liye seedha http aazma sakta hai.',
     },
     steps: [
       {

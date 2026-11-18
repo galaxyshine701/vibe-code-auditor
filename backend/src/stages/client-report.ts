@@ -26,7 +26,7 @@ export const ROADMAP_NOT_AVAILABLE: Text = {
 
 export const CLIENT_REPORT_DISCLAIMER: Text = {
   en: 'This is the result of automated checks only, and it holds only "by these checks": it says nothing about what was not checked (see the scope). It is not an approval of the app.',
-  ur: 'Ye sirf khud-kaar checks ka nateeja hai aur sirf "in checks ke hisab se" hai: jo cheez check nahi hui uske bare mein ye kuch nahi kehta (scope dekhein). Ye app ki manzoori nahi hai.',
+  ur: 'Ye sirf automatic checks ka nateeja hai aur sirf "in checks ke hisab se" hai: jo cheez check nahi hui uske bare mein ye kuch nahi kehta (scope dekhein). Ye app ki manzoori nahi hai.',
 };
 
 const DATA_ACCESS = 'data-access-prover';

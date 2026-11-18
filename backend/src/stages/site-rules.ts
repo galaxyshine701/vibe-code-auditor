@@ -49,7 +49,7 @@ export function analyzeHeaders(
         : 'The site was reached over plain http, so what visitors send and receive is not encrypted.',
       ur: https
         ? 'Site https par khulti hai.'
-        : 'Site sada http par khuli, isliye visitors jo bhejte aur parhte hain wo encrypt nahi hota.',
+        : 'Site seedha http par khuli, isliye visitors jo bhejte aur parhte hain wo encrypt nahi hota.',
     },
     {
       subject: 'strict-transport-security',
@@ -61,7 +61,7 @@ export function analyzeHeaders(
       ur:
         maxAge !== null && Number(maxAge[1]) >= HSTS_MIN_SECONDS
           ? 'Strict-Transport-Security header laga hua hai, isliye browser https par hi rehta hai.'
-          : 'Strict-Transport-Security header nahi hai ya bahut kamzor hai, isliye browser ab bhi sada http aazma sakta hai.',
+          : 'Strict-Transport-Security header nahi hai ya bahut kamzor hai, isliye browser ab bhi seedha http aazma sakta hai.',
     },
     {
       subject: 'content-security-policy',

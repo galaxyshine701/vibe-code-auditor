@@ -8,7 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
-| v0.7.0 | 18 Nov 2026 | Additive, plus three corrections: every UI label that said "certificate" now says "re-test result" (R35, R36, R39, R48, R64, R68, R74, R83, Screen 2.4, checklist 18, 26, 33, 37; the route `/certificate`, the `certificateBlocker` and `certificateLock` names and the ban on the phrase "certificate of security" stay as code or rule); R13 now says audits are kept in the audit store (not memory), and the Certificate screen is labelled "Re-test result" with check labels written by the UI from the check id (R87). Agent pipeline (`LOCK_C_AGENTS=on`): audit of a website with or without Supabase, dynamic module rows (`skipped`, `reason`, `TIMEOUT`), stage fields (`gate`, `plan`, `coverage`), evidence of site checks (`kind`), and the routes `GET /audits/:id/evidence`, `/roadmap` and `/client-report` (R71 to R88, Part 3). Mock bundles in `docs/frontend-mock/`. Nothing of R1 to R70 is changed. |
+| v0.7.0 | 18 Nov 2026 | Additive, plus three corrections (later wording fixes: "Not provided" and "Not implemented yet" come from `clientReport.scope`, the reason prefix is only a fallback (R78, R83); the "Required check" label only on `fix-*` and `improve-header` items (R81)): every UI label that said "certificate" now says "re-test result" (R35, R36, R39, R48, R64, R68, R74, R83, Screen 2.4, checklist 18, 26, 33, 37; the route `/certificate`, the `certificateBlocker` and `certificateLock` names and the ban on the phrase "certificate of security" stay as code or rule); R13 now says audits are kept in the audit store (not memory), and the Certificate screen is labelled "Re-test result" with check labels written by the UI from the check id (R87). Agent pipeline (`LOCK_C_AGENTS=on`): audit of a website with or without Supabase, dynamic module rows (`skipped`, `reason`, `TIMEOUT`), stage fields (`gate`, `plan`, `coverage`), evidence of site checks (`kind`), and the routes `GET /audits/:id/evidence`, `/roadmap` and `/client-report` (R71 to R88, Part 3). Mock bundles in `docs/frontend-mock/`. Nothing of R1 to R70 is changed. |
 | v0.6.2 | 15 Nov 2026 | Intro of the home page is now its own logo scene on the whole screen, rendered in the layout so that it is fixed to the screen (R70). |
 | v0.6.1 | 15 Nov 2026 | Intro of the home page: the example run on the whole screen, once per tab, with Visitor, a lock and one verdict per chip (R70). |
 | v0.6.0 | 15 Nov 2026 | "Fix confirmed" seal, Before -> After strip and certificate lock with an unlock animation (R66 to R69). |
@@ -535,7 +535,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 **R78.** Coverage. Extends R61. `GET /audits/:id/evidence` returns `coverage`. Show these buckets, each with its own heading, never merged:
 - `checked`: ids of the checks that completed.
 - `partial`: `{ id, reason, notRead: [{ name, reason }] }`. The check ran but could not read part of what it should. List every `notRead` name.
-- `skipped`: `{ id, reason }`. A `reason` that starts with "Not provided" means the user did not give that input: show it as "Not provided", with the way to add it (R76). Any other reason is "Not implemented yet".
+- `skipped`: `{ id, reason }`. The UI tells "Not provided" from "Not implemented yet" with `clientReport.scope.notProvided` and `clientReport.scope.notImplemented` (R80): a check in `notProvided` is shown as "Not provided", with the way to add it (R76); a check in `notImplemented` is shown as "Not implemented yet". **Fallback only**, when there is no client report (`404`, R72): a `reason` that starts with "Not provided" means "Not provided", and any other `reason` means "Not implemented yet".
 - `failedToRun`: `{ id, reason }`.
 - `outOfScope`: `{ name, reason }`. Left out on purpose. It is **not** a failure and not partial (for example a script of another origin, or "TLS validity period and expiry").
 - `nothingToTest`: reserved, always `[]` today. Show nothing for an empty list.
@@ -663,7 +663,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
   - `provide-input`: `info`. An optional check that was not provided.
   - `retest`: `info`. There is a fix to check and Supabase details were given.
   - A BLOCKED table, a check that is "Not implemented yet" and ownership never get an item.
-- `severity` uses the usual values and colours. `fromRequiredCheck` true means the item comes from a check that is required in this run: show a "Required check" label.
+- `severity` uses the usual values and colours. `fromRequiredCheck` true means the item comes from a check that is required in this run. The UI shows a "Required check" label **only on `fix-*` and `improve-header` items**, not on the other kinds.
 - `steps` are 1 to 4 `{ en, ur }` lines: show them as a numbered list. `refs.checkId` is an id from `plan`; `refs.findingIds` and `refs.evidenceIds` are ids of findings and evidence items: make them links where the screen has that thing.
 - `truncated` is the number of items left out because a roadmap has at most 100. If it is above 0 say "N more steps are not shown."
 - An empty `items` list is not an error and not a claim of safety: show "No next steps from these checks." (the gate banner shows the rest).
@@ -672,7 +672,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 **R82.** Language. The toggle of R42 also switches: `gate.reasons`, the coverage `reason`s and `limits`, evidence `summary`, module `reason`, every roadmap text (`title`, `why`, `steps`) and every client-report text. `message`, `error.message`, `cleanupNote` and the finding `title` are plain English from the backend (as in R17). Both languages are always present; if one is missing, show English.
 
 **R83.** Empty and special states.
-- **Supabase only** (the old request, flag on): the website checks are in `coverage.skipped` as "Not provided" and have `required: false` in `plan`; `summary` has no `siteLeaked`; `clientReport.findings.site` is `null`. Show an invitation "Add a website address to check the site too" (R76) in place of site evidence. The roadmap has `provide-input` items for the two website checks.
+- **Supabase only** (the old request, flag on): the website checks are in `clientReport.scope.notProvided` (as "Not provided"; fallback without a client report: `coverage.skipped` with a `reason` that starts with "Not provided") and have `required: false` in `plan`; `summary` has no `siteLeaked`; `clientReport.findings.site` is `null`. Show an invitation "Add a website address to check the site too" (R76) in place of site evidence. The roadmap has `provide-input` items for the two website checks.
 - **Website only**: no tables. `findings` is `[]` and `summary` is all zeros (plus `siteLeaked`). Do **not** show "No findings" as the result (R40 is about tables); show "No Supabase details were given, so no table was checked." with the invitation to add them. `cleanup` stays `null`, so no cleanup warning (R25 does not apply). No Re-test and no re-test result (R74).
 - **Both**: everything, tables and site, in one report. The headline names both (R73).
 - **A check failed or is partial**: the coverage says so (R78) and the gate is `not_ready`. This is not an audit error.
@@ -753,7 +753,7 @@ Mock rules (extend R43 to R46): the switch stays off by default and one switch c
 41. The coverage section shows checked, partial (with the names not read), not provided, not implemented, failed to run, out of scope and limits as separate lists (R78).
 42. Evidence items accept `kind` `site-bundle` and `site-headers` with `findingId` and `table` `null`, and a missing `kind` means `table` (R79).
 43. The client report block shows the headline, scope, counts (a `null` is "not checked", not zero), "Do this first" and the disclaimer; a `404` hides it (R80).
-44. The roadmap is shown in the order received, with steps as a numbered list, a "Required check" label, links to the findings, and "N more steps are not shown" when `truncated` is above 0 (R81).
+44. The roadmap is shown in the order received, with steps as a numbered list, a "Required check" label on `fix-*` and `improve-header` items only, links to the findings, and "N more steps are not shown" when `truncated` is above 0 (R81).
 45. The English / Roman Urdu toggle switches every `{ en, ur }` text of Part 3 (R82).
 46. Empty states exist for Supabase only, website only and both, and "No findings" is not shown as the result of a website-only audit (R83).
 47. No UI text uses MCP, Jira or "certificate"; check labels are written by the UI from the check id and no API title is shown directly; the old Certificate screen is labelled "Re-test result"; no new text claims safety (R87, R88). The product name in new texts is [Project name].
