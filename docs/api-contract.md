@@ -264,6 +264,26 @@ Optional. They appear only when the backend runs with the Report agent on (`REPO
 - `modules[].message`: optional, only on a `failed` row. One plain sentence. It never contains a key, a request or the AI's own text.
 - Privacy: table names and check results (never keys) are sent to Groq to write the explanation. A key, the project address, the canary row id, the reproducer and user ids are never sent.
 
+### Additive fields: agent rows, `skipped`, `reason` and `TIMEOUT` (`LOCK_C_AGENTS`)
+Optional. They appear only when the backend runs with `LOCK_C_AGENTS=on`. With it off (the default) nothing changes: the response is the same as before.
+```json
+"modules": [
+  { "id": "data-access-prover", "name": "Data Access Prover", "status": "failed", "progress": 40 },
+  {
+    "id": "report-agent", "name": "Report agent", "status": "skipped", "progress": 0,
+    "reason": { "en": "Not run: the audit did not finish.", "ur": "Nahi chala: audit poora nahi hua." }
+  }
+],
+"error": { "code": "TIMEOUT", "message": "The audit reached its time limit and was stopped." }
+```
+- `modules[].status` gets one more value: `skipped`. The full list for a module row is `queued` | `running` | `completed` | `failed` | `skipped`. It means the agent did not run on purpose, for example because an earlier required step failed or the run was stopped.
+- The audit's own `status` does NOT get `skipped`. It stays `queued` | `running` | `completed` | `failed`.
+- `modules[].reason`: `{ "en": "...", "ur": "..." }`, both languages. Only present on a `skipped` row. A `skipped` row has no `message`. A `failed` row still has `message` and no `reason`.
+- More rows: when more agents are added to the run, each one appears in `modules` after the rows above, in the same shape (`id`, `name`, `status`, `progress`, and `message` or `reason` when they apply). A client shows the rows it finds and does not depend on a fixed list.
+- Time limits: every agent has its own time limit, and the whole run has one too. A run that runs out of time ends as `failed` with `error.code` `TIMEOUT` (a fixed plain sentence, no keys). `TIMEOUT` is a new value of the existing `error.code` field; no field was added for it. In a re-test the audit stays `completed` and `lastRetest.error.code` is `TIMEOUT`, as for any failed re-test.
+- A `TIMEOUT` can leave the temporary test users in the test project (the checks were stopped before they could clean up). Then `cleanup` is `"failed"` and `cleanupNote` says to remove users with an email like `vca-*@example.com` by hand.
+- A stopped run may still be finishing in the background. Until it ends (at most about 10 minutes), a new audit or re-test of the SAME project is refused with `409` `AUDIT_IN_PROGRESS` and the message "An earlier audit of this project is still stopping. Wait a few minutes, then try again." Another project is not affected. The code is the existing one.
+
 ### Additive fields: the stages (`schemaVersion` 2)
 Added to `GET /audits/:id` and a new route `GET /audits/:id/evidence`. Nothing is renamed or removed. An audit that finished a run (an audit or a re-test) after the stages were added has the fields below; an older audit does not. A client treats a missing `schemaVersion` as `1` and shows no stage fields for it.
 
