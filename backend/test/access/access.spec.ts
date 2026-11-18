@@ -15,6 +15,8 @@ import { clientKey } from '../../src/access/client-ip.js';
 import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
 import { GATEWAY_FACTORY } from '../../src/audits/audits.service.js';
+import { AUDIT_REPOSITORY } from '../../src/audits/audit-repository.js';
+import { InMemoryAuditRepository } from '../audits/in-memory-audit-repository.js';
 import { FakeGateway, type FakeTable } from '../prover/fake-gateway.js';
 
 // A made-up code that only exists in these tests. It is not a real code.
@@ -39,6 +41,8 @@ async function buildApp(
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(GATEWAY_FACTORY)
     .useValue(() => new FakeGateway(tables()))
+    .overrideProvider(AUDIT_REPOSITORY)
+    .useValue(new InMemoryAuditRepository())
     .overrideProvider(ACCESS_CONFIG)
     .useValue({ mode: 'code', code: CODE })
     .compile();
@@ -366,6 +370,8 @@ describe('Fail closed at start-up', () => {
     Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(GATEWAY_FACTORY)
       .useValue(() => new FakeGateway(tables()))
+      .overrideProvider(AUDIT_REPOSITORY)
+      .useValue(new InMemoryAuditRepository())
       .compile();
 
   it('does not start without AUDIT_ACCESS_CODE and without ALLOW_OPEN_API', async () => {

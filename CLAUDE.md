@@ -13,7 +13,7 @@ The owner (Anam) is a beginner and does not write code. Reply in simple Roman Ur
 ## Rules
 - Secrets live only in `backend/.env` (local) and Railway Variables. Never put a key in code, commits, logs, tests or chat. Redact keys in output.
 - `.gitignore` must include `.env`, `.env.*`, `node_modules/`, `dist/`. Check `git status` before every commit.
-- Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CONFIRM_TEST_PROJECT`. Keep `backend/.env.example` with empty values.
+- Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CONFIRM_TEST_PROJECT`, `PLATFORM_SUPABASE_URL`, `PLATFORM_SUPABASE_SERVICE_KEY` (the platform's own project for the audit store, never the tested project's keys). Keep `backend/.env.example` with empty values.
 - Run only against a test project. Refuse unless `CONFIRM_TEST_PROJECT=yes`. Refuse if any table has more than 100 rows. Always clean up (users and canary rows) in a `finally` block.
 - Data goes through `@supabase/supabase-js`. No Prisma, no separate database.
 - Work on a branch `anam/<task-name>`, never on `main`. Commit messages start with the task id (`VCA-1: ...`). Open a Pull Request per task.

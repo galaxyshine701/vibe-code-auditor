@@ -15,6 +15,7 @@ export interface RunContext {
 export function createProverAgent(
   gateway: Gateway,
   onProgress: (percent: number) => void,
+  shouldStop?: () => boolean,
 ): Agent<RunContext> {
   return {
     id: 'data-access-prover',
@@ -28,6 +29,7 @@ export function createProverAgent(
           setProgress(percent);
           onProgress(percent);
         },
+        shouldStop,
       );
     },
   };

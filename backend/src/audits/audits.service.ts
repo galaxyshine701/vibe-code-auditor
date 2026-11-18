@@ -1,5 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+  type OnModuleDestroy,
+} from '@nestjs/common';
 import type { Agent, AgentState } from '../agents/agent.js';
 import { runPipeline } from '../agents/pipeline.js';
 import { createProverAgent, type RunContext } from '../agents/prover-agent.js';
@@ -13,57 +19,58 @@ import {
   type ProverResult,
 } from '../prover/types.js';
 import type { AuditInput, RetestInput } from './audit-input.js';
+import type { AuditRecord, AuditStatus } from './audit-record.js';
+import {
+  AUDIT_REPOSITORY,
+  type AuditRepository,
+  type StoredAudit,
+} from './audit-repository.js';
 import { buildCertificate, certificateBlocker } from './certificate.js';
+import { redactForStorage } from './redact-for-storage.js';
 import { mergeRetest } from './retest-merge.js';
+import { sweepInterrupted } from './sweeper.js';
 import { createReportAgent, REPORT_AGENT_ID } from '../report/report-agent.js';
 import { REPORT_SETUP, type ReportSetup } from '../report/report-config.js';
 
-export type AuditStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type { AuditStatus, LastRetest } from './audit-record.js';
 
 /** Builds the connection to the target project. Replaced by a fake in tests. */
 export type GatewayFactory = (config: ProverConfig) => Gateway;
 export const GATEWAY_FACTORY = Symbol('GATEWAY_FACTORY');
 
-export interface LastRetest {
-  status: 'running' | 'completed' | 'failed';
-  startedAt: string;
-  finishedAt: string | null;
-  tablesAdded: string[];
-  tablesRemoved: string[];
-  error: { code: string; message: string } | null;
+/** How often progress is saved, and how a failed final save is retried. */
+export interface AuditTiming {
+  flushMs: number;
+  retryBaseMs: number;
+  retryMaxMs: number;
 }
+export const AUDIT_TIMING = Symbol('AUDIT_TIMING');
+export const DEFAULT_AUDIT_TIMING: AuditTiming = {
+  flushMs: 1000,
+  retryBaseMs: 1000,
+  retryMaxMs: 30_000,
+};
 
 /**
- * One audit. There is deliberately NO field for a key here, so a key cannot
- * end up in a response by accident.
+ * The run that is working on one audit right now (in this process). The
+ * working copy of the record lives here; the audit store gets copies of it.
  */
-interface AuditRecord {
+interface ActiveRun {
   id: string;
-  status: AuditStatus;
-  createdAt: string;
-  label: string;
-  projectUrl: string;
-  progress: number;
-  findings: Finding[];
-  cleanup: 'ok' | 'failed' | null;
-  /** Only when cleanup failed: what to remove by hand. */
-  cleanupNote: string | null;
-  error: { code: string; message: string } | null;
-  /** when the latest completed run (the audit or a successful re-test) finished */
-  completedAt: string | null;
-  /** the next finding number to hand out; a number is never used twice */
-  nextFindingNumber: number;
-  lastRetest: LastRetest | null;
-  /** The Prover has finished (used while the Report agent is still working). */
-  proverDone: boolean;
-  /** The Report agent's row. null when the Report agent is off. */
-  reportRow: ReportRow | null;
-}
-
-interface ReportRow {
-  status: AuditStatus;
-  progress: number;
-  message?: string;
+  /** Only this run may write the row while it is `running`. */
+  runId: string;
+  record: AuditRecord;
+  /** every secret value of this run, for redactForStorage */
+  secrets: string[];
+  /** a guarded write changed 0 rows: the row is not ours any more */
+  stopped: boolean;
+  /** the final write was started: no more progress writes */
+  closed: boolean;
+  dirty: boolean;
+  timer: NodeJS.Timeout | null;
+  lastFlushAt: number;
+  /** all writes of this run go through here, one after the other */
+  chain: Promise<unknown>;
 }
 
 const MODULE_ID = 'data-access-prover';
@@ -76,32 +83,79 @@ const inProgress = () =>
     'Another audit is still running. Wait until it finishes, then try again.',
   );
 
+const notFound = () =>
+  new ApiError(404, 'NOT_FOUND', 'No audit with this id was found.');
+
 /**
- * Runs audits in the background and keeps them IN MEMORY ONLY.
- * There is no database: when the server restarts, every audit is gone.
- * Only one run (audit or re-test) happens at a time, so two runs can never
- * delete each other's temporary users in the same project.
+ * Runs audits in the background. Audits are kept in the audit store (a table
+ * in the platform's Supabase project), so they survive a restart.
+ * Only one run (audit or re-test) happens at a time IN THIS PROCESS
+ * (`runningId`), so two runs can never delete each other's temporary users in
+ * the same project.
  */
 @Injectable()
-export class AuditsService {
+export class AuditsService implements OnModuleDestroy {
   private readonly logger = new Logger('Audits');
-  private readonly audits = new Map<string, AuditRecord>();
   private runningId: string | null = null;
+  private destroyed = false;
+  private readonly timing: AuditTiming;
+  /**
+   * Runs that have finished but whose final write is not in the store yet
+   * (the store was unreachable). GET answers from here while it retries.
+   */
+  private readonly pending = new Map<string, ActiveRun>();
 
   constructor(
     @Inject(GATEWAY_FACTORY) private readonly makeGateway: GatewayFactory,
     @Inject(REPORT_SETUP) private readonly reportSetup: ReportSetup,
-  ) {}
+    @Inject(AUDIT_REPOSITORY) private readonly repo: AuditRepository,
+    @Optional() @Inject(AUDIT_TIMING) timing?: AuditTiming,
+  ) {
+    this.timing = timing ?? DEFAULT_AUDIT_TIMING;
+  }
+
+  onModuleDestroy(): void {
+    this.destroyed = true;
+  }
+
+  /**
+   * Runs at boot, before the server listens. Fails (and the server does not
+   * start) when the store cannot be used. Then every row that is still
+   * `running` is closed as INTERRUPTED. Returns how many rows were closed.
+   */
+  async bootCheck(): Promise<number> {
+    await this.repo.ping();
+    const swept = await sweepInterrupted(this.repo);
+    if (swept > 0) {
+      this.logger.warn(`${swept} audit(s) were interrupted by a restart`);
+    }
+    return swept;
+  }
 
   /** The Report agent's row at the start of a run; none when it is off. */
-  private initialReportRow(): ReportRow | null {
+  private initialReportRow(): AuditRecord['reportRow'] {
     return this.reportSetup.mode === 'groq'
       ? { status: 'queued', progress: 0 }
       : null;
   }
 
+  private newRun(record: AuditRecord, secrets: string[]): ActiveRun {
+    return {
+      id: record.id,
+      runId: `run_${randomBytes(8).toString('hex')}`,
+      record,
+      secrets: [...secrets, ...this.repo.ownSecrets],
+      stopped: false,
+      closed: false,
+      dirty: false,
+      timer: null,
+      lastFlushAt: 0,
+      chain: Promise.resolve(),
+    };
+  }
+
   /** Starts an audit and returns at once. The work continues in the background. */
-  start(input: AuditInput): { id: string; status: AuditStatus } {
+  async start(input: AuditInput): Promise<{ id: string; status: AuditStatus }> {
     // Check and claim in one synchronous step, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
     const record: AuditRecord = {
@@ -121,18 +175,33 @@ export class AuditsService {
       proverDone: false,
       reportRow: this.initialReportRow(),
     };
-    this.audits.set(record.id, record);
-    this.runningId = record.id;
-    this.forgetOldAudits();
-
     // The keys live only in this call. They are not stored on the record.
     const config: ProverConfig = {
       supabaseUrl: input.projectUrl,
       publishableKey: input.publishableKey,
       secretKey: input.secretKey,
     };
-    void this.execute(record, config);
-    return { id: record.id, status: record.status };
+    const run = this.newRun(record, this.runSecrets(config));
+    this.runningId = record.id;
+    try {
+      await this.repo.insert({
+        id: record.id,
+        status: 'running',
+        createdAt: record.createdAt,
+        runId: run.runId,
+        record: redactForStorage(record, run.secrets),
+      });
+    } catch (error) {
+      this.runningId = null;
+      throw error;
+    }
+    try {
+      await this.repo.prune(MAX_KEPT_AUDITS);
+    } catch {
+      // An old audit that stays a little longer does no harm.
+    }
+    void this.execute(run, config);
+    return { id: record.id, status: 'running' };
   }
 
   /**
@@ -140,12 +209,13 @@ export class AuditsService {
    * visible; the new ones replace them in one step when the run has finished.
    * The address is always the one saved with the audit.
    */
-  retest(
+  async retest(
     id: string,
     parseInput: () => RetestInput,
-  ): { id: string; status: AuditStatus } {
-    const record = this.find(id);
+  ): Promise<{ id: string; status: AuditStatus }> {
+    const record = structuredClone(await this.readRecord(id));
     const input = parseInput();
+    // From here to the claim there is no `await`, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
     if (record.status !== 'completed') {
       throw new ApiError(
@@ -166,20 +236,33 @@ export class AuditsService {
       tablesRemoved: [],
       error: null,
     };
-    this.runningId = record.id;
-
     const config: ProverConfig = {
       supabaseUrl: record.projectUrl,
       publishableKey: input.publishableKey,
       secretKey: input.secretKey,
     };
-    void this.executeRetest(record, config);
-    return { id: record.id, status: record.status };
+    const run = this.newRun(record, this.runSecrets(config));
+    this.runningId = record.id;
+    try {
+      const started = await this.repo.beginRetest(
+        record.id,
+        run.runId,
+        redactForStorage(record, run.secrets),
+      );
+      if (!started) throw inProgress();
+    } catch (error) {
+      this.runningId = null;
+      throw error;
+    }
+    void this.executeRetest(run, config);
+    return { id: record.id, status: 'running' };
   }
 
   /** A human decision only. It does not change the user's database. */
-  approveFix(id: string, findingId: string): Finding {
-    const record = this.find(id);
+  async approveFix(id: string, findingId: string): Promise<Finding> {
+    if (this.pending.has(id)) throw inProgress();
+    const stored = await this.readStored(id);
+    const record = stored.record;
     if (record.status === 'running' || record.status === 'queued') {
       throw inProgress();
     }
@@ -204,18 +287,25 @@ export class AuditsService {
       fix: { ...finding.fix, status: 'approved' },
     };
     record.findings[index] = approved;
+    // Saved only if nobody else saved in between and no run has started.
+    const saved = await this.repo.saveIdle(
+      id,
+      stored.version,
+      redactForStorage(record, this.repo.ownSecrets),
+    );
+    if (!saved) throw inProgress();
     return approved;
   }
 
-  certificate(id: string) {
-    const record = this.find(id);
+  async certificate(id: string) {
+    const record = await this.readRecord(id);
     const blocker = certificateBlocker(record);
     if (blocker) throw new ApiError(409, 'NOT_ELIGIBLE', blocker);
     return buildCertificate(record);
   }
 
-  get(id: string) {
-    const record = this.find(id);
+  async get(id: string) {
+    const record = await this.readRecord(id);
     const count = (verdict: string) =>
       record.findings.filter((f) => f.verdict === verdict).length;
     return {
@@ -260,8 +350,8 @@ export class AuditsService {
     };
   }
 
-  getFindings(id: string): { findings: Finding[] } {
-    const record = this.find(id);
+  async getFindings(id: string): Promise<{ findings: Finding[] }> {
+    const record = await this.readRecord(id);
     // While a re-test runs the old findings stay, each marked "running".
     const retesting = record.lastRetest?.status === 'running';
     return {
@@ -274,13 +364,126 @@ export class AuditsService {
     };
   }
 
-  private find(id: string): AuditRecord {
-    const record = this.audits.get(id);
-    if (!record) {
-      throw new ApiError(404, 'NOT_FOUND', 'No audit with this id was found.');
-    }
-    return record;
+  private async readStored(id: string): Promise<StoredAudit> {
+    const stored = await this.repo.get(id);
+    if (!stored) throw notFound();
+    return stored;
   }
+
+  /**
+   * The record a reader sees. Normally it comes from the store. If a finished
+   * run could not save its final state yet, that run's own record is used
+   * first, but only while the store row still belongs to the same run.
+   */
+  private async readRecord(id: string): Promise<AuditRecord> {
+    const waiting = this.pending.get(id);
+    let stored: StoredAudit | null;
+    try {
+      stored = await this.repo.get(id);
+    } catch (error) {
+      if (waiting) return waiting.record;
+      throw error;
+    }
+    if (waiting && (!stored || stored.runId === waiting.runId)) {
+      return waiting.record;
+    }
+    if (!stored) throw notFound();
+    return stored.record;
+  }
+
+  private runSecrets(config: ProverConfig): string[] {
+    const groq =
+      this.reportSetup.mode === 'groq' ? [this.reportSetup.secret] : [];
+    return [config.publishableKey, config.secretKey, ...groq];
+  }
+
+  // ---- saving a run ---------------------------------------------------
+
+  /** Runs `job` after the earlier writes of this run. The chain never breaks. */
+  private enqueue<T>(run: ActiveRun, job: () => Promise<T>): Promise<T> {
+    const next = run.chain.then(job);
+    run.chain = next.catch(() => undefined);
+    return next;
+  }
+
+  /** Something changed: save it soon, but at most about once per flushMs. */
+  private touch(run: ActiveRun): void {
+    run.dirty = true;
+    if (run.closed || run.stopped || run.timer || this.destroyed) return;
+    const wait = Math.max(
+      0,
+      this.timing.flushMs - (Date.now() - run.lastFlushAt),
+    );
+    run.timer = setTimeout(() => {
+      run.timer = null;
+      void this.flush(run);
+    }, wait);
+    run.timer.unref();
+  }
+
+  private flush(run: ActiveRun): Promise<void> {
+    return this.enqueue(run, async () => {
+      if (!run.dirty || run.closed || run.stopped) return;
+      run.dirty = false;
+      run.lastFlushAt = Date.now();
+      try {
+        const ok = await this.repo.writeRunning(
+          run.id,
+          run.runId,
+          redactForStorage(run.record, run.secrets),
+        );
+        if (!ok) this.markStopped(run);
+      } catch {
+        // The store did not answer. The change is kept and saved next time.
+        run.dirty = true;
+        this.touch(run);
+      }
+    });
+  }
+
+  /** A guarded write changed 0 rows: the row is not ours. Stop the run. */
+  private markStopped(run: ActiveRun): void {
+    if (!run.stopped) {
+      this.logger.warn(`${run.id} stopped: its record was changed elsewhere`);
+    }
+    run.stopped = true;
+  }
+
+  /**
+   * The final write. The record is redacted first, and the redacted copy is
+   * also what stays in memory, so a reader sees the same text before and after.
+   * If the store does not answer, this retries in the background and GET
+   * answers from the run's own record meanwhile.
+   */
+  private async persistFinal(
+    run: ActiveRun,
+    status: 'completed' | 'failed',
+  ): Promise<void> {
+    run.closed = true;
+    if (run.timer) clearTimeout(run.timer);
+    run.timer = null;
+    Object.assign(run.record, redactForStorage(run.record, run.secrets));
+    this.pending.set(run.id, run);
+    let delay = this.timing.retryBaseMs;
+    while (!this.destroyed) {
+      try {
+        const ok = await this.enqueue(run, () =>
+          this.repo.finish(run.id, run.runId, status, run.record),
+        );
+        if (!ok) this.markStopped(run);
+        break;
+      } catch {
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, delay);
+          timer.unref();
+        });
+        delay = Math.min(delay * 2, this.timing.retryMaxMs);
+      }
+    }
+    if (this.pending.get(run.id) === run) this.pending.delete(run.id);
+  }
+
+  // ---- running the agents ---------------------------------------------
 
   /**
    * Runs the pipeline: the Prover, then the Report agent when it is on.
@@ -289,14 +492,19 @@ export class AuditsService {
    */
   private async runAgents(
     gateway: Gateway,
-    record: AuditRecord,
-    secrets: string[],
+    run: ActiveRun,
   ): Promise<ProverResult> {
     const context: RunContext = {};
+    const record = run.record;
     const agents: Agent<RunContext>[] = [
-      createProverAgent(gateway, (percent) => {
-        record.progress = percent;
-      }),
+      createProverAgent(
+        gateway,
+        (percent) => {
+          record.progress = percent;
+          this.touch(run);
+        },
+        () => run.stopped,
+      ),
     ];
     const setup = this.reportSetup;
     if (setup.mode === 'groq') {
@@ -304,12 +512,10 @@ export class AuditsService {
         createReportAgent({ llm: setup.llm, problem: setup.problem }),
       );
     }
-    const allSecrets =
-      setup.mode === 'groq' ? [...secrets, setup.secret] : secrets;
 
     await runPipeline(agents, context, {
-      redact: (text) => redact(text, allSecrets),
-      onState: (states) => this.showStates(record, states),
+      redact: (text) => redact(text, run.secrets),
+      onState: (states) => this.showStates(run, states),
     });
     return context.prover!;
   }
@@ -325,7 +531,8 @@ export class AuditsService {
   }
 
   /** Copies the agents' states to the record. Does nothing when only the Prover runs. */
-  private showStates(record: AuditRecord, states: AgentState[]): void {
+  private showStates(run: ActiveRun, states: AgentState[]): void {
+    const record = run.record;
     const report = states[1];
     if (!report) return;
     if (states[0].status === 'completed') {
@@ -337,17 +544,15 @@ export class AuditsService {
       progress: report.progress,
       ...(report.message ? { message: report.message } : {}),
     };
+    this.touch(run);
   }
 
-  private async execute(
-    record: AuditRecord,
-    config: ProverConfig,
-  ): Promise<void> {
-    const secrets = [config.publishableKey, config.secretKey];
+  private async execute(run: ActiveRun, config: ProverConfig): Promise<void> {
+    const record = run.record;
     this.logger.log(`${record.id} started`);
     try {
       const gateway = this.makeGateway(config);
-      const result = await this.runAgents(gateway, record, secrets);
+      const result = await this.runAgents(gateway, run);
       record.findings = result.findings.map((f) => ({
         ...f,
         retest: { ...f.retest, previousVerdict: null },
@@ -370,12 +575,16 @@ export class AuditsService {
           error instanceof Error
             ? error.message
             : 'The audit stopped unexpectedly.',
-          secrets,
+          run.secrets,
         ),
       };
     } finally {
       this.runningId = null;
       this.logger.log(`${record.id} ${record.status}`);
+      void this.persistFinal(
+        run,
+        record.status === 'completed' ? 'completed' : 'failed',
+      ).catch(() => undefined);
     }
   }
 
@@ -384,15 +593,15 @@ export class AuditsService {
    * touched until the new list is ready, so on failure there is nothing to undo.
    */
   private async executeRetest(
-    record: AuditRecord,
+    run: ActiveRun,
     config: ProverConfig,
   ): Promise<void> {
-    const secrets = [config.publishableKey, config.secretKey];
+    const record = run.record;
     const lastRetest = record.lastRetest!;
     this.logger.log(`${record.id} re-test started`);
     try {
       const gateway = this.makeGateway(config);
-      const result = await this.runAgents(gateway, record, secrets);
+      const result = await this.runAgents(gateway, run);
       const finishedAt = new Date().toISOString();
       // Everything is worked out first, then swapped in together.
       const merged = mergeRetest(
@@ -433,7 +642,7 @@ export class AuditsService {
             error instanceof Error
               ? error.message
               : 'The re-test stopped unexpectedly.',
-            secrets,
+            run.secrets,
           ),
         },
       };
@@ -442,14 +651,7 @@ export class AuditsService {
       record.progress = 100;
       this.runningId = null;
       this.logger.log(`${record.id} re-test ${record.lastRetest?.status}`);
-    }
-  }
-
-  private forgetOldAudits(): void {
-    while (this.audits.size > MAX_KEPT_AUDITS) {
-      const oldest = this.audits.keys().next().value;
-      if (oldest === undefined || oldest === this.runningId) break;
-      this.audits.delete(oldest);
+      void this.persistFinal(run, 'completed').catch(() => undefined);
     }
   }
 }

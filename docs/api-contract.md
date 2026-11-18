@@ -183,7 +183,7 @@ A human approves the suggested fix. Response `200`: the updated finding with `fi
 - `404` `NOT_FOUND`: unknown audit or unknown finding.
 - `409` `AUDIT_IN_PROGRESS`: the audit (or a re-test of it) is still running.
 - `409` `NO_FIX_TO_APPROVE`: the finding has `fix: null` (for example it is `BLOCKED` or `INCONCLUSIVE`).
-- Approvals are kept in memory only (see "What the backend keeps").
+- Approvals are kept in the audit store, like the audits (see "What the backend keeps").
 
 ### POST /audits/:id/retest
 Runs the same checks again on the same audit. The keys are sent again on every re-test, because the backend never stores them.
@@ -232,7 +232,7 @@ In `GET /audits/:id`. `null` until a re-test has been started.
 }
 ```
 - `status`: `running` | `completed` | `failed`. `finishedAt` is `null` while running.
-- `error`: `null`, or `{ "code": "...", "message": "Plain-language message" }` when `status` is `failed`.
+- `error`: `null`, or `{ "code": "...", "message": "Plain-language message" }` when `status` is `failed`. `code` is `INTERRUPTED` when a server restart stopped the re-test (see "What the backend keeps").
 - `tablesAdded` / `tablesRemoved`: names of tables that appear in this run but not in the run before, and the other way round. Always arrays; empty while running and when `failed`.
 - `cleanup` and `cleanupNote` (see above) describe the most recent run that finished, the first audit or a re-test, successful or not. While a re-test runs they keep the value of the run before, and are updated when it ends.
 
@@ -270,7 +270,12 @@ Optional. They appear only when the backend runs with the Report agent on (`REPO
 - A finding that is still `LEAKED` gets the fix the Prover proposes now. If the SQL is identical to the old one, `fix.status` stays as it was (for example `approved`). If the SQL is different, `fix.status` goes back to `proposed`, because the approval was for different SQL.
 
 ### What the backend keeps
-Audits, approvals and re-test results are kept in memory only (newest 50 audits). After a server restart they are gone, and every route in this file answers `404` `NOT_FOUND` for the old id.
+Audits, approvals and re-test results are kept in the audit store (a table in the platform's own Supabase project; never a key). The newest 50 audits are kept. A server restart does not remove them: every route in this file still answers for an old id, and `404` `NOT_FOUND` now means only that the id is unknown or was removed because it was not among the newest 50.
+
+A run that a restart stopped is closed when the server starts again:
+- An audit that was `running` becomes `status` `failed` with `error` `{ "code": "INTERRUPTED", "message": "..." }`.
+- A re-test that was `running` leaves the audit `completed` with its old findings unchanged, and `lastRetest` becomes `failed` with `error.code` `INTERRUPTED`. The top-level `error` stays absent.
+- In both cases `cleanup` is `"failed"` and `cleanupNote` says that users with an email like `vca-*@example.com`, or canary rows, may be left in the target project and must be removed by hand. `INTERRUPTED` is a new value of the existing `error.code` field; no field was added, renamed or removed.
 
 ### GET /audits/:id/certificate
 Available only when ALL of these are true: the audit `status` is `completed` (no run or re-test is going on), it has zero `LEAKED` findings, it has at least one `BLOCKED` finding, and `cleanup` is not `"failed"`. Otherwise `409` with `{ "error": { "code": "NOT_ELIGIBLE", "message": "..." } }`, and the message names the reason. An audit with only `INCONCLUSIVE` findings is not eligible: nothing was shown to be blocked.

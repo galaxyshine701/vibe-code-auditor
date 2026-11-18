@@ -39,6 +39,7 @@ export async function runProver(
   gateway: Gateway,
   log: (message: string) => void = () => {},
   onProgress: (percent: number) => void = () => {},
+  shouldStop: () => boolean = () => false,
 ): Promise<ProverResult> {
   const state: RunState = {
     userIds: [],
@@ -50,7 +51,7 @@ export async function runProver(
   let failure: unknown = null;
   let cleanup: Cleanup = { status: 'failed' };
   try {
-    findings = await runChecks(gateway, state, log, onProgress);
+    findings = await runChecks(gateway, state, log, onProgress, shouldStop);
   } catch (error) {
     failure = error;
   } finally {
@@ -77,7 +78,18 @@ async function runChecks(
   state: RunState,
   log: (message: string) => void,
   onProgress: (percent: number) => void,
+  shouldStop: () => boolean,
 ): Promise<Finding[]> {
+  // The run may be told to stop (its record was changed elsewhere). It then
+  // throws; runProver still runs the cleanup in its `finally` block.
+  const stopIfTold = () => {
+    if (shouldStop()) {
+      throw new ProverError(
+        'RUN_STOPPED',
+        'The run was stopped because its saved record was changed elsewhere.',
+      );
+    }
+  };
   // 1. Preflight
   log('Preflight: reading the table list and counting rows');
   const tables = parseTables(await gateway.fetchOpenApi());
@@ -97,6 +109,7 @@ async function runChecks(
   onProgress(10);
 
   // 2 + 3. Users A and B, signed in
+  stopIfTold();
   log('Creating two temporary test users');
   const userA = await newUser(gateway, state);
   const userB = await newUser(gateway, state);
@@ -107,6 +120,7 @@ async function runChecks(
   onProgress(15);
   const findings: Finding[] = [];
   for (const table of tables) {
+    stopIfTold();
     log(`Checking table "${table.name}"`);
     const id = `fnd_${String(findings.length + 1).padStart(3, '0')}`;
     findings.push(
