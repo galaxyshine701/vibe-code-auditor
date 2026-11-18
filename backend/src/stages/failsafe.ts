@@ -1,5 +1,7 @@
+import { failSafeClientReport } from './client-report.js';
 import { CHECKS, type CheckDefinition } from './planner-config.js';
 import { planChecks } from './planner.js';
+import { ROADMAP_UNAVAILABLE } from './roadmap.js';
 import { OWNERSHIP_NOT_CHECKED } from './run-stages.js';
 import {
   LOCK_C_SCHEMA_VERSION,
@@ -57,5 +59,8 @@ export function failSafeLockC(
     evidence: [],
     coverage: unavailableCoverage(plan),
     gate: { decision: 'not_ready', reasons: [GATE_UNAVAILABLE] },
+    // fixed: no roadmap, and a client report that says there is no result
+    roadmap: ROADMAP_UNAVAILABLE,
+    clientReport: failSafeClientReport(),
   };
 }

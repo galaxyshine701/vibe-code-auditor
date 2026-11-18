@@ -127,7 +127,7 @@ describe('Headers inspector', () => {
     );
     const result = context.siteResults!['tls-headers'];
     expect(result.outOfScope).toHaveLength(1);
-    expect(result.outOfScope![0].name).toMatch(/certificate/i);
+    expect(result.outOfScope![0].name).toMatch(/TLS/i);
     expect(result.outOfScope![0].reason.en).toMatch(/not implemented/i);
     expect(result.outOfScope![0].reason.ur.length).toBeGreaterThan(0);
     expect(result.status).not.toBe('partial');

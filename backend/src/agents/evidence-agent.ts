@@ -8,7 +8,7 @@ import type { RunContext } from './run-context.js';
 export const EVIDENCE_AGENT_ID = 'evidence';
 
 /** The same value with `fn` applied to every text in it (a deep copy). */
-function mapTexts<T>(value: T, fn: (text: string) => string): T {
+export function mapTexts<T>(value: T, fn: (text: string) => string): T {
   if (typeof value === 'string') return fn(value) as T;
   if (Array.isArray(value)) return value.map((item) => mapTexts(item, fn)) as T;
   if (value && typeof value === 'object') {

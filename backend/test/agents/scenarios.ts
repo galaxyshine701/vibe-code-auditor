@@ -34,12 +34,13 @@ export async function buildWith(
   factory: GatewayFactory,
   agents: AgentsSetup,
   llm?: FakeLlm,
+  repo: InMemoryAuditRepository = new InMemoryAuditRepository(),
 ): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(GATEWAY_FACTORY)
     .useValue(factory)
     .overrideProvider(AUDIT_REPOSITORY)
-    .useValue(new InMemoryAuditRepository())
+    .useValue(repo)
     .overrideProvider(REPORT_SETUP)
     .useValue(llm ? groqSetup(llm) : { mode: 'off' })
     .overrideProvider(AGENTS_SETUP)

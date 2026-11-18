@@ -147,7 +147,7 @@ describe('flag on, everything works', () => {
 
     // Since step 2 the flag adds four rows (the stage agents). Everything
     // else, including the Prover and Report rows, is the same.
-    const STAGE_ROWS = ['planner', 'ownership', 'evidence', 'guide'];
+    const STAGE_ROWS = ['planner', 'ownership', 'evidence', 'roadmap', 'guide'];
     const same = (b: Record<string, unknown>) =>
       JSON.stringify({
         status: b.status,

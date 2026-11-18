@@ -9,6 +9,7 @@ import type {
   Ownership,
   PlannedCheck,
   Provided,
+  Roadmap,
 } from '../stages/types.js';
 
 /** What the service can tell an agent about a failed run (same words as the record). */
@@ -56,6 +57,8 @@ export interface RunContext {
   /** Evidence */
   evidence?: EvidenceItem[];
   coverage?: Coverage;
+  /** Roadmap: what to do next. Missing when the Roadmap agent did not finish. */
+  roadmap?: Roadmap;
   /** Guide: the whole stage result, with the gate. */
   lockC?: LockC;
 }

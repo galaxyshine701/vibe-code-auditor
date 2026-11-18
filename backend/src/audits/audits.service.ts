@@ -16,6 +16,7 @@ import { createBundleInspectorAgent } from '../agents/bundle-inspector-agent.js'
 import { createEvidenceAgent } from '../agents/evidence-agent.js';
 import { createHeadersInspectorAgent } from '../agents/headers-inspector-agent.js';
 import { createGuideAgent } from '../agents/guide-agent.js';
+import { createRoadmapAgent } from '../agents/roadmap-agent.js';
 import { createOwnershipAgent } from '../agents/ownership-agent.js';
 import { runPipeline, type Stage } from '../agents/pipeline.js';
 import { createPlannerAgent } from '../agents/planner-agent.js';
@@ -515,6 +516,32 @@ export class AuditsService implements OnModuleDestroy {
     };
   }
 
+  /** What to do next (additive). Only runs made with LOCK_C_AGENTS on have one. */
+  async roadmap(id: string) {
+    const record = await this.readRecord(id);
+    if (!record.lockC?.roadmap) {
+      throw new ApiError(
+        404,
+        'NOT_FOUND',
+        'This audit has no roadmap (it was run before the roadmap existed, or without the agent pipeline).',
+      );
+    }
+    return record.lockC.roadmap;
+  }
+
+  /** The summary for a client (additive). Same rule as the roadmap. */
+  async clientReport(id: string) {
+    const record = await this.readRecord(id);
+    if (!record.lockC?.clientReport) {
+      throw new ApiError(
+        404,
+        'NOT_FOUND',
+        'This audit has no client report (it was run before the report existed, or without the agent pipeline).',
+      );
+    }
+    return record.lockC.clientReport;
+  }
+
   async getFindings(id: string): Promise<{ findings: Finding[] }> {
     const record = await this.readRecord(id);
     // While a re-test runs the old findings stay, each marked "running".
@@ -729,6 +756,7 @@ export class AuditsService implements OnModuleDestroy {
           ...(together.length > 1 ? [together] : together),
           ...afterProver,
           timed(createEvidenceAgent()),
+          timed(createRoadmapAgent()),
           timed(createGuideAgent()),
         ]
       : agents;

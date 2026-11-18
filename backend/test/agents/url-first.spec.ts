@@ -98,6 +98,7 @@ describe('flag on: an audit of a website only', () => {
       'tls-headers',
       'bundle-secrets',
       'evidence',
+      'roadmap',
       'guide',
     ]);
     const prover = rows[0];
@@ -105,6 +106,7 @@ describe('flag on: an audit of a website only', () => {
     expect(prover.reason!.en).toMatch(/^Not provided/);
     expect(prover.reason!.ur.length).toBeGreaterThan(0);
     expect(rows.slice(3).map((m) => m.status)).toEqual([
+      'completed',
       'completed',
       'completed',
       'completed',

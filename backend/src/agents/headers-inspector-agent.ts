@@ -22,10 +22,10 @@ export const HEADERS_INSPECTOR_ID = 'tls-headers';
  * back) until the fetcher can show it.
  */
 const CERTIFICATE_LEFT_OUT = {
-  name: 'Certificate validity and expiry',
+  name: 'TLS validity period and expiry',
   reason: {
-    en: 'Not implemented yet: the page fetcher does not give out the certificate.',
-    ur: 'Abhi bana nahi: page fetcher certificate nahi deta.',
+    en: 'Not implemented yet: the page fetcher does not give out the TLS details.',
+    ur: 'Abhi bana nahi: page fetcher TLS ki details nahi deta.',
   },
 };
 

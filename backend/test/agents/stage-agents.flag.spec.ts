@@ -10,7 +10,7 @@ import {
 } from './scenarios.js';
 
 const ON = { ...AGENTS_OFF, enabled: true };
-const STAGE_ROWS = ['planner', 'ownership', 'evidence', 'guide'];
+const STAGE_ROWS = ['planner', 'ownership', 'evidence', 'roadmap', 'guide'];
 
 type Row = { id: string; status: string; progress: number; reason?: unknown };
 const modulesOf = (s: Snapshot) => s.audit.modules as Row[];
@@ -64,7 +64,7 @@ describe('flag on and flag off give the same answers (except the three places ab
       const off = await runScenario(name as ScenarioName, AGENTS_OFF);
       const on = await runScenario(name as ScenarioName, ON);
       expect(canon(on)).toEqual(canon(off));
-      expect(modulesOf(on).length).toBe(modulesOf(off).length + 4);
+      expect(modulesOf(on).length).toBe(modulesOf(off).length + 5);
     }, 30_000);
   }
 
@@ -117,6 +117,7 @@ describe('flag on: the rows of the stage agents', () => {
       'planner',
       'ownership',
       'evidence',
+      'roadmap',
       'guide',
     ]);
     const byId = Object.fromEntries(rows.map((m) => [m.id, m]));
@@ -144,6 +145,7 @@ describe('flag on: the rows of the stage agents', () => {
       'planner',
       'ownership',
       'evidence',
+      'roadmap',
       'guide',
     ]);
   });

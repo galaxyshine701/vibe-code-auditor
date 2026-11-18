@@ -37,6 +37,16 @@ export class AuditsController {
     return this.audits.evidence(id);
   }
 
+  @Get(':id/roadmap')
+  roadmap(@Param('id') id: string) {
+    return this.audits.roadmap(id);
+  }
+
+  @Get(':id/client-report')
+  clientReport(@Param('id') id: string) {
+    return this.audits.clientReport(id);
+  }
+
   @Get(':id/findings')
   findings(@Param('id') id: string) {
     return this.audits.getFindings(id);

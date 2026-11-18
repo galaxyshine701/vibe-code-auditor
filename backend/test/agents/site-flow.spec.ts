@@ -130,6 +130,7 @@ describe('flag on: a website-only audit with both inspectors', () => {
       'tls-headers',
       'bundle-secrets',
       'evidence',
+      'roadmap',
       'guide',
     ]);
     expect(rows.find((m) => m.id === 'tls-headers')!.status).toBe('completed');
@@ -145,7 +146,7 @@ describe('flag on: a website-only audit with both inspectors', () => {
     expect(evidence.coverage.partial).toEqual([]);
     // the certificate itself is named, as left out on purpose
     expect(evidence.coverage.outOfScope.map((o) => o.name)).toContain(
-      'Certificate validity and expiry',
+      'TLS validity period and expiry',
     );
     // evidence about the site: no finding, no table, a kind and a subject
     expect(evidence.items.length).toBeGreaterThan(0);
@@ -279,6 +280,7 @@ describe('flag on: a website together with Supabase details', () => {
       'tls-headers',
       'bundle-secrets',
       'evidence',
+      'roadmap',
       'guide',
     ]);
     const evidence = await evidenceOf(app, res.body.id);

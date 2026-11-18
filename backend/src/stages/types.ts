@@ -1,3 +1,5 @@
+import type { Severity } from '../prover/types.js';
+
 /** A sentence in both languages, as everywhere else in the API. */
 export interface Text {
   en: string;
@@ -114,6 +116,74 @@ export interface Ownership {
   reason?: Text;
 }
 
+/**
+ * What kind of step a roadmap item is. A held-up table (BLOCKED), a check that
+ * is "not implemented yet" and ownership never get an item.
+ */
+export type RoadmapKind =
+  | 'fix-finding'
+  | 'fix-site-secret'
+  | 'improve-header'
+  | 'confirm'
+  | 'cleanup'
+  | 'finish-check'
+  | 'provide-input'
+  | 'retest';
+
+export interface RoadmapItem {
+  /** rm_001... in the final order */
+  id: string;
+  kind: RoadmapKind;
+  severity: Severity;
+  /** true when the item comes from a check that is required in this run */
+  fromRequiredCheck: boolean;
+  title: Text;
+  why: Text;
+  /** 1 to 4 steps */
+  steps: Text[];
+  refs: { checkId: string; findingIds?: string[]; evidenceIds?: string[] };
+}
+
+export interface Roadmap {
+  schemaVersion: 1;
+  items: RoadmapItem[];
+  /** how many items were left out because of the cap */
+  truncated: number;
+}
+
+/** A check, named for the client report. */
+export interface ScopeEntry {
+  id: string;
+  title: Text;
+}
+
+/** A plain summary of one run for a person who does not read the details. */
+export interface ClientReport {
+  schemaVersion: 1;
+  headline: Text;
+  decision: GateDecision;
+  reasons: Text[];
+  scope: {
+    checked: ScopeEntry[];
+    notProvided: ScopeEntry[];
+    /** skipped for a reason other than "not provided" (today: not built yet) */
+    notImplemented: ScopeEntry[];
+    partial: ScopeEntry[];
+    failedToRun: ScopeEntry[];
+    outOfScope: { name: string; reason: Text }[];
+  };
+  findings: {
+    /** null when the data access check did not complete */
+    tables: { leaked: number; blocked: number; inconclusive: number } | null;
+    /** null when no website check completed */
+    site: { siteLeaked: number; headersMissing: number } | null;
+  };
+  /** the ids of the first three roadmap items */
+  topActions: string[];
+  limits: Text[];
+  disclaimer: Text;
+}
+
 /** Everything the stages decide about one run. Stored with the audit. */
 export interface LockC {
   schemaVersion: 2;
@@ -122,6 +192,9 @@ export interface LockC {
   evidence: EvidenceItem[];
   coverage: Coverage;
   gate: Gate;
+  /** Missing on an audit made before the Roadmap agent, and with the flag off. */
+  roadmap?: Roadmap;
+  clientReport?: ClientReport;
 }
 
 export const LOCK_C_SCHEMA_VERSION = 2 as const;
