@@ -1,0 +1,7 @@
+{
+  "label": "Hotel booking (test project)",
+  "projectUrl": "https://example-project.supabase.co",
+  "anonKey": "<publishable key: write-only, never returned>",
+  "serviceKey": "<secret key: write-only, never returned>",
+  "confirmTestProject": true
+}

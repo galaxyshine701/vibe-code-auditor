@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "ev_fnd_001",
+      "check": "data-access-prover",
+      "findingId": "fnd_001",
+      "table": "bookings",
+      "verdict": "LEAKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "A row that belongs to the first user was reached. A logged-in user could read, change and delete it. A visitor could read it. The table has no rule that limits rows to their owner.",
+        "ur": "Pehle user ki row tak doosre log pahunch gaye. Login wala user ise parh, badal aur delete kar sakta tha. Bina login wala visitor ise parh sakta tha. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare."
+      }
+    },
+    {
+      "id": "ev_fnd_002",
+      "check": "data-access-prover",
+      "findingId": "fnd_002",
+      "table": "profiles",
+      "verdict": "BLOCKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+        "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+      }
+    },
+    {
+      "id": "ev_fnd_003",
+      "check": "data-access-prover",
+      "findingId": "fnd_003",
+      "table": "hotels",
+      "verdict": "INCONCLUSIVE",
+      "proof": "UNVERIFIED",
+      "summary": {
+        "en": "This table has no column that links a row to a user, so a canary row could not be planted. If it holds public information such as a hotel list, that is fine. Please confirm.",
+        "ur": "Is table me aisa column nahi jo row ko kisi user se jore, isliye canary row nahi daali ja saki. Agar isme sirf public maloomat hain (jaise hotel list) to theek hai. Barae meharbani confirm karein."
+      }
+    },
+    {
+      "id": "ev_site_tls-headers_1",
+      "check": "tls-headers",
+      "findingId": null,
+      "table": null,
+      "subject": "https",
+      "kind": "site-headers",
+      "verdict": "BLOCKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The site is reached over https.",
+        "ur": "Site https par khulti hai."
+      }
+    },
+    {
+      "id": "ev_site_tls-headers_2",
+      "check": "tls-headers",
+      "findingId": null,
+      "table": null,
+      "subject": "strict-transport-security",
+      "kind": "site-headers",
+      "verdict": "INCONCLUSIVE",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The Strict-Transport-Security header is missing or too weak, so a browser may still try plain http.",
+        "ur": "Strict-Transport-Security header nahi hai ya bahut kamzor hai, isliye browser ab bhi sada http aazma sakta hai."
+      }
+    },
+    {
+      "id": "ev_site_tls-headers_3",
+      "check": "tls-headers",
+      "findingId": null,
+      "table": null,
+      "subject": "content-security-policy",
+      "kind": "site-headers",
+      "verdict": "INCONCLUSIVE",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The Content-Security-Policy header is missing, so the browser has no rule about where scripts may come from.",
+        "ur": "Content-Security-Policy header nahi hai, isliye browser ke paas ye rule nahi ke scripts kahan se aa sakti hain."
+      }
+    },
+    {
+      "id": "ev_site_tls-headers_4",
+      "check": "tls-headers",
+      "findingId": null,
+      "table": null,
+      "subject": "x-content-type-options",
+      "kind": "site-headers",
+      "verdict": "BLOCKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The X-Content-Type-Options header is set to nosniff.",
+        "ur": "X-Content-Type-Options header nosniff par hai."
+      }
+    },
+    {
+      "id": "ev_site_tls-headers_5",
+      "check": "tls-headers",
+      "findingId": null,
+      "table": null,
+      "subject": "framing",
+      "kind": "site-headers",
+      "verdict": "BLOCKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The page says who may show it inside a frame (X-Frame-Options or frame-ancestors).",
+        "ur": "Page batata hai ke use frame mein kaun dikha sakta hai (X-Frame-Options ya frame-ancestors)."
+      }
+    },
+    {
+      "id": "ev_site_tls-headers_6",
+      "check": "tls-headers",
+      "findingId": null,
+      "table": null,
+      "subject": "referrer-policy",
+      "kind": "site-headers",
+      "verdict": "INCONCLUSIVE",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The Referrer-Policy header is missing.",
+        "ur": "Referrer-Policy header nahi hai."
+      }
+    },
+    {
+      "id": "ev_site_bundle-secrets_1",
+      "check": "bundle-secrets",
+      "findingId": null,
+      "table": null,
+      "subject": "www.example-shop.com/assets/app.js",
+      "kind": "site-bundle",
+      "verdict": "LEAKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "A Supabase secret key (sb_secret_...) is in this script. Anyone who opens the site can read it. Remove it from the site and create a new key.",
+        "ur": "Is script mein Supabase ki secret key (sb_secret_...) maujood hai. Jo bhi site kholta hai use parh sakta hai. Use site se hatayein aur nayi key banayein."
+      }
+    }
+  ],
+  "coverage": {
+    "checked": [
+      "data-access-prover",
+      "tls-headers",
+      "bundle-secrets"
+    ],
+    "partial": [],
+    "skipped": [
+      {
+        "id": "active-checks",
+        "reason": {
+          "en": "Not implemented yet. Active checks also need proven ownership of the site, and ownership is not checked yet.",
+          "ur": "Abhi bana nahi. Active checks ke liye site ki malkiyat sabit karna bhi zaroori hai, aur malkiyat abhi check nahi hoti."
+        }
+      }
+    ],
+    "outOfScope": [
+      {
+        "name": "TLS validity period and expiry",
+        "reason": {
+          "en": "Not implemented yet: the page fetcher does not give out the TLS details.",
+          "ur": "Abhi bana nahi: page fetcher TLS ki details nahi deta."
+        }
+      }
+    ],
+    "failedToRun": [],
+    "nothingToTest": [],
+    "limits": [
+      {
+        "en": "Only table data is tested: read, update and delete as another signed-in user, and read as a visitor. Tables without an owner column are reported as inconclusive.",
+        "ur": "Sirf table ka data test hota hai: doosre login user ki tarah parhna, badalna, delete karna, aur visitor ki tarah parhna. Jis table mein owner column na ho wo inconclusive aata hai."
+      },
+      {
+        "en": "Only the front page is read. Cookie settings, TLS versions and other pages are not checked.",
+        "ur": "Sirf pehla page parha jata hai. Cookie settings, TLS versions aur doosre pages check nahi hote."
+      },
+      {
+        "en": "The bundle scan reads at most 30 script files of the same origin, each at most 2 MB after decompression and 15 MB in total. Scripts it could not read for these reasons are listed as not read.",
+        "ur": "Bundle scan zyada se zyada 30 same-origin script files parhta hai, har file decompress ke baad 2 MB tak aur kul 15 MB. In wajah se jo scripts na parhi ja sakin unka naam \"not read\" mein aata hai."
+      },
+      {
+        "en": "Scripts from other origins are not scanned.",
+        "ur": "Doosre origin ki scripts scan nahi hotin."
+      },
+      {
+        "en": "A key that is found is reported as exposed. Whether it still works is not tested.",
+        "ur": "Jo key milti hai use \"exposed\" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota."
+      },
+      {
+        "en": "No active check is built yet.",
+        "ur": "Abhi koi active check bana nahi."
+      }
+    ]
+  }
+}

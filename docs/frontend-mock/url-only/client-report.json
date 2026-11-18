@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "headline": {
+    "en": "Leak found by these checks: 1 secret key in the scripts of the site.",
+    "ur": "In checks se leak mila: site ki scripts mein 1 secret key."
+  },
+  "decision": "not_ready",
+  "reasons": [
+    {
+      "en": "A leak was found and is still there. Fix it, then run a re-test.",
+      "ur": "Ek leak mila aur abhi maujood hai. Isse theek karein, phir re-test chalayein."
+    },
+    {
+      "en": "Not checked, because it was not provided: \"Data access (can another user or a visitor reach a row?)\".",
+      "ur": "Check nahi hua, kyunke diya nahi gaya: \"Data access (kya doosra user ya visitor kisi row tak pahunch sakta hai?)\"."
+    }
+  ],
+  "scope": {
+    "checked": [
+      {
+        "id": "tls-headers",
+        "title": {
+          "en": "Certificate and security headers of the site",
+          "ur": "Site ka certificate aur security headers"
+        }
+      },
+      {
+        "id": "bundle-secrets",
+        "title": {
+          "en": "Secret keys inside the scripts of the site",
+          "ur": "Site ki scripts ke andar chhupi hui secret keys"
+        }
+      }
+    ],
+    "notProvided": [
+      {
+        "id": "data-access-prover",
+        "title": {
+          "en": "Data access (can another user or a visitor reach a row?)",
+          "ur": "Data access (kya doosra user ya visitor kisi row tak pahunch sakta hai?)"
+        }
+      }
+    ],
+    "notImplemented": [
+      {
+        "id": "active-checks",
+        "title": {
+          "en": "Active checks (probes sent to the site)",
+          "ur": "Active checks (site par bheje gaye probes)"
+        }
+      }
+    ],
+    "partial": [],
+    "failedToRun": [],
+    "outOfScope": [
+      {
+        "name": "TLS validity period and expiry",
+        "reason": {
+          "en": "Not implemented yet: the page fetcher does not give out the TLS details.",
+          "ur": "Abhi bana nahi: page fetcher TLS ki details nahi deta."
+        }
+      }
+    ]
+  },
+  "findings": {
+    "tables": null,
+    "site": {
+      "siteLeaked": 1,
+      "headersMissing": 3
+    }
+  },
+  "topActions": [
+    "rm_001",
+    "rm_002",
+    "rm_003"
+  ],
+  "limits": [
+    {
+      "en": "Only table data is tested: read, update and delete as another signed-in user, and read as a visitor. Tables without an owner column are reported as inconclusive.",
+      "ur": "Sirf table ka data test hota hai: doosre login user ki tarah parhna, badalna, delete karna, aur visitor ki tarah parhna. Jis table mein owner column na ho wo inconclusive aata hai."
+    },
+    {
+      "en": "Only the front page is read. Cookie settings, TLS versions and other pages are not checked.",
+      "ur": "Sirf pehla page parha jata hai. Cookie settings, TLS versions aur doosre pages check nahi hote."
+    },
+    {
+      "en": "The bundle scan reads at most 30 script files of the same origin, each at most 2 MB after decompression and 15 MB in total. Scripts it could not read for these reasons are listed as not read.",
+      "ur": "Bundle scan zyada se zyada 30 same-origin script files parhta hai, har file decompress ke baad 2 MB tak aur kul 15 MB. In wajah se jo scripts na parhi ja sakin unka naam \"not read\" mein aata hai."
+    },
+    {
+      "en": "Scripts from other origins are not scanned.",
+      "ur": "Doosre origin ki scripts scan nahi hotin."
+    },
+    {
+      "en": "A key that is found is reported as exposed. Whether it still works is not tested.",
+      "ur": "Jo key milti hai use \"exposed\" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota."
+    },
+    {
+      "en": "No active check is built yet.",
+      "ur": "Abhi koi active check bana nahi."
+    }
+  ],
+  "disclaimer": {
+    "en": "This is the result of automated checks only, and it holds only \"by these checks\": it says nothing about what was not checked (see the scope). It is not an approval of the app.",
+    "ur": "Ye sirf khud-kaar checks ka nateeja hai aur sirf \"in checks ke hisab se\" hai: jo cheez check nahi hui uske bare mein ye kuch nahi kehta (scope dekhein). Ye app ki manzoori nahi hai."
+  }
+}
