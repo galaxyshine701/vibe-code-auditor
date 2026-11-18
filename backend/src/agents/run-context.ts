@@ -1,5 +1,5 @@
 import type { Finding, ProverResult } from '../prover/types.js';
-import type { BUNDLE_SCAN_LIMITS } from '../stages/planner-config.js';
+import type { BundleScanLimits } from '../stages/planner-config.js';
 import type { StageInput } from '../stages/inspectors.js';
 import type {
   CheckResult,
@@ -29,7 +29,7 @@ export interface RunContext {
   /** Planner */
   plan?: PlannedCheck[];
   /** Limits of the checks that are planned (read by the inspectors of step 3). */
-  limits?: { bundle: typeof BUNDLE_SCAN_LIMITS };
+  limits?: { bundle: BundleScanLimits };
   /** Ownership */
   ownership?: Ownership;
   /**

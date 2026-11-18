@@ -5,7 +5,14 @@ import type { CheckMode, Provided, Text } from './types.js';
  * No model decides it.
  */
 
-/** Limits of the bundle scan (built in a later step). */
+/** How much of a site the bundle scan may read. */
+export interface BundleScanLimits {
+  maxFiles: number;
+  maxFileBytes: number;
+  maxTotalBytes: number;
+}
+
+/** Limits of the bundle scan. */
 export const BUNDLE_SCAN_LIMITS = {
   /** most script files that are read */
   maxFiles: 30,

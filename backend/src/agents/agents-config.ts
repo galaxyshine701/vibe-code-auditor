@@ -30,6 +30,12 @@ export interface AgentsSetup {
    * in the type (the default is used when it is missing).
    */
   finalizerDeadlineMs?: number;
+  /**
+   * Time limit of each website inspector (headers, bundle scan). At the limit
+   * the pipeline stops waiting and the check counts as not done. Optional in
+   * the type (the default is used when it is missing).
+   */
+  inspectorDeadlineMs?: number;
 }
 
 export const AGENTS_OFF: AgentsSetup = {
@@ -40,6 +46,7 @@ export const AGENTS_OFF: AgentsSetup = {
   auditWatchdogMs: 420_000,
   orphanHoldMs: 600_000,
   finalizerDeadlineMs: 5_000,
+  inspectorDeadlineMs: 60_000,
 };
 
 const NUMBER_VARS: [keyof AgentsSetup, string][] = [
@@ -49,6 +56,7 @@ const NUMBER_VARS: [keyof AgentsSetup, string][] = [
   ['auditWatchdogMs', 'AUDIT_WATCHDOG_MS'],
   ['orphanHoldMs', 'AGENT_ORPHAN_HOLD_MS'],
   ['finalizerDeadlineMs', 'AGENT_FINALIZER_DEADLINE_MS'],
+  ['inspectorDeadlineMs', 'AGENT_INSPECTOR_DEADLINE_MS'],
 ];
 
 /**

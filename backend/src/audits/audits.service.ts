@@ -12,7 +12,9 @@ import {
   AGENTS_SETUP,
   type AgentsSetup,
 } from '../agents/agents-config.js';
+import { createBundleInspectorAgent } from '../agents/bundle-inspector-agent.js';
 import { createEvidenceAgent } from '../agents/evidence-agent.js';
+import { createHeadersInspectorAgent } from '../agents/headers-inspector-agent.js';
 import { createGuideAgent } from '../agents/guide-agent.js';
 import { createOwnershipAgent } from '../agents/ownership-agent.js';
 import { runPipeline, type Stage } from '../agents/pipeline.js';
@@ -700,10 +702,23 @@ export class AuditsService implements OnModuleDestroy {
       ...agent,
       deadlineMs: limit,
     });
+    // The website inspectors run when a website was given, in the same group as
+    // the Prover (they do not wait for each other). After a hard time limit the
+    // pipeline stops waiting for them, and the check counts as not done.
+    const inspectorLimit =
+      flag.inspectorDeadlineMs ?? AGENTS_OFF.inspectorDeadlineMs!;
+    const inspectors: Agent<RunContext>[] = context.websiteUrl
+      ? [createHeadersInspectorAgent(), createBundleInspectorAgent()].map(
+          (agent) => ({ ...agent, deadlineMs: inspectorLimit }),
+        )
+      : [];
+    const [proverStage, ...afterProver] = agents;
+    const together = [...(proverStage ? [proverStage] : []), ...inspectors];
     const stages: Stage<RunContext>[] = flag.enabled
       ? [
           [timed(createPlannerAgent()), timed(createOwnershipAgent())],
-          ...agents,
+          ...(together.length > 1 ? [together] : together),
+          ...afterProver,
           timed(createEvidenceAgent()),
           timed(createGuideAgent()),
         ]

@@ -2,6 +2,7 @@ import {
   BUNDLE_SCAN_LIMITS,
   CHECKS,
   isProvided,
+  type BundleScanLimits,
   type CheckDefinition,
 } from './planner-config.js';
 import type { PlannedCheck, Provided } from './types.js';
@@ -36,7 +37,7 @@ export function planRun(
   provided?: Provided,
 ): {
   plan: PlannedCheck[];
-  limits: { bundle: typeof BUNDLE_SCAN_LIMITS };
+  limits: { bundle: BundleScanLimits };
 } {
   return {
     plan: planChecks(definitions, provided),

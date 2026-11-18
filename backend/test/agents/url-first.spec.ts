@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AGENTS_OFF } from '../../src/agents/agents-config.js';
 import { AUDIT_REPOSITORY } from '../../src/audits/audit-repository.js';
 import { InMemoryAuditRepository } from '../audits/in-memory-audit-repository.js';
@@ -17,6 +17,24 @@ import {
   waitUntilDone,
 } from '../report/helpers.js';
 import { buildWith } from './scenarios.js';
+
+// These tests are about the request and the plan, not about a real site: the
+// network is a fake that cannot reach anything, so no test touches the internet.
+const net = vi.hoisted(() => ({ calls: 0 }));
+vi.mock('../../src/net/safe-fetch.js', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('../../src/net/safe-fetch.js')>();
+  return {
+    ...original,
+    safeFetch: () => {
+      net.calls += 1;
+      return Promise.reject(new original.SafeFetchError('NETWORK'));
+    },
+  };
+});
+beforeEach(() => {
+  net.calls = 0;
+});
 
 const ON = { ...AGENTS_OFF, enabled: true };
 const SITE = 'https://www.example-shop.com';
@@ -76,6 +94,8 @@ describe('flag on: an audit of a website only', () => {
       'data-access-prover',
       'planner',
       'ownership',
+      'tls-headers',
+      'bundle-secrets',
       'evidence',
       'guide',
     ]);
@@ -84,6 +104,8 @@ describe('flag on: an audit of a website only', () => {
     expect(prover.reason!.en).toMatch(/^Not provided/);
     expect(prover.reason!.ur.length).toBeGreaterThan(0);
     expect(rows.slice(3).map((m) => m.status)).toEqual([
+      'completed',
+      'completed',
       'completed',
       'completed',
     ]);
@@ -115,7 +137,7 @@ describe('flag on: an audit of a website only', () => {
     });
   });
 
-  it('coverage names the data access check as "Not provided"; the gate is not_ready (the website checks are not built yet)', async () => {
+  it('coverage names the data access check as "Not provided"; the gate is not_ready (the site cannot be reached here, so the website checks did not finish)', async () => {
     app = await buildWith(noGateway, ON);
     const res = await post(app, urlBody());
     const done = await waitUntilDone(app, res.body.id);

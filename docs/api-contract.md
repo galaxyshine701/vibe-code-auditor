@@ -313,6 +313,22 @@ What changes in the answers (only for a request that has a `websiteUrl`, or when
 - `gate`: when it is `not_ready`, every check that was not provided is named in `gate.reasons` ("Not checked, because it was not provided: ..."). A run with no Supabase details needs no blocked table (there is no table check), but it is never `ready_by_these_checks` unless at least one REQUIRED check completed. An empty coverage is never ready.
 - Re-test of a website-only audit: `409` `NOT_ELIGIBLE` for now. `GET /audits/:id/certificate` needs a BLOCKED table, so a website-only audit gets `409` `NOT_ELIGIBLE`.
 
+### Additive: website checks and evidence that is not about a table (`LOCK_C_AGENTS`)
+Optional. With a `websiteUrl` (see "Additive request: a website, with or without Supabase") the two website checks run. They are plain code (no AI), read only what any visitor can read, and use a network guard that refuses private addresses. With the flag off nothing here exists.
+- Rows: `tls-headers` and `bundle-secrets` appear in `modules` (after `ownership`, before `evidence`), in the same shape as the other rows. They run together with the Prover, not after it. If one runs out of time its row is `failed` with a `message`, and its check is in `coverage.failedToRun`.
+- `tls-headers` reads the front page and looks at the security headers (Strict-Transport-Security, Content-Security-Policy, X-Content-Type-Options, framing, Referrer-Policy) and at whether the page was reached over https. The certificate itself is NOT read yet: `coverage.outOfScope` names "Certificate validity and expiry" with the reason "Not implemented yet". Out of scope does not hold the gate back.
+- `bundle-secrets` reads the front page and the scripts of the same origin (at most 30 files, 2 MB each, 15 MB in all) and looks for a Supabase secret key (`sb_secret_...`) or a `service_role` key. It does not test whether a key works. Scripts of another origin are named in `coverage.outOfScope`. A script that was not read (limit, size, error, stop) is named in `coverage.partial[].notRead`, and a required check that is `partial` keeps the gate `not_ready`.
+- A site that cannot be read: the check is in `coverage.failedToRun` with a fixed sentence (never the address), and the audit still completes.
+- `GET /audits/:id/evidence`: the items of these checks use the same shape as the others, with these differences. `findingId` and `table` are `null` (they are not about a finding or a table). `kind` is `"site-headers"` or `"site-bundle"`. `subject` says what it is about: a header name (`"strict-transport-security"`, `"content-security-policy"`, `"x-content-type-options"`, `"framing"`, `"referrer-policy"`, `"https"`) or a script (`host/path`, never a query). The items of the Data Access Prover are as before; for them `kind` is missing, and a missing `kind` means `"table"`. A client must accept `null` in `findingId` and `table`.
+  ```json
+  { "id": "ev_site_bundle-secrets_1", "check": "bundle-secrets", "findingId": null, "table": null,
+    "subject": "www.example-shop.com/assets/app.js", "kind": "site-bundle",
+    "verdict": "LEAKED", "proof": "PROVEN", "summary": { "en": "...", "ur": "..." } }
+  ```
+- `verdict` for `site-bundle`: `LEAKED` = a secret key is in a script of the site (the gate is then `not_ready`). For `site-headers`: `BLOCKED` = the header is there, `INCONCLUSIVE` = it is missing or weak. A header is never `LEAKED`. The key itself is never in any answer: only its kind (in the sentence) and the script's name.
+- `summary` and `findings` stay about tables: a leak found in a script is in the evidence and the gate, not in `summary.leaked`.
+- With the flag on, a run with a website and no Supabase details can be `ready_by_these_checks` when both website checks completed with no leak and the cleanup is not `"failed"`. The sentence "Today the gate is always `not_ready`" below is true only with the flag off.
+
 ### Additive fields: the stages (`schemaVersion` 2)
 Added to `GET /audits/:id` and a new route `GET /audits/:id/evidence`. Nothing is renamed or removed. An audit that finished a run (an audit or a re-test) after the stages were added has the fields below; an older audit does not. A client treats a missing `schemaVersion` as `1` and shows no stage fields for it.
 

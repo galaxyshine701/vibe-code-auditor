@@ -42,7 +42,11 @@ export function createEvidenceAgent(
         control?.failure() ?? null,
       ));
       const results = collectResults(definitions, input);
-      context.evidence = mapTexts(buildEvidence(input.findings), redact);
+      // what the Prover found (about tables), then what the website inspectors found
+      context.evidence = mapTexts(
+        [...buildEvidence(input.findings), ...(context.siteEvidence ?? [])],
+        redact,
+      );
       context.coverage = mapTexts(buildCoverage(definitions, results), redact);
       return Promise.resolve();
     },
