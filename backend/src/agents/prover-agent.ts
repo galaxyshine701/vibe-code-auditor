@@ -1,12 +1,9 @@
 import type { Gateway } from '../prover/gateway.js';
 import { runProver } from '../prover/prover.js';
-import type { ProverResult } from '../prover/types.js';
 import type { Agent } from './agent.js';
+import type { RunContext } from './run-context.js';
 
-/** What the agents share during one run. */
-export interface RunContext {
-  prover?: ProverResult;
-}
+export type { RunContext };
 
 /**
  * The Data Access Prover as an agent. It stays plain code: it only wraps

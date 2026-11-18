@@ -12,7 +12,11 @@ import {
   AGENTS_SETUP,
   type AgentsSetup,
 } from '../agents/agents-config.js';
-import { runPipeline } from '../agents/pipeline.js';
+import { createEvidenceAgent } from '../agents/evidence-agent.js';
+import { createGuideAgent } from '../agents/guide-agent.js';
+import { createOwnershipAgent } from '../agents/ownership-agent.js';
+import { runPipeline, type Stage } from '../agents/pipeline.js';
+import { createPlannerAgent } from '../agents/planner-agent.js';
 import { createProverAgent, type RunContext } from '../agents/prover-agent.js';
 import { ApiError } from '../common/api-error.js';
 import type { Gateway } from '../prover/gateway.js';
@@ -34,6 +38,7 @@ import { buildCertificate, certificateBlocker } from './certificate.js';
 import { redactForStorage } from './redact-for-storage.js';
 import { mergeRetest } from './retest-merge.js';
 import { sweepInterrupted } from './sweeper.js';
+import { failSafeLockC } from '../stages/failsafe.js';
 import { runStages } from '../stages/run-stages.js';
 import { createReportAgent, REPORT_AGENT_ID } from '../report/report-agent.js';
 import { REPORT_SETUP, type ReportSetup } from '../report/report-config.js';
@@ -602,8 +607,8 @@ export class AuditsService implements OnModuleDestroy {
   private async runAgents(
     gateway: Gateway,
     run: ActiveRun,
+    context: RunContext,
   ): Promise<ProverResult> {
-    const context: RunContext = {};
     const record = run.record;
     const flag = this.agents;
     // The run is told to stop when its record was changed elsewhere, or (flag
@@ -641,7 +646,24 @@ export class AuditsService implements OnModuleDestroy {
       );
     }
 
-    await runPipeline(agents, context, {
+    // Flag on: the code-only stage agents. The Evidence and the Guide still run
+    // after a failure (they are finalizers), so the stage result is always
+    // written, and never "ready" by accident.
+    const limit = flag.finalizerDeadlineMs ?? AGENTS_OFF.finalizerDeadlineMs!;
+    const timed = (agent: Agent<RunContext>): Agent<RunContext> => ({
+      ...agent,
+      deadlineMs: limit,
+    });
+    const stages: Stage<RunContext>[] = flag.enabled
+      ? [
+          [timed(createPlannerAgent()), timed(createOwnershipAgent())],
+          ...agents,
+          timed(createEvidenceAgent()),
+          timed(createGuideAgent()),
+        ]
+      : agents;
+
+    await runPipeline(stages, context, {
       redact: (text) => redact(text, run.secrets),
       onState: (states) => this.showStates(run, states),
       shouldStop,
@@ -713,6 +735,26 @@ export class AuditsService implements OnModuleDestroy {
     this.touch(run);
   }
 
+  /**
+   * What the agents share during one run. Flag off: nothing (the old code path
+   * does not read it). Flag on: the way to describe a failure in the same
+   * words as the record, and (re-test) the findings after the merge.
+   */
+  private newContext(
+    run: ActiveRun,
+    fallback: string,
+    stageFindings?: RunContext['stageFindings'],
+  ): RunContext {
+    if (!this.agents.enabled) return {};
+    return {
+      describeFailure: (error) => {
+        const failure = this.describeFailure(run, error, fallback);
+        return { message: failure.message, cleanup: failure.cleanup };
+      },
+      ...(stageFindings ? { stageFindings } : {}),
+    };
+  }
+
   /** From the start of a run until the audit watchdog fires (flag on only). */
   private armWatchdog(run: ActiveRun): NodeJS.Timeout | null {
     if (!this.agents.enabled) return null;
@@ -756,9 +798,10 @@ export class AuditsService implements OnModuleDestroy {
     const record = run.record;
     this.logger.log(`${record.id} started`);
     const watchdog = this.armWatchdog(run);
+    const context = this.newContext(run, 'The audit stopped unexpectedly.');
     try {
       const gateway = this.makeGateway(config);
-      const result = await this.runAgents(gateway, run);
+      const result = await this.runAgents(gateway, run, context);
       record.findings = result.findings.map((f) => ({
         ...f,
         retest: { ...f.retest, previousVerdict: null },
@@ -766,15 +809,17 @@ export class AuditsService implements OnModuleDestroy {
       record.nextFindingNumber = result.findings.length + 1;
       record.cleanup = result.cleanup;
       record.cleanupNote = result.cleanupNote ?? null;
-      record.lockC = runStages({
-        findings: record.findings,
-        cleanup: record.cleanup,
-        // The Prover makes one finding per table: none means no table at all.
-        dataAccess: {
-          status: 'completed',
-          zeroTables: record.findings.length === 0,
-        },
-      });
+      record.lockC = this.agents.enabled
+        ? (context.lockC ?? failSafeLockC())
+        : runStages({
+            findings: record.findings,
+            cleanup: record.cleanup,
+            // The Prover makes one finding per table: none means no table at all.
+            dataAccess: {
+              status: 'completed',
+              zeroTables: record.findings.length === 0,
+            },
+          });
       record.progress = 100;
       record.completedAt = new Date().toISOString();
       record.status = 'completed';
@@ -789,11 +834,16 @@ export class AuditsService implements OnModuleDestroy {
       record.cleanup = failure.cleanup;
       record.cleanupNote = failure.cleanupNote ?? null;
       record.error = { code: failure.code, message: failure.message };
-      record.lockC = runStages({
-        findings: [],
-        cleanup: record.cleanup,
-        dataAccess: { status: 'failedToRun', message: record.error.message },
-      });
+      record.lockC = this.agents.enabled
+        ? (context.lockC ?? failSafeLockC())
+        : runStages({
+            findings: [],
+            cleanup: record.cleanup,
+            dataAccess: {
+              status: 'failedToRun',
+              message: record.error.message,
+            },
+          });
     } finally {
       if (watchdog) clearTimeout(watchdog);
       this.runningId = null;
@@ -817,9 +867,21 @@ export class AuditsService implements OnModuleDestroy {
     const lastRetest = record.lastRetest!;
     this.logger.log(`${record.id} re-test started`);
     const watchdog = this.armWatchdog(run);
+    // The stages look at the findings AFTER the merge (the ids the user sees).
+    const context = this.newContext(
+      run,
+      'The re-test stopped unexpectedly.',
+      (fresh) =>
+        mergeRetest(
+          record.findings,
+          fresh,
+          record.nextFindingNumber,
+          new Date().toISOString(),
+        ).findings,
+    );
     try {
       const gateway = this.makeGateway(config);
-      const result = await this.runAgents(gateway, run);
+      const result = await this.runAgents(gateway, run, context);
       const finishedAt = new Date().toISOString();
       // Everything is worked out first, then swapped in together.
       const merged = mergeRetest(
@@ -833,14 +895,16 @@ export class AuditsService implements OnModuleDestroy {
       record.cleanup = result.cleanup;
       record.cleanupNote = result.cleanupNote ?? null;
       record.completedAt = finishedAt;
-      record.lockC = runStages({
-        findings: record.findings,
-        cleanup: record.cleanup,
-        dataAccess: {
-          status: 'completed',
-          zeroTables: record.findings.length === 0,
-        },
-      });
+      record.lockC = this.agents.enabled
+        ? (context.lockC ?? failSafeLockC())
+        : runStages({
+            findings: record.findings,
+            cleanup: record.cleanup,
+            dataAccess: {
+              status: 'completed',
+              zeroTables: record.findings.length === 0,
+            },
+          });
       record.lastRetest = {
         status: 'completed',
         startedAt: lastRetest.startedAt,

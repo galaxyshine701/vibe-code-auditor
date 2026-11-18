@@ -1,4 +1,8 @@
-import { CHECKS, type CheckDefinition } from './planner-config.js';
+import {
+  BUNDLE_SCAN_LIMITS,
+  CHECKS,
+  type CheckDefinition,
+} from './planner-config.js';
 import type { PlannedCheck } from './types.js';
 
 /**
@@ -16,4 +20,19 @@ export function planChecks(
     mode,
     required,
   }));
+}
+
+/**
+ * The plan of a run and the limits of its checks, from code. The inspectors
+ * read their limits from here, so there is one place that says how much a
+ * check may read.
+ */
+export function planRun(definitions: readonly CheckDefinition[] = CHECKS): {
+  plan: PlannedCheck[];
+  limits: { bundle: typeof BUNDLE_SCAN_LIMITS };
+} {
+  return {
+    plan: planChecks(definitions),
+    limits: { bundle: BUNDLE_SCAN_LIMITS },
+  };
 }

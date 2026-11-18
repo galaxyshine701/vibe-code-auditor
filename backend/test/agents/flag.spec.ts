@@ -145,11 +145,16 @@ describe('flag on, everything works', () => {
     app = await build(() => new FakeGateway(demoTables()), ON, llm);
     const onBody = (await getAudit(app, await runAudit(app))).body;
 
+    // Since step 2 the flag adds four rows (the stage agents). Everything
+    // else, including the Prover and Report rows, is the same.
+    const STAGE_ROWS = ['planner', 'ownership', 'evidence', 'guide'];
     const same = (b: Record<string, unknown>) =>
       JSON.stringify({
         status: b.status,
         summary: b.summary,
-        modules: b.modules,
+        modules: (b.modules as { id: string }[]).filter(
+          (m) => !STAGE_ROWS.includes(m.id),
+        ),
         cleanup: b.cleanup,
         ownership: b.ownership,
         plan: b.plan,
@@ -157,7 +162,7 @@ describe('flag on, everything works', () => {
         lastRetest: b.lastRetest,
       });
     expect(same(onBody)).toBe(same(offBody));
-    expect(onBody.modules).toHaveLength(2);
+    expect(onBody.modules).toHaveLength(2 + STAGE_ROWS.length);
   });
 });
 

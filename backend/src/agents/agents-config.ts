@@ -23,6 +23,13 @@ export interface AgentsSetup {
    * held (no new audit of it) until it ends, but never longer than this.
    */
   orphanHoldMs: number;
+  /**
+   * Time limit of each code-only stage agent (Planner, Ownership, Evidence,
+   * Guide). Short on purpose: Evidence and Guide still run after a failure or a
+   * stop, so they must never be able to keep a finished run waiting. Optional
+   * in the type (the default is used when it is missing).
+   */
+  finalizerDeadlineMs?: number;
 }
 
 export const AGENTS_OFF: AgentsSetup = {
@@ -32,6 +39,7 @@ export const AGENTS_OFF: AgentsSetup = {
   reportDeadlineMs: 60_000,
   auditWatchdogMs: 420_000,
   orphanHoldMs: 600_000,
+  finalizerDeadlineMs: 5_000,
 };
 
 const NUMBER_VARS: [keyof AgentsSetup, string][] = [
@@ -40,6 +48,7 @@ const NUMBER_VARS: [keyof AgentsSetup, string][] = [
   ['reportDeadlineMs', 'AGENT_REPORT_DEADLINE_MS'],
   ['auditWatchdogMs', 'AUDIT_WATCHDOG_MS'],
   ['orphanHoldMs', 'AGENT_ORPHAN_HOLD_MS'],
+  ['finalizerDeadlineMs', 'AGENT_FINALIZER_DEADLINE_MS'],
 ];
 
 /**
