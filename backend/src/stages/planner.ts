@@ -1,9 +1,10 @@
 import {
   BUNDLE_SCAN_LIMITS,
   CHECKS,
+  isProvided,
   type CheckDefinition,
 } from './planner-config.js';
-import type { PlannedCheck } from './types.js';
+import type { PlannedCheck, Provided } from './types.js';
 
 /**
  * Planner stage: which checks does this run have? Today the answer is the
@@ -13,12 +14,15 @@ import type { PlannedCheck } from './types.js';
  */
 export function planChecks(
   definitions: readonly CheckDefinition[] = CHECKS,
+  provided?: Provided,
 ): PlannedCheck[] {
-  return definitions.map(({ id, title, mode, required }) => ({
-    id,
-    title,
-    mode,
-    required,
+  return definitions.map((definition) => ({
+    id: definition.id,
+    title: definition.title,
+    mode: definition.mode,
+    // A check whose input was not given is optional: it cannot hold the gate
+    // back, and it is shown as skipped with the reason "not provided".
+    required: definition.required && isProvided(definition, provided),
   }));
 }
 
@@ -27,12 +31,15 @@ export function planChecks(
  * read their limits from here, so there is one place that says how much a
  * check may read.
  */
-export function planRun(definitions: readonly CheckDefinition[] = CHECKS): {
+export function planRun(
+  definitions: readonly CheckDefinition[] = CHECKS,
+  provided?: Provided,
+): {
   plan: PlannedCheck[];
   limits: { bundle: typeof BUNDLE_SCAN_LIMITS };
 } {
   return {
-    plan: planChecks(definitions),
+    plan: planChecks(definitions, provided),
     limits: { bundle: BUNDLE_SCAN_LIMITS },
   };
 }

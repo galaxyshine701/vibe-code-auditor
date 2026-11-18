@@ -157,8 +157,9 @@ describe('flag on, everything works', () => {
         ),
         cleanup: b.cleanup,
         ownership: b.ownership,
-        plan: b.plan,
-        gate: b.gate,
+        // `plan` and `gate` are not compared here any more: since "not
+        // provided" they differ on purpose (a request without a websiteUrl has
+        // no website checks). stage-agents.flag.spec.ts says exactly how.
         lastRetest: b.lastRetest,
       });
     expect(same(onBody)).toBe(same(offBody));

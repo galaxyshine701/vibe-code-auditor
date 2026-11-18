@@ -1,5 +1,9 @@
 import { evaluateGate } from '../stages/gate.js';
-import { CHECKS, type CheckDefinition } from '../stages/planner-config.js';
+import {
+  CHECKS,
+  isProvided,
+  type CheckDefinition,
+} from '../stages/planner-config.js';
 import { planChecks } from '../stages/planner.js';
 import { OWNERSHIP_NOT_CHECKED } from '../stages/run-stages.js';
 import { buildStageInput } from '../stages/stage-input.js';
@@ -50,6 +54,9 @@ export function createGuideAgent(
         coverage,
         evidence,
         cleanup: input.cleanup,
+        notProvided: definitions
+          .filter((d) => !isProvided(d, context.provided))
+          .map((d) => ({ id: d.id, title: d.title })),
       });
       context.lockC = {
         schemaVersion: LOCK_C_SCHEMA_VERSION,

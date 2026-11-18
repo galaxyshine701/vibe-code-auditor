@@ -15,6 +15,10 @@ export function buildStageInput(
   failure: unknown,
 ): StageInput {
   const prover = context.prover;
+  const given = {
+    ...(context.provided ? { provided: context.provided } : {}),
+    ...(context.siteResults ? { siteResults: context.siteResults } : {}),
+  };
   if (prover) {
     const findings = context.stageFindings
       ? context.stageFindings(prover.findings)
@@ -23,6 +27,16 @@ export function buildStageInput(
       findings,
       cleanup: prover.cleanup,
       dataAccess: { status: 'completed', zeroTables: findings.length === 0 },
+      ...given,
+    };
+  }
+  // No Supabase details were given: the Prover was not run, and that is not a failure.
+  if (context.provided && !context.provided.supabase) {
+    return {
+      findings: [],
+      cleanup: null,
+      dataAccess: { status: 'notProvided' },
+      ...given,
     };
   }
   const info = context.describeFailure?.(
@@ -32,5 +46,6 @@ export function buildStageInput(
     findings: [],
     cleanup: info.cleanup,
     dataAccess: { status: 'failedToRun', message: info.message },
+    ...given,
   };
 }

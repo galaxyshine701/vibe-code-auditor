@@ -51,11 +51,28 @@ export interface CheckResult {
 
 export type Proof = 'PROVEN' | 'UNVERIFIED';
 
+/**
+ * What an evidence item is about. A missing `kind` means `table` (the items
+ * of the Data Access Prover, which have always been like that).
+ */
+export type EvidenceKind = 'table' | 'site-bundle' | 'site-headers';
+
+/** What the user gave for this run. A check needs one of them. */
+export interface Provided {
+  website: boolean;
+  supabase: boolean;
+}
+
 export interface EvidenceItem {
   id: string;
   check: string;
-  findingId: string;
-  table: string;
+  /** null for an item that is not about a finding of the Prover. */
+  findingId: string | null;
+  /** null for an item that is not about a table. */
+  table: string | null;
+  /** What it is about when it is not a table: a script or a header of the site. */
+  subject?: string;
+  kind?: EvidenceKind;
   verdict: 'LEAKED' | 'BLOCKED' | 'INCONCLUSIVE';
   /** PROVEN = seen directly by the check. UNVERIFIED = the check could not tell. */
   proof: Proof;

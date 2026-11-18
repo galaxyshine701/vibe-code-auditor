@@ -287,6 +287,32 @@ Optional. They appear only when the backend runs with `LOCK_C_AGENTS=on`. With i
 - A `TIMEOUT` can leave the temporary test users in the test project (the checks were stopped before they could clean up). Then `cleanup` is `"failed"` and `cleanupNote` says to remove users with an email like `vca-*@example.com` by hand.
 - A stopped run may still be finishing in the background. Until it ends (at most about 10 minutes), a new audit or re-test of the SAME project is refused with `409` `AUDIT_IN_PROGRESS` and the message "An earlier audit of this project is still stopping. Wait a few minutes, then try again." Another project is not affected. The code is the existing one.
 
+### Additive request: a website, with or without Supabase (`LOCK_C_AGENTS`)
+Optional. `POST /audits` can start from a website address. This works only when the backend runs with `LOCK_C_AGENTS=on`. **With the flag off (the default) `websiteUrl` and `confirmSiteAccess` do not exist: they are ignored like any other extra field, and the request, its errors and its answer are exactly as before** (Supabase details and `confirmTestProject` are always required).
+```json
+{
+  "label": "My shop",
+  "websiteUrl": "https://www.example-shop.com",
+  "confirmSiteAccess": true,
+  "projectUrl": "https://example-project.supabase.co",
+  "anonKey": "<write-only, never returned>",
+  "serviceKey": "<write-only, never returned>",
+  "confirmTestProject": true
+}
+```
+- A request with no `websiteUrl` is the old request, checked exactly as before (same fields, same error messages).
+- With a `websiteUrl`: `confirmSiteAccess` must be exactly `true` (the caller says they may test this site). Otherwise `400` `INVALID_INPUT`.
+- `websiteUrl`: a public `https` address, no login, no port, no IP address. Only its front page is looked at; a path, query or hash is dropped. Otherwise `400` `INVALID_INPUT` that names the field only.
+- The Supabase group is `projectUrl` + `anonKey` + `serviceKey`. With a `websiteUrl` it is optional, but all or nothing: if some are given and some are not, `400` `INVALID_INPUT`, and the message names the missing fields only (never a value). When the group is given, `confirmTestProject` must be exactly `true`, as before. `confirmTestProject` is not needed without the group.
+- A request needs a `websiteUrl` or the Supabase group (the old request has the group).
+
+What changes in the answers (only for a request that has a `websiteUrl`, or when the flag is on; nothing changes with the flag off):
+- `GET /audits/:id`: `target` is `{ "label", "projectUrl"?, "websiteUrl"? }`. A website-only audit has no `projectUrl`. An audit with only Supabase details has no `websiteUrl`, as before.
+- A website-only audit has no tables: `findings` is `[]`, `summary` is all zeros, `cleanup` stays `null`, and the `data-access-prover` row is `skipped` with a `reason` "Not provided". There is no `report-agent` row. Its progress is the average of its rows and ends at 100.
+- Checks are chosen from what was given. A check whose input was not given is in `plan` with `required: false`, and in `coverage.skipped` with a `reason` that starts with "Not provided" and names the check, in both languages. A check whose input was given keeps `required: true` (the Data Access Prover when Supabase details were given, the website checks when a website was given). This also holds for the old request (Supabase only) when the flag is on: the two website checks are then "Not provided" and optional.
+- `gate`: when it is `not_ready`, every check that was not provided is named in `gate.reasons` ("Not checked, because it was not provided: ..."). A run with no Supabase details needs no blocked table (there is no table check), but it is never `ready_by_these_checks` unless at least one REQUIRED check completed. An empty coverage is never ready.
+- Re-test of a website-only audit: `409` `NOT_ELIGIBLE` for now. `GET /audits/:id/certificate` needs a BLOCKED table, so a website-only audit gets `409` `NOT_ELIGIBLE`.
+
 ### Additive fields: the stages (`schemaVersion` 2)
 Added to `GET /audits/:id` and a new route `GET /audits/:id/evidence`. Nothing is renamed or removed. An audit that finished a run (an audit or a re-test) after the stages were added has the fields below; an older audit does not. A client treats a missing `schemaVersion` as `1` and shows no stage fields for it.
 

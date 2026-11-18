@@ -11,6 +11,11 @@ export interface GateInput {
   coverage: Coverage;
   evidence: readonly EvidenceItem[];
   cleanup: 'ok' | 'failed' | null;
+  /**
+   * Checks that were not run because their input was not given. When the
+   * decision is `not_ready`, each one is named in the reasons.
+   */
+  notProvided?: readonly { id: string; title: Text }[];
 }
 
 /**
@@ -22,13 +27,21 @@ export interface GateInput {
  *  5. at least one table was shown to be blocked, OR the Data Access Prover
  *     completed with no exposed table at all ("zero tables"). That is a state
  *     of its own: it can be ready, and the coverage carries a note that no
- *     table data was tested.
+ *     table data was tested. This rule is only for a run in which the Data
+ *     Access Prover is required: without Supabase details it is optional, and
+ *     there is no table to block.
+ *  6. at least one REQUIRED check completed (a run in which only an optional
+ *     check completed is never ready).
  * Anything else is `not_ready`, and `reasons` says why. The words are always
  * "by these checks": this is never a promise that an app is secure.
  */
 export function evaluateGate(input: GateInput): Gate {
-  const { plan, coverage, evidence, cleanup } = input;
+  const { plan, coverage, evidence, cleanup, notProvided } = input;
   const reasons: Text[] = [];
+  // The Prover is explicitly optional in this plan (no Supabase details).
+  const dataAccessOptional = plan.some(
+    (c) => c.id === 'data-access-prover' && !c.required,
+  );
 
   if (coverage.checked.length === 0) {
     reasons.push({
@@ -78,6 +91,7 @@ export function evaluateGate(input: GateInput): Gate {
   );
   if (
     coverage.checked.length > 0 &&
+    !dataAccessOptional &&
     !zeroTables &&
     !evidence.some((e) => e.verdict === 'BLOCKED')
   ) {
@@ -87,7 +101,25 @@ export function evaluateGate(input: GateInput): Gate {
     });
   }
 
-  return reasons.length === 0
-    ? { decision: 'ready_by_these_checks', reasons: [] }
-    : { decision: 'not_ready', reasons };
+  if (
+    coverage.checked.length > 0 &&
+    !plan.some((c) => c.required && coverage.checked.includes(c.id))
+  ) {
+    reasons.push({
+      en: 'No required check finished, so there is nothing to base a result on.',
+      ur: 'Koi zaroori check poora nahi hua, isliye nateeje ki koi buniyad nahi.',
+    });
+  }
+
+  if (reasons.length === 0) {
+    return { decision: 'ready_by_these_checks', reasons: [] };
+  }
+  // A not_ready gate also says what was never looked at because it was not given.
+  for (const check of notProvided ?? []) {
+    reasons.push({
+      en: `Not checked, because it was not provided: "${check.title.en}".`,
+      ur: `Check nahi hua, kyunke diya nahi gaya: "${check.title.ur}".`,
+    });
+  }
+  return { decision: 'not_ready', reasons };
 }

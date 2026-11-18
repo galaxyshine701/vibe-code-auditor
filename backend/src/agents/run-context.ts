@@ -2,11 +2,13 @@ import type { Finding, ProverResult } from '../prover/types.js';
 import type { BUNDLE_SCAN_LIMITS } from '../stages/planner-config.js';
 import type { StageInput } from '../stages/inspectors.js';
 import type {
+  CheckResult,
   Coverage,
   EvidenceItem,
   LockC,
   Ownership,
   PlannedCheck,
+  Provided,
 } from '../stages/types.js';
 
 /** What the service can tell an agent about a failed run (same words as the record). */
@@ -22,6 +24,8 @@ export interface FailureInfo {
  */
 export interface RunContext {
   prover?: ProverResult;
+  /** Given by the service: what the user gave for this run. */
+  provided?: Provided;
   /** Planner */
   plan?: PlannedCheck[];
   /** Limits of the checks that are planned (read by the inspectors of step 3). */
@@ -38,6 +42,15 @@ export interface RunContext {
    * same ones the audit record gets (a time limit says so, in a fixed sentence).
    */
   describeFailure?: (error: unknown) => FailureInfo;
+  /** The address of the website to look at, when one was given. */
+  websiteUrl?: string;
+  /**
+   * What the website inspectors report, by check id. Made by the service when
+   * a website was given; each inspector fills its own entry.
+   */
+  siteResults?: Record<string, CheckResult>;
+  /** What the website inspectors found, as evidence items. */
+  siteEvidence?: EvidenceItem[];
   /** What the checks are told about the run (made once, by Evidence or Guide). */
   stageInput?: StageInput;
   /** Evidence */

@@ -27,7 +27,7 @@ import {
   type ProverConfig,
   type ProverResult,
 } from '../prover/types.js';
-import type { AuditInput, RetestInput } from './audit-input.js';
+import type { AuditRequest, RetestInput } from './audit-input.js';
 import type { AuditRecord, AuditStatus } from './audit-record.js';
 import {
   AUDIT_REPOSITORY,
@@ -39,6 +39,7 @@ import { redactForStorage } from './redact-for-storage.js';
 import { mergeRetest } from './retest-merge.js';
 import { sweepInterrupted } from './sweeper.js';
 import { failSafeLockC } from '../stages/failsafe.js';
+import { CHECKS, notProvidedReason } from '../stages/planner-config.js';
 import { runStages } from '../stages/run-stages.js';
 import { createReportAgent, REPORT_AGENT_ID } from '../report/report-agent.js';
 import { REPORT_SETUP, type ReportSetup } from '../report/report-config.js';
@@ -164,6 +165,11 @@ export class AuditsService implements OnModuleDestroy {
     this.destroyed = true;
   }
 
+  /** LOCK_C_AGENTS: only then does POST /audits take a websiteUrl. */
+  get acceptsWebsite(): boolean {
+    return this.agents.enabled;
+  }
+
   /**
    * Runs at boot, before the server listens. Fails (and the server does not
    * start) when the store cannot be used. Then every row that is still
@@ -204,8 +210,9 @@ export class AuditsService implements OnModuleDestroy {
   }
 
   /** The Report agent's row at the start of a run; none when it is off. */
-  private initialReportRow(): AuditRecord['reportRow'] {
-    return this.reportSetup.mode === 'groq'
+  private initialReportRow(hasSupabase = true): AuditRecord['reportRow'] {
+    // No Supabase details: no tables, so nothing for the Report agent to explain.
+    return this.reportSetup.mode === 'groq' && hasSupabase
       ? { status: 'queued', progress: 0 }
       : null;
   }
@@ -228,16 +235,21 @@ export class AuditsService implements OnModuleDestroy {
   }
 
   /** Starts an audit and returns at once. The work continues in the background. */
-  async start(input: AuditInput): Promise<{ id: string; status: AuditStatus }> {
+  async start(
+    request: AuditRequest,
+  ): Promise<{ id: string; status: AuditStatus }> {
     // Check and claim in one synchronous step, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
-    if (this.isHeld(input.projectUrl)) throw projectHeld();
+    if (request.supabase && this.isHeld(request.supabase.projectUrl)) {
+      throw projectHeld();
+    }
     const record: AuditRecord = {
       id: `aud_${randomBytes(8).toString('hex')}`,
       status: 'running',
       createdAt: new Date().toISOString(),
-      label: input.label,
-      projectUrl: input.projectUrl,
+      label: request.label,
+      projectUrl: request.supabase?.projectUrl ?? null,
+      ...(request.websiteUrl ? { websiteUrl: request.websiteUrl } : {}),
       progress: 0,
       findings: [],
       cleanup: null,
@@ -247,14 +259,16 @@ export class AuditsService implements OnModuleDestroy {
       nextFindingNumber: 1,
       lastRetest: null,
       proverDone: false,
-      reportRow: this.initialReportRow(),
+      reportRow: this.initialReportRow(request.supabase !== null),
     };
     // The keys live only in this call. They are not stored on the record.
-    const config: ProverConfig = {
-      supabaseUrl: input.projectUrl,
-      publishableKey: input.publishableKey,
-      secretKey: input.secretKey,
-    };
+    const config: ProverConfig | null = request.supabase
+      ? {
+          supabaseUrl: request.supabase.projectUrl,
+          publishableKey: request.supabase.publishableKey,
+          secretKey: request.supabase.secretKey,
+        }
+      : null;
     const run = this.newRun(record, this.runSecrets(config));
     this.runningId = record.id;
     try {
@@ -288,10 +302,18 @@ export class AuditsService implements OnModuleDestroy {
     parseInput: () => RetestInput,
   ): Promise<{ id: string; status: AuditStatus }> {
     const record = structuredClone(await this.readRecord(id));
+    const projectUrl = record.projectUrl;
+    if (projectUrl === null) {
+      throw new ApiError(
+        409,
+        'NOT_ELIGIBLE',
+        'This audit has no Supabase details, so there is nothing to re-test yet.',
+      );
+    }
     const input = parseInput();
     // From here to the claim there is no `await`, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
-    if (this.isHeld(record.projectUrl)) throw projectHeld();
+    if (this.isHeld(projectUrl)) throw projectHeld();
     if (record.status !== 'completed') {
       throw new ApiError(
         409,
@@ -313,7 +335,7 @@ export class AuditsService implements OnModuleDestroy {
       error: null,
     };
     const config: ProverConfig = {
-      supabaseUrl: record.projectUrl,
+      supabaseUrl: projectUrl,
       publishableKey: input.publishableKey,
       secretKey: input.secretKey,
     };
@@ -388,23 +410,41 @@ export class AuditsService implements OnModuleDestroy {
       id: record.id,
       status: record.status,
       createdAt: record.createdAt,
-      target: { label: record.label, projectUrl: record.projectUrl },
+      target: {
+        label: record.label,
+        ...(record.projectUrl !== null
+          ? { projectUrl: record.projectUrl }
+          : {}),
+        ...(record.websiteUrl ? { websiteUrl: record.websiteUrl } : {}),
+      },
       summary: {
         leaked: count('LEAKED'),
         blocked: count('BLOCKED'),
         inconclusive: count('INCONCLUSIVE'),
       },
       modules: [
-        {
-          id: MODULE_ID,
-          name: 'Data Access Prover',
-          // While the Report agent still works, the Prover's own row is done.
-          status:
-            record.reportRow && record.proverDone
-              ? ('completed' as const)
-              : record.status,
-          progress: record.progress,
-        },
+        record.projectUrl === null
+          ? {
+              // A website-only audit: there is no Supabase project to test.
+              id: MODULE_ID,
+              name: 'Data Access Prover',
+              status: 'skipped' as const,
+              progress: 0,
+              reason: notProvidedReason({
+                needs: 'supabase',
+                title: CHECKS.find((c) => c.id === MODULE_ID)!.title,
+              }),
+            }
+          : {
+              id: MODULE_ID,
+              name: 'Data Access Prover',
+              // While the Report agent still works, the Prover's own row is done.
+              status:
+                record.reportRow && record.proverDone
+                  ? ('completed' as const)
+                  : record.status,
+              progress: record.progress,
+            },
         ...(record.reportRow
           ? [
               {
@@ -505,10 +545,12 @@ export class AuditsService implements OnModuleDestroy {
     return stored.record;
   }
 
-  private runSecrets(config: ProverConfig): string[] {
+  private runSecrets(config: ProverConfig | null): string[] {
     const groq =
       this.reportSetup.mode === 'groq' ? [this.reportSetup.secret] : [];
-    return [config.publishableKey, config.secretKey, ...groq];
+    return config
+      ? [config.publishableKey, config.secretKey, ...groq]
+      : [...groq];
   }
 
   // ---- saving a run ---------------------------------------------------
@@ -605,36 +647,40 @@ export class AuditsService implements OnModuleDestroy {
    * the findings of that result.
    */
   private async runAgents(
-    gateway: Gateway,
+    gateway: Gateway | null,
     run: ActiveRun,
     context: RunContext,
-  ): Promise<ProverResult> {
+  ): Promise<ProverResult | undefined> {
     const record = run.record;
     const flag = this.agents;
     // The run is told to stop when its record was changed elsewhere, or (flag
     // on) when the audit watchdog fired.
     const shouldStop = () => run.stopped || run.watchdogHit;
-    const prover = createProverAgent(
-      gateway,
-      (percent) => {
-        record.progress = percent;
-        this.touch(run);
-      },
-      shouldStop,
-    );
-    const agents: Agent<RunContext>[] = [
-      flag.enabled
-        ? {
-            ...prover,
-            deadlineMs: flag.proverDeadlineMs,
-            // It has temporary users to remove, so it is not given up on at once.
-            abandonOnDeadline: false,
-            graceMs: flag.proverGraceMs,
-          }
-        : prover,
-    ];
+    // No gateway = no Supabase details (a website-only audit): no Prover.
+    const agents: Agent<RunContext>[] = [];
+    if (gateway) {
+      const prover = createProverAgent(
+        gateway,
+        (percent) => {
+          record.progress = percent;
+          this.touch(run);
+        },
+        shouldStop,
+      );
+      agents.push(
+        flag.enabled
+          ? {
+              ...prover,
+              deadlineMs: flag.proverDeadlineMs,
+              // It has temporary users to remove, so it is not given up on at once.
+              abandonOnDeadline: false,
+              graceMs: flag.proverGraceMs,
+            }
+          : prover,
+      );
+    }
     const setup = this.reportSetup;
-    if (setup.mode === 'groq') {
+    if (gateway && setup.mode === 'groq') {
       const report = createReportAgent({
         llm: setup.llm,
         problem: setup.problem,
@@ -670,10 +716,12 @@ export class AuditsService implements OnModuleDestroy {
       skipRemaining: flag.enabled,
       onAbandoned: (agentId, done) => {
         // Only the Prover touches the tested project.
-        if (agentId === MODULE_ID) this.holdProject(record.projectUrl, done);
+        if (agentId === MODULE_ID && record.projectUrl) {
+          this.holdProject(record.projectUrl, done);
+        }
       },
     });
-    return context.prover!;
+    return context.prover;
   }
 
   /**
@@ -706,6 +754,13 @@ export class AuditsService implements OnModuleDestroy {
     );
     if (prover?.code === 'TIMEOUT') run.proverTimedOut = true;
     if (!report && others.length === 0) return;
+    // No Prover in this run (a website-only audit): the progress is the
+    // average of the rows of the agents that are there.
+    if (!prover && states.length > 0) {
+      record.progress = Math.round(
+        states.reduce((sum, s) => sum + s.progress, 0) / states.length,
+      );
+    }
     if (report) {
       if (prover?.status === 'completed') {
         record.progress = 100;
@@ -746,7 +801,13 @@ export class AuditsService implements OnModuleDestroy {
     stageFindings?: RunContext['stageFindings'],
   ): RunContext {
     if (!this.agents.enabled) return {};
+    const websiteUrl = run.record.websiteUrl;
     return {
+      provided: {
+        website: websiteUrl !== undefined,
+        supabase: run.record.projectUrl !== null,
+      },
+      ...(websiteUrl ? { websiteUrl, siteResults: {} } : {}),
       describeFailure: (error) => {
         const failure = this.describeFailure(run, error, fallback);
         return { message: failure.message, cleanup: failure.cleanup };
@@ -794,21 +855,26 @@ export class AuditsService implements OnModuleDestroy {
     };
   }
 
-  private async execute(run: ActiveRun, config: ProverConfig): Promise<void> {
+  private async execute(
+    run: ActiveRun,
+    config: ProverConfig | null,
+  ): Promise<void> {
     const record = run.record;
     this.logger.log(`${record.id} started`);
     const watchdog = this.armWatchdog(run);
     const context = this.newContext(run, 'The audit stopped unexpectedly.');
     try {
-      const gateway = this.makeGateway(config);
+      const gateway = config ? this.makeGateway(config) : null;
       const result = await this.runAgents(gateway, run, context);
-      record.findings = result.findings.map((f) => ({
-        ...f,
-        retest: { ...f.retest, previousVerdict: null },
-      }));
-      record.nextFindingNumber = result.findings.length + 1;
-      record.cleanup = result.cleanup;
-      record.cleanupNote = result.cleanupNote ?? null;
+      if (result) {
+        record.findings = result.findings.map((f) => ({
+          ...f,
+          retest: { ...f.retest, previousVerdict: null },
+        }));
+        record.nextFindingNumber = result.findings.length + 1;
+        record.cleanup = result.cleanup;
+        record.cleanupNote = result.cleanupNote ?? null;
+      }
       record.lockC = this.agents.enabled
         ? (context.lockC ?? failSafeLockC())
         : runStages({
@@ -882,6 +948,7 @@ export class AuditsService implements OnModuleDestroy {
     try {
       const gateway = this.makeGateway(config);
       const result = await this.runAgents(gateway, run, context);
+      if (!result) throw new Error('The Prover left no result.');
       const finishedAt = new Date().toISOString();
       // Everything is worked out first, then swapped in together.
       const merged = mergeRetest(

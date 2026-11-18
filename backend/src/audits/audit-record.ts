@@ -34,7 +34,10 @@ export interface AuditRecord {
   status: AuditStatus;
   createdAt: string;
   label: string;
-  projectUrl: string;
+  /** The Supabase project. null for an audit of a website only. */
+  projectUrl: string | null;
+  /** The website that was looked at. Missing for an audit without one. */
+  websiteUrl?: string;
   progress: number;
   findings: Finding[];
   cleanup: 'ok' | 'failed' | null;

@@ -18,7 +18,7 @@ export function createPlannerAgent(
     name: 'Planner',
     critical: false,
     run(context) {
-      const { plan, limits } = planRun(definitions);
+      const { plan, limits } = planRun(definitions, context.provided);
       context.plan = plan;
       context.limits = limits;
       return Promise.resolve();

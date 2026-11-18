@@ -1,4 +1,4 @@
-import type { CheckMode, Text } from './types.js';
+import type { CheckMode, Provided, Text } from './types.js';
 
 /**
  * The Planner is plain code: this list decides which checks a run has.
@@ -20,6 +20,12 @@ export interface CheckDefinition {
   title: Text;
   mode: CheckMode;
   required: boolean;
+  /**
+   * What the user must give for this check to run. A check whose input was not
+   * given is planned as not required and shown as skipped ("not provided").
+   * Missing = no input needed.
+   */
+  needs?: 'website' | 'supabase';
   /** What this check can not tell. Shown in the coverage. */
   limits: Text[];
 }
@@ -45,6 +51,7 @@ export const CHECKS: CheckDefinition[] = [
     },
     mode: 'keyed',
     required: true,
+    needs: 'supabase',
     limits: [
       {
         en: 'Only table data is tested: read, update and delete as another signed-in user, and read as a visitor. Tables without an owner column are reported as inconclusive.',
@@ -60,6 +67,7 @@ export const CHECKS: CheckDefinition[] = [
     },
     mode: 'passive',
     required: true,
+    needs: 'website',
     limits: [
       {
         en: 'Only the front page is read. Cookie settings, TLS versions and other pages are not checked.',
@@ -75,6 +83,7 @@ export const CHECKS: CheckDefinition[] = [
     },
     mode: 'passive',
     required: true,
+    needs: 'website',
     limits: [
       {
         en: `The bundle scan reads at most ${BUNDLE_SCAN_LIMITS.maxFiles} script files of the same origin, each at most ${mb(BUNDLE_SCAN_LIMITS.maxFileBytes)} MB after decompression and ${mb(BUNDLE_SCAN_LIMITS.maxTotalBytes)} MB in total. Scripts it could not read for these reasons are listed as not read.`,
@@ -98,6 +107,7 @@ export const CHECKS: CheckDefinition[] = [
     },
     mode: 'active',
     required: false,
+    // no `needs`: what stops it is ownership, not a missing address
     limits: [
       {
         en: 'No active check is built yet.',
@@ -106,3 +116,27 @@ export const CHECKS: CheckDefinition[] = [
     ],
   },
 ];
+
+/** True when the input this check needs was given (or when nothing is known: the old behaviour). */
+export function isProvided(
+  definition: Pick<CheckDefinition, 'needs'>,
+  provided: Provided | undefined,
+): boolean {
+  if (!provided || !definition.needs) return true;
+  return definition.needs === 'website' ? provided.website : provided.supabase;
+}
+
+/** Why a check was not run because its input was not given. Names the check. */
+export function notProvidedReason(
+  definition: Pick<CheckDefinition, 'needs' | 'title'>,
+): Text {
+  return definition.needs === 'supabase'
+    ? {
+        en: `Not provided: no Supabase details were given, so "${definition.title.en}" was not checked.`,
+        ur: `Diya nahi gaya: Supabase ki details nahi di gayin, isliye "${definition.title.ur}" check nahi hua.`,
+      }
+    : {
+        en: `Not provided: no website address was given, so "${definition.title.en}" was not checked.`,
+        ur: `Diya nahi gaya: website ka address nahi diya gaya, isliye "${definition.title.ur}" check nahi hua.`,
+      };
+}
