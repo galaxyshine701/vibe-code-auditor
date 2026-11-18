@@ -4,6 +4,7 @@ import type {
 } from '../../src/audits/audit-record.js';
 import {
   AuditStoreError,
+  newVersion,
   type AuditRepository,
   type StoredAudit,
 } from '../../src/audits/audit-repository.js';
@@ -89,6 +90,7 @@ export class InMemoryAuditRepository implements AuditRepository {
       status: row.status,
       createdAt: row.createdAt,
       updatedAt: this.now(),
+      version: newVersion(),
       runId: row.runId,
       record: this.copy(row.record),
     });
@@ -114,6 +116,7 @@ export class InMemoryAuditRepository implements AuditRepository {
     }
     row.record = this.copy(record);
     row.updatedAt = this.now();
+    row.version = newVersion();
     return Promise.resolve(true);
   }
 
@@ -132,6 +135,7 @@ export class InMemoryAuditRepository implements AuditRepository {
     row.status = status;
     row.record = this.copy(record);
     row.updatedAt = this.now();
+    row.version = newVersion();
     return Promise.resolve(true);
   }
 
@@ -147,25 +151,27 @@ export class InMemoryAuditRepository implements AuditRepository {
     row.runId = runId;
     row.record = this.copy(record);
     row.updatedAt = this.now();
+    row.version = newVersion();
     return Promise.resolve(true);
   }
 
   saveIdle(
     id: string,
-    expectedUpdatedAt: string,
+    expectedVersion: string,
     record: AuditRecord,
   ): Promise<boolean> {
     this.enter('saveIdle');
     const row = this.rows.get(id);
     if (
       !row ||
-      row.status === 'running' ||
-      row.updatedAt !== expectedUpdatedAt
+      (row.status !== 'completed' && row.status !== 'failed') ||
+      row.version !== expectedVersion
     ) {
       return Promise.resolve(false);
     }
     row.record = this.copy(record);
     row.updatedAt = this.now();
+    row.version = newVersion();
     return Promise.resolve(true);
   }
 

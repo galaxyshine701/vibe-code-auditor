@@ -3,13 +3,14 @@ import { timedFetch } from '../prover/timed-fetch.js';
 import type { AuditRecord, AuditStatus } from './audit-record.js';
 import {
   AuditStoreError,
+  newVersion,
   type AuditRepository,
   type StoredAudit,
 } from './audit-repository.js';
 import type { PlatformConfig } from './platform-config.js';
 
 const TABLE = 'vca_audits';
-const COLUMNS = 'id,status,created_at,updated_at,run_id,record';
+const COLUMNS = 'id,status,created_at,updated_at,version,run_id,record';
 const STORE_TIMEOUT_MS = 10_000;
 /** How many old rows one prune looks at (the store never holds many more than 50). */
 const PRUNE_LOOK_AT = 500;
@@ -19,6 +20,7 @@ interface Row {
   status: AuditStatus;
   created_at: string;
   updated_at: string;
+  version: string;
   run_id: string | null;
   record: AuditRecord;
 }
@@ -28,6 +30,7 @@ const toStored = (row: Row): StoredAudit => ({
   status: row.status,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+  version: row.version,
   runId: row.run_id,
   record: row.record,
 });
@@ -86,6 +89,7 @@ export class SupabaseAuditRepository implements AuditRepository {
         status: row.status,
         created_at: row.createdAt,
         updated_at: new Date().toISOString(),
+        version: newVersion(),
         run_id: row.runId,
         record: row.record,
       });
@@ -131,7 +135,11 @@ export class SupabaseAuditRepository implements AuditRepository {
     return this.guarded('write', () =>
       this.client
         .from(TABLE)
-        .update({ record, updated_at: new Date().toISOString() })
+        .update({
+          record,
+          updated_at: new Date().toISOString(),
+          version: newVersion(),
+        })
         .eq('id', id)
         .eq('status', 'running')
         .eq('run_id', runId)
@@ -148,7 +156,12 @@ export class SupabaseAuditRepository implements AuditRepository {
     return this.guarded('finish', () =>
       this.client
         .from(TABLE)
-        .update({ status, record, updated_at: new Date().toISOString() })
+        .update({
+          status,
+          record,
+          updated_at: new Date().toISOString(),
+          version: newVersion(),
+        })
         .eq('id', id)
         .eq('status', 'running')
         .eq('run_id', runId)
@@ -169,6 +182,7 @@ export class SupabaseAuditRepository implements AuditRepository {
           run_id: runId,
           record,
           updated_at: new Date().toISOString(),
+          version: newVersion(),
         })
         .eq('id', id)
         .eq('status', 'completed')
@@ -178,16 +192,20 @@ export class SupabaseAuditRepository implements AuditRepository {
 
   saveIdle(
     id: string,
-    expectedUpdatedAt: string,
+    expectedVersion: string,
     record: AuditRecord,
   ): Promise<boolean> {
     return this.guarded('save', () =>
       this.client
         .from(TABLE)
-        .update({ record, updated_at: new Date().toISOString() })
+        .update({
+          record,
+          updated_at: new Date().toISOString(),
+          version: newVersion(),
+        })
         .eq('id', id)
-        .neq('status', 'running')
-        .eq('updated_at', expectedUpdatedAt)
+        .in('status', ['completed', 'failed'])
+        .eq('version', expectedVersion)
         .select('id'),
     );
   }

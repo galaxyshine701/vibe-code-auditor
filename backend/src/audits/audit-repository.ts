@@ -1,6 +1,10 @@
+import { randomBytes } from 'node:crypto';
 import type { AuditRecord, AuditStatus } from './audit-record.js';
 
 export const AUDIT_REPOSITORY = Symbol('AUDIT_REPOSITORY');
+
+/** A new random version token. Each write of a row makes one. */
+export const newVersion = (): string => randomBytes(12).toString('hex');
 
 /** One row of the audit store. */
 export interface StoredAudit {
@@ -8,6 +12,12 @@ export interface StoredAudit {
   status: AuditStatus;
   createdAt: string;
   updatedAt: string;
+  /**
+   * A random text that every write replaces with a new one. It is compared as
+   * plain text, never parsed: that is why it is used (and not updatedAt) to
+   * tell whether somebody saved in between.
+   */
+  version: string;
   /** Which run owns the row while it is `running`. Only that run may write it. */
   runId: string | null;
   record: AuditRecord;
@@ -61,12 +71,13 @@ export interface AuditRepository {
   /** Guarded: only while status = 'completed'. Sets status 'running' and a new run id. */
   beginRetest(id: string, runId: string, record: AuditRecord): Promise<boolean>;
   /**
-   * Guarded: only while status is not 'running' AND updatedAt is still the one
-   * that was read (nobody else saved in between). Used for "approve fix".
+   * Guarded: only while status is 'completed' or 'failed' AND the version is
+   * still the one that was read (nobody else wrote in between, not even a whole
+   * run that started and ended). Used for "approve fix".
    */
   saveIdle(
     id: string,
-    expectedUpdatedAt: string,
+    expectedVersion: string,
     record: AuditRecord,
   ): Promise<boolean>;
   /** Keeps the newest `keep` audits. A `running` row is never removed. */

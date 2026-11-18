@@ -290,7 +290,7 @@ export class AuditsService implements OnModuleDestroy {
     // Saved only if nobody else saved in between and no run has started.
     const saved = await this.repo.saveIdle(
       id,
-      stored.updatedAt,
+      stored.version,
       redactForStorage(record, this.repo.ownSecrets),
     );
     if (!saved) throw inProgress();

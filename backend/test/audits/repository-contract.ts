@@ -25,6 +25,19 @@ export const sampleRecord = (id: string, createdAt: string): AuditRecord => ({
  * and TEST_PLATFORM_SUPABASE_SERVICE_KEY are set.
  * `makeRepo` returns a store; `uniqueId` returns an id that no other test used.
  */
+/** Runs `work` for every item, `size` at a time, and waits for ALL of them. */
+async function inBatches<T>(
+  items: T[],
+  work: (item: T, index: number) => Promise<void>,
+  size = 10,
+): Promise<void> {
+  for (let start = 0; start < items.length; start += size) {
+    await Promise.all(
+      items.slice(start, start + size).map((item, i) => work(item, start + i)),
+    );
+  }
+}
+
 export function describeRepositoryContract(
   name: string,
   makeRepo: () => AuditRepository,
@@ -49,12 +62,12 @@ export function describeRepositoryContract(
     const removeAll = async (ids: string[]) => {
       // leave nothing behind: finish every row, then prune to zero is not
       // possible, so finished rows are simply kept out of the way by unique ids
-      for (const id of ids) {
+      await inBatches(ids, async (id) => {
         const row = await repo.get(id);
         if (row?.status === 'running' && row.runId) {
           await repo.finish(id, row.runId, 'failed', row.record);
         }
-      }
+      });
     };
     const used: string[] = [];
     const fresh = () => {
@@ -68,7 +81,7 @@ export function describeRepositoryContract(
     });
     afterEach(async () => {
       await removeAll(used.splice(0));
-    });
+    }, 60_000);
 
     it('ping works', async () => {
       await expect(repo.ping()).resolves.toBeUndefined();
@@ -128,77 +141,131 @@ export function describeRepositoryContract(
       expect(await repo.writeRunning(id, 'run_b', record)).toBe(true);
     });
 
-    it('saveIdle works only when nobody saved in between and no run is going', async () => {
+    it('every row has a version text, and every kind of write changes it', async () => {
+      const id = fresh();
+      const record = sampleRecord(id, created());
+      await insertRunning(id, 'run_a');
+      const seen = [(await repo.get(id))!.version];
+      expect(typeof seen[0]).toBe('string');
+      expect(seen[0].length).toBeGreaterThan(0);
+
+      await repo.writeRunning(id, 'run_a', record);
+      seen.push((await repo.get(id))!.version);
+      await repo.finish(id, 'run_a', 'completed', record);
+      seen.push((await repo.get(id))!.version);
+      await repo.saveIdle(id, seen[2], record);
+      seen.push((await repo.get(id))!.version);
+      await repo.beginRetest(id, 'run_b', record);
+      seen.push((await repo.get(id))!.version);
+
+      // five writes, five different tokens
+      expect(new Set(seen).size).toBe(5);
+    });
+
+    it('a refused write does not change the version', async () => {
+      const id = fresh();
+      const record = sampleRecord(id, created());
+      await insertRunning(id, 'run_a');
+      const before = (await repo.get(id))!.version;
+      expect(await repo.writeRunning(id, 'run_other', record)).toBe(false);
+      expect((await repo.get(id))!.version).toBe(before);
+    });
+
+    it('saveIdle works only with the version that was read, and only on a finished row', async () => {
       const id = fresh();
       await insertRunning(id, 'run_a');
       const record = sampleRecord(id, created());
       const running = await repo.get(id);
-      expect(await repo.saveIdle(id, running!.updatedAt, record)).toBe(false);
+      // a run is going: refused, even with the right version
+      expect(await repo.saveIdle(id, running!.version, record)).toBe(false);
       await repo.finish(id, 'run_a', 'completed', record);
       const idle = await repo.get(id);
-      expect(await repo.saveIdle(id, 'not-the-time-it-was-read', record)).toBe(
-        false,
-      );
-      expect(await repo.saveIdle(id, idle!.updatedAt, record)).toBe(true);
-      // the same stale time is refused the second time
-      expect(await repo.saveIdle(id, idle!.updatedAt, record)).toBe(false);
+      expect(
+        await repo.saveIdle(id, 'not-the-version-it-was-read', record),
+      ).toBe(false);
+      expect(await repo.saveIdle(id, idle!.version, record)).toBe(true);
+      // the same (now old) version is refused the second time
+      expect(await repo.saveIdle(id, idle!.version, record)).toBe(false);
+      // the version that is read after the save works the same way
+      const again = await repo.get(id);
+      expect(again!.version).not.toBe(idle!.version);
+      expect(await repo.saveIdle(id, again!.version, record)).toBe(true);
     });
 
-    it('saveIdle takes updated_at exactly as it was read; a value that differs only in the last digit is refused', async () => {
+    it('saveIdle also works on a failed row, but not on a queued one', async () => {
+      const failed = fresh();
+      await insertRunning(failed, 'run_a');
+      const record = sampleRecord(failed, created());
+      await repo.finish(failed, 'run_a', 'failed', record);
+      const row = await repo.get(failed);
+      expect(await repo.saveIdle(failed, row!.version, record)).toBe(true);
+
+      const queued = fresh();
+      await repo.insert({
+        id: queued,
+        status: 'queued',
+        createdAt: created(),
+        runId: 'run_q',
+        record: sampleRecord(queued, created()),
+      });
+      const waiting = await repo.get(queued);
+      expect(
+        await repo.saveIdle(
+          queued,
+          waiting!.version,
+          sampleRecord(queued, created()),
+        ),
+      ).toBe(false);
+    });
+
+    it('a run that starts and ends in between makes saveIdle refuse (the row looks idle again, but it is not the same)', async () => {
       const id = fresh();
       await insertRunning(id, 'run_a');
       const record = sampleRecord(id, created());
       await repo.finish(id, 'run_a', 'completed', record);
-      const read = await repo.get(id);
-      const stamp = read!.updatedAt;
-      // split "2026-11-17T00:00:00.123456+00:00" into head, fraction, tail
-      const [head, fraction, tail] = stamp.split(/(?<=\.)(\d+)/);
-      expect(fraction).toBeDefined();
-      expect(fraction!.length).toBeGreaterThanOrEqual(3);
-      const last = Number(fraction!.slice(-1));
-      const off = `${head}${fraction!.slice(0, -1)}${(last + 1) % 10}${tail}`;
-      expect(off).not.toBe(stamp);
-      expect(await repo.saveIdle(id, off, record)).toBe(false);
-      // the exact text that was read works (no rounding, no re-formatting)
-      expect(await repo.saveIdle(id, stamp, record)).toBe(true);
-      // and what is read after the save is a new value that works the same way
-      const again = await repo.get(id);
-      expect(again!.updatedAt).not.toBe(stamp);
-      expect(await repo.saveIdle(id, again!.updatedAt, record)).toBe(true);
+      const read = await repo.get(id); // the caller reads here ...
+
+      // ... and meanwhile a whole re-test starts and finishes
+      expect(await repo.beginRetest(id, 'run_b', record)).toBe(true);
+      expect(await repo.finish(id, 'run_b', 'completed', record)).toBe(true);
+      expect((await repo.get(id))!.status).toBe('completed');
+
+      expect(await repo.saveIdle(id, read!.version, record)).toBe(false);
     });
 
     it('prune keeps the newest 50 of 53 rows and never removes a running row', async () => {
       // created_at is in the future of every other test row, so these are the newest
       const base = Date.now() + 10 * 60 * 1000;
-      const ids: string[] = [];
-      for (let i = 0; i < 53; i++) {
-        const id = fresh();
-        ids.push(id);
-        const createdAt = new Date(base + i).toISOString();
+      const ids = Array.from({ length: 53 }, () => fresh());
+      const createdAt = (i: number) => new Date(base + i).toISOString();
+      // Parallel batches (a real network is slow), and every await is finished
+      // before the test goes on, so nothing is still being written afterwards.
+      await inBatches(ids, async (id, i) => {
         await repo.insert({
           id,
           status: 'running',
-          createdAt,
+          createdAt: createdAt(i),
           runId: `run_${i}`,
-          record: sampleRecord(id, createdAt),
+          record: sampleRecord(id, createdAt(i)),
         });
-        // the oldest (0) stays running; every other row is finished
-        if (i > 0) {
-          await repo.finish(
-            id,
-            `run_${i}`,
-            'completed',
-            sampleRecord(id, createdAt),
-          );
-        }
-      }
+      });
+      // the oldest (0) stays running; every other row is finished
+      await inBatches(ids.slice(1), async (id, j) => {
+        const i = j + 1;
+        await repo.finish(
+          id,
+          `run_${i}`,
+          'completed',
+          sampleRecord(id, createdAt(i)),
+        );
+      });
       await repo.prune(50);
       expect(await repo.get(ids[0])).not.toBeNull(); // oldest, but running
       expect(await repo.get(ids[1])).toBeNull();
       expect(await repo.get(ids[2])).toBeNull();
       expect(await repo.get(ids[3])).not.toBeNull(); // the 50th newest
       expect(await repo.get(ids[52])).not.toBeNull();
-    });
+    }, 60_000);
 
     it('lists the running rows', async () => {
       const id = fresh();
