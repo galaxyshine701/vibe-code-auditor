@@ -22,6 +22,13 @@ export interface PipelineOptions {
    * also looked at before every stage.
    */
   skipRemaining?: boolean;
+  /**
+   * The runner gave up on an agent (its deadline and grace time passed). The
+   * agent's promise cannot be cancelled, so it may still be running. `done`
+   * ends when it finally ends (it never rejects). The caller can keep whatever
+   * the agent touches protected until then.
+   */
+  onAbandoned?: (agentId: string, done: Promise<void>) => void;
 }
 
 export const SKIPPED_AFTER_FAILURE: Text = {
@@ -169,6 +176,10 @@ async function runOne<Context>(
   finished = true;
 
   if (outcome === null) {
+    options.onAbandoned?.(
+      agent.id,
+      work.then(() => undefined),
+    );
     state.status = 'failed';
     state.code = 'TIMEOUT';
     state.message = TIMEOUT_MESSAGE;

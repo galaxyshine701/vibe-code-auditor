@@ -43,6 +43,7 @@ const ON: AgentsSetup = {
   proverGraceMs: 5_000,
   reportDeadlineMs: 5_000,
   auditWatchdogMs: 60_000,
+  orphanHoldMs: 5_000,
 };
 
 async function build(
@@ -201,10 +202,15 @@ describe('flag on, an agent that never ends', () => {
     expect(done.body.modules[1].status).toBe('skipped');
     expect(done.body.gate.decision).toBe('not_ready');
 
-    // runningId is free again: a new audit is accepted, not 409
-    const second = await post(app, validBody());
+    // runningId is free again: an audit of another project is accepted ...
+    const second = await post(app, {
+      ...validBody(),
+      projectUrl: 'https://zyxwvutsrqponmlkjihg.supabase.co',
+    });
     expect(second.status).toBe(202);
     await waitUntilDone(app, second.body.id);
+    // ... while the same project is held until the stopped Prover really ends
+    expect((await post(app, validBody())).status).toBe(409);
   });
 
   it('a Report agent that hangs: only its own row fails, the audit completes, runningId is free', async () => {
@@ -246,9 +252,17 @@ describe('flag on, an agent that never ends', () => {
     expect(done.body.lastRetest.status).toBe('failed');
     expect(done.body.lastRetest.error.code).toBe('TIMEOUT');
 
+    // the project is held until the stopped Prover really ends
     const again = await post(app, retestBody, `/${id}/retest`);
-    expect(again.status).toBe(202);
-    await waitUntilDone(app, id);
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('AUDIT_IN_PROGRESS');
+    // runningId itself is free: an audit of another project is accepted
+    const other = await post(app, {
+      ...validBody(),
+      projectUrl: 'https://zyxwvutsrqponmlkjihg.supabase.co',
+    });
+    expect(other.status).toBe(202);
+    await waitUntilDone(app, other.body.id);
   });
 });
 

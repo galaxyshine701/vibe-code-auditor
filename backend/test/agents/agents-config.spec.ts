@@ -33,6 +33,7 @@ describe('resolveAgentsSetup', () => {
     expect(setup.proverDeadlineMs).toBeGreaterThan(0);
     expect(setup.reportDeadlineMs).toBeGreaterThan(0);
     expect(setup.proverGraceMs).toBeGreaterThan(0);
+    expect(setup.orphanHoldMs).toBe(600_000); // 10 minutes
     expect(setup.auditWatchdogMs).toBeGreaterThan(setup.proverDeadlineMs);
   });
 
@@ -42,7 +43,9 @@ describe('resolveAgentsSetup', () => {
       AGENT_PROVER_DEADLINE_MS: '1234',
       AGENT_REPORT_DEADLINE_MS: 'abc',
       AUDIT_WATCHDOG_MS: '-5',
+      AGENT_ORPHAN_HOLD_MS: '90000',
     });
+    expect(setup.orphanHoldMs).toBe(90_000);
     expect(setup.proverDeadlineMs).toBe(1234);
     expect(setup.reportDeadlineMs).toBeGreaterThan(0);
     expect(setup.auditWatchdogMs).toBeGreaterThan(0);

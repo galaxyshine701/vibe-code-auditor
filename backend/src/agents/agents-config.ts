@@ -18,6 +18,11 @@ export interface AgentsSetup {
   reportDeadlineMs: number;
   /** The whole run. At this time every agent is told to stop. */
   auditWatchdogMs: number;
+  /**
+   * When the Prover was given up on it may still be running. The project stays
+   * held (no new audit of it) until it ends, but never longer than this.
+   */
+  orphanHoldMs: number;
 }
 
 export const AGENTS_OFF: AgentsSetup = {
@@ -26,6 +31,7 @@ export const AGENTS_OFF: AgentsSetup = {
   proverGraceMs: 30_000,
   reportDeadlineMs: 60_000,
   auditWatchdogMs: 420_000,
+  orphanHoldMs: 600_000,
 };
 
 const NUMBER_VARS: [keyof AgentsSetup, string][] = [
@@ -33,12 +39,13 @@ const NUMBER_VARS: [keyof AgentsSetup, string][] = [
   ['proverGraceMs', 'AGENT_PROVER_GRACE_MS'],
   ['reportDeadlineMs', 'AGENT_REPORT_DEADLINE_MS'],
   ['auditWatchdogMs', 'AUDIT_WATCHDOG_MS'],
+  ['orphanHoldMs', 'AGENT_ORPHAN_HOLD_MS'],
 ];
 
 /**
  * LOCK_C_AGENTS=on|off (default off). The times can be changed with
- * AGENT_PROVER_DEADLINE_MS, AGENT_PROVER_GRACE_MS, AGENT_REPORT_DEADLINE_MS
- * and AUDIT_WATCHDOG_MS (whole milliseconds, more than 0). Warnings are fixed
+ * AGENT_PROVER_DEADLINE_MS, AGENT_PROVER_GRACE_MS, AGENT_REPORT_DEADLINE_MS,
+ * AUDIT_WATCHDOG_MS and AGENT_ORPHAN_HOLD_MS (whole milliseconds, more than 0). Warnings are fixed
  * sentences: no value is printed.
  */
 export function resolveAgentsSetup(env: NodeJS.ProcessEnv): {

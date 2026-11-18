@@ -98,6 +98,22 @@ const inProgress = () =>
     'Another audit is still running. Wait until it finishes, then try again.',
   );
 
+const projectHeld = () =>
+  new ApiError(
+    409,
+    'AUDIT_IN_PROGRESS',
+    'An earlier audit of this project is still stopping. Wait a few minutes, then try again.',
+  );
+
+/** The same project, however the address is written (letters, a trailing slash). */
+function projectKey(projectUrl: string): string {
+  try {
+    return new URL(projectUrl).host.toLowerCase();
+  } catch {
+    return projectUrl.trim().toLowerCase();
+  }
+}
+
 const notFound = () =>
   new ApiError(404, 'NOT_FOUND', 'No audit with this id was found.');
 
@@ -121,6 +137,12 @@ export class AuditsService implements OnModuleDestroy {
    * (the store was unreachable). GET answers from here while it retries.
    */
   private readonly pending = new Map<string, ActiveRun>();
+  /**
+   * Projects that a Prover which was given up on may still be touching (its
+   * promise cannot be cancelled). Each hold ends when that Prover ends, or
+   * after `orphanHoldMs`, whichever is first. Several holds can share a project.
+   */
+  private readonly holds = new Map<string, Set<symbol>>();
 
   constructor(
     @Inject(GATEWAY_FACTORY) private readonly makeGateway: GatewayFactory,
@@ -151,6 +173,31 @@ export class AuditsService implements OnModuleDestroy {
     return swept;
   }
 
+  private isHeld(projectUrl: string): boolean {
+    return this.holds.has(projectKey(projectUrl));
+  }
+
+  /** No new audit or re-test of this project until `done` ends (or the hard cap). */
+  private holdProject(projectUrl: string, done: Promise<void>): void {
+    const key = projectKey(projectUrl);
+    const token = Symbol('hold');
+    const tokens = this.holds.get(key) ?? new Set<symbol>();
+    tokens.add(token);
+    this.holds.set(key, tokens);
+    let timer: NodeJS.Timeout | null = null;
+    const release = () => {
+      if (timer) clearTimeout(timer);
+      tokens.delete(token);
+      if (tokens.size === 0 && this.holds.get(key) === tokens) {
+        this.holds.delete(key);
+      }
+    };
+    timer = setTimeout(release, this.agents.orphanHoldMs);
+    timer.unref();
+    void done.then(release);
+    this.logger.warn(`a stopped Prover may still be running; ${key} is held`);
+  }
+
   /** The Report agent's row at the start of a run; none when it is off. */
   private initialReportRow(): AuditRecord['reportRow'] {
     return this.reportSetup.mode === 'groq'
@@ -179,6 +226,7 @@ export class AuditsService implements OnModuleDestroy {
   async start(input: AuditInput): Promise<{ id: string; status: AuditStatus }> {
     // Check and claim in one synchronous step, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
+    if (this.isHeld(input.projectUrl)) throw projectHeld();
     const record: AuditRecord = {
       id: `aud_${randomBytes(8).toString('hex')}`,
       status: 'running',
@@ -238,6 +286,7 @@ export class AuditsService implements OnModuleDestroy {
     const input = parseInput();
     // From here to the claim there is no `await`, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
+    if (this.isHeld(record.projectUrl)) throw projectHeld();
     if (record.status !== 'completed') {
       throw new ApiError(
         409,
@@ -597,6 +646,10 @@ export class AuditsService implements OnModuleDestroy {
       onState: (states) => this.showStates(run, states),
       shouldStop,
       skipRemaining: flag.enabled,
+      onAbandoned: (agentId, done) => {
+        // Only the Prover touches the tested project.
+        if (agentId === MODULE_ID) this.holdProject(record.projectUrl, done);
+      },
     });
     return context.prover!;
   }

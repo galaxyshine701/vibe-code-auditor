@@ -420,3 +420,79 @@ describe('the deadline of one agent', () => {
     expect(states[0].status).toBe('completed');
   });
 });
+
+describe('giving up on an agent', () => {
+  it('tells the caller, with a promise that ends when the agent finally ends', async () => {
+    let end!: () => void;
+    const agent: Agent<Ctx> = {
+      id: 'prover',
+      name: 'prover',
+      critical: false,
+      deadlineMs: 15,
+      run: () => new Promise<void>((resolve) => (end = resolve)),
+    };
+    const abandoned: { id: string; done: Promise<void> }[] = [];
+    await runPipeline(
+      [agent],
+      {},
+      {
+        ...options,
+        onAbandoned: (id, done) => abandoned.push({ id, done }),
+      },
+    );
+    expect(abandoned.map((a) => a.id)).toEqual(['prover']);
+    let over = false;
+    void abandoned[0].done.then(() => (over = true));
+    await sleep(10);
+    expect(over).toBe(false);
+    end();
+    await sleep(10);
+    expect(over).toBe(true);
+  });
+
+  it('the promise also ends when the abandoned agent throws (it never rejects)', async () => {
+    let fail!: (error: Error) => void;
+    const agent: Agent<Ctx> = {
+      id: 'x',
+      name: 'x',
+      critical: false,
+      deadlineMs: 10,
+      run: () => new Promise<void>((_r, reject) => (fail = reject)),
+    };
+    const abandoned: Promise<void>[] = [];
+    await runPipeline(
+      [agent],
+      {},
+      {
+        ...options,
+        onAbandoned: (_id, done) => abandoned.push(done),
+      },
+    );
+    fail(new Error('late'));
+    await expect(abandoned[0]).resolves.toBeUndefined();
+  });
+
+  it('is not called for an agent that ended, or that ended by itself after its deadline', async () => {
+    const calls: string[] = [];
+    const cooperative: Agent<Ctx> = {
+      id: 'coop',
+      name: 'coop',
+      critical: false,
+      deadlineMs: 10,
+      abandonOnDeadline: false,
+      graceMs: 500,
+      async run(_c, _p, control) {
+        while (!control?.shouldStop()) await sleep(2);
+      },
+    };
+    await runPipeline(
+      [quick('fine'), cooperative],
+      {},
+      {
+        ...options,
+        onAbandoned: (id) => calls.push(id),
+      },
+    );
+    expect(calls).toEqual([]);
+  });
+});
