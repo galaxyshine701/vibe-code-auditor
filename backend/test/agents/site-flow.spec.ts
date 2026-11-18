@@ -168,6 +168,7 @@ describe('flag on: a website-only audit with both inspectors', () => {
       leaked: 0,
       blocked: 0,
       inconclusive: 0,
+      siteLeaked: 0, // additive: an audit with a website says how many script leaks
     });
   });
 

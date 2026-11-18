@@ -423,6 +423,15 @@ export class AuditsService implements OnModuleDestroy {
         leaked: count('LEAKED'),
         blocked: count('BLOCKED'),
         inconclusive: count('INCONCLUSIVE'),
+        // Additive: only for an audit that has a website. The secret keys found
+        // in its scripts. `leaked` above stays about tables.
+        ...(record.websiteUrl
+          ? {
+              siteLeaked: (record.lockC?.evidence ?? []).filter(
+                (e) => e.kind === 'site-bundle' && e.verdict === 'LEAKED',
+              ).length,
+            }
+          : {}),
       },
       modules: [
         record.projectUrl === null

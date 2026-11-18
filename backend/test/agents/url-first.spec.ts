@@ -77,6 +77,7 @@ describe('flag on: an audit of a website only', () => {
       leaked: 0,
       blocked: 0,
       inconclusive: 0,
+      siteLeaked: 0, // additive: an audit with a website says how many script leaks
     });
     expect(done.body.cleanup).toBeNull();
     const findings = await request(app.getHttpServer()).get(
