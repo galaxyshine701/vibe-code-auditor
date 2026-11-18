@@ -8,7 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
-| v0.7.0 | 18 Nov 2026 | Additive, plus two corrections: R13 now says audits are kept in the audit store (not memory), and the Certificate screen is labelled "Re-test result" with check labels written by the UI from the check id (R87). Agent pipeline (`LOCK_C_AGENTS=on`): audit of a website with or without Supabase, dynamic module rows (`skipped`, `reason`, `TIMEOUT`), stage fields (`gate`, `plan`, `coverage`), evidence of site checks (`kind`), and the routes `GET /audits/:id/evidence`, `/roadmap` and `/client-report` (R71 to R88, Part 3). Mock bundles in `docs/frontend-mock/`. Nothing of R1 to R70 is changed. |
+| v0.7.0 | 18 Nov 2026 | Additive, plus three corrections: every UI label that said "certificate" now says "re-test result" (R35, R36, R39, R48, R64, R68, R74, R83, Screen 2.4, checklist 18, 26, 33, 37; the route `/certificate`, the `certificateBlocker` and `certificateLock` names and the ban on the phrase "certificate of security" stay as code or rule); R13 now says audits are kept in the audit store (not memory), and the Certificate screen is labelled "Re-test result" with check labels written by the UI from the check id (R87). Agent pipeline (`LOCK_C_AGENTS=on`): audit of a website with or without Supabase, dynamic module rows (`skipped`, `reason`, `TIMEOUT`), stage fields (`gate`, `plan`, `coverage`), evidence of site checks (`kind`), and the routes `GET /audits/:id/evidence`, `/roadmap` and `/client-report` (R71 to R88, Part 3). Mock bundles in `docs/frontend-mock/`. Nothing of R1 to R70 is changed. |
 | v0.6.2 | 15 Nov 2026 | Intro of the home page is now its own logo scene on the whole screen, rendered in the layout so that it is fixed to the screen (R70). |
 | v0.6.1 | 15 Nov 2026 | Intro of the home page: the example run on the whole screen, once per tab, with Visitor, a lock and one verdict per chip (R70). |
 | v0.6.0 | 15 Nov 2026 | "Fix confirmed" seal, Before -> After strip and certificate lock with an unlock animation (R66 to R69). |
@@ -181,7 +181,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R47.** `409 NO_FIX_TO_APPROVE`: sent when Approve fix is called for a finding whose `fix` is `null`. Show `error.message`. The Approve fix action must not be shown for such a finding (R31).
 
-**R48.** `409 NOT_ELIGIBLE`: sent by Re-test when the audit has `status` `failed`, and by the certificate route when a condition of R35 is not met. Show `error.message`.
+**R48.** `409 NOT_ELIGIBLE`: sent by Re-test when the audit has `status` `failed`, and by the `/certificate` route when a condition of R35 is not met. Show `error.message`.
 
 **R49.** `400 INVALID_INPUT` from Re-test: show `error.message` next to the key fields. The keys stay in memory (R29).
 
@@ -195,7 +195,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R29.** When the backend answers `202` to the start call or to a Re-test call, the frontend must clear the publishable key and the secret key from its state. On `400`, `401`, `409`, `429` and on a network error the keys must stay in memory, so the user can send again. The backend never returns the keys. For another audit or another Re-test the user types them again.
 
-## 1.6 Approve fix, Re-test and Certificate
+## 1.6 Approve fix, Re-test and Re-test result
 
 **R30.** The UI must use only the `fix.status` values `proposed` and `approved`. It must not use `applied` or `rejected`. There is no Reject button.
 
@@ -239,9 +239,9 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 - `summary` counts the findings of the run that made the audit eligible.
 - `issuedAt` is the time the latest completed run finished. It stays the same between requests until a new Re-test finishes.
 - The UI must label `recordHash` "integrity fingerprint, not a signature".
-- The action that opens the certificate view must be shown only when the conditions above hold in the data the frontend has. If the call still answers `409`, show `error.message`.
+- The action that opens the re-test result view must be shown only when the conditions above hold in the data the frontend has. If the call still answers `409`, show `error.message`.
 
-**R36.** The certificate is a view inside the app. There must be no public link and no share address.
+**R36.** The re-test result is a view inside the app. There must be no public link and no share address.
 
 **R37.** The UI must have no part for Jira tickets or for an MCP server.
 
@@ -257,7 +257,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R38.** The UI must say "no leak found by these checks". It must not use the phrase "certificate of security". It must not call a result "secure", "safe" or "certified".
 
-**R39.** The sentence "This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor." must appear on the Report screen and on the Certificate screen.
+**R39.** The sentence "This result covers table data access only: read, update and delete as another signed-in user, and read as a visitor." must appear on the Report screen and on the Re-test result screen.
 
 **R40.** An empty findings list must show "No findings". It must not claim that the app is secure.
 
@@ -313,11 +313,11 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 **R64.** Badges (Report and Progress screens). Three badges, earned only from real results, kept in this browser (`localStorage`, key `vca-badges-v1`) and nowhere else:
 - First audit completed: the audit is `completed`.
 - First leak fixed (verified by Re-test): a Re-test finished and at least one finding is verified fixed (R63). A finding that became INCONCLUSIVE is not a fix.
-- Zero leaks reached (certificate eligible): `summary.leaked` is 0, `summary.blocked` is at least 1 and `cleanup` is not `failed` (the rule of R35). It is always shown with the sentence of R39. When `summary.inconclusive` is above 0, the badge also says "N tables could not be verified."
+- Zero leaks reached (re-test result available): `summary.leaked` is 0, `summary.blocked` is at least 1 and `cleanup` is not `failed` (the rule of R35). It is always shown with the sentence of R39. When `summary.inconclusive` is above 0, the badge also says "N tables could not be verified."
 - Nothing is earned while a Re-test runs, and nothing is earned from a failed Re-test (R51).
 - Every earned badge shows "Earned <date>". A badge that is not earned yet shows how to earn it.
 - What is stored: for each badge the date it was earned and one flag. No key, address, access code, name of a table or id of an audit. Reading checks the shape and drops everything else. If the storage is blocked or full, the badges stay in memory for that page and nothing breaks. There is no sync between tabs.
-- Badges are an encouragement, not proof: a person can edit the storage. They are not part of the certificate or its `recordHash`, and the screen says they are saved in this browser only. The words "secure", "safe" and "certified" are never used (R38).
+- Badges are an encouragement, not proof: a person can edit the storage. They are not part of the re-test result or its `recordHash`, and the screen says they are saved in this browser only. The words "secure", "safe" and "certified" are never used (R38).
 - The Report screen shows all three. The Progress screen shows only a badge the user has just earned.
 - No score, no ranking, no leaderboard.
 - The tests run in the backend for now (`backend/test/frontend/badges.spec.ts`), like those of R63.
@@ -328,7 +328,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R67.** Before and after (Report screen, above the toolbar). After a Re-test whose `lastRetest.status` is `completed`, a strip shows Leaked, Inconclusive and Blocked as "before -> after", for example Leaked 1 -> 0, Blocked 1 -> 2. Before is `retest.previousVerdict` (or the verdict when there is none), after is `verdict`, both from the real findings (not `shownFindings`). Nothing is shown for a failed or a running Re-test, or when no Re-test was run. A table that the Re-test did not check (`tablesRemoved`) is not in the findings any more, so it is counted on neither side, and the strip says so. A table found for the first time in the Re-test (`tablesAdded`) has no before, so it is also left out on both sides, and the strip says so. It is a count, not a score. No animation.
 
-**R68.** Certificate lock (Report screen). "Open certificate view" is always there once the audit is completed. It is locked (`aria-disabled`, still reachable by keyboard) until the rule that was already on the Report screen holds: audit completed, no Re-test running, no LEAKED finding, at least one BLOCKED, cleanup not failed (the same as the backend `certificateBlocker`). `certificateLock` in `frontend/src/lib/outcome.ts` is that rule in one place, and it gives the reason in a sentence written next to the button, never only in a tooltip: with leaks, "Fix the leaks and Re-test to unlock."; a running Re-test, no BLOCKED table and a failed cleanup each have their own sentence. When the user's own Re-test makes it eligible, the padlock opens with one short animation (under 650 ms). A page that is opened already eligible (a refresh) shows the open padlock without animation.
+**R68.** Re-test result lock (Report screen). "Open result view" is always there once the audit is completed. It is locked (`aria-disabled`, still reachable by keyboard) until the rule that was already on the Report screen holds: audit completed, no Re-test running, no LEAKED finding, at least one BLOCKED, cleanup not failed (the same as the backend `certificateBlocker`). `certificateLock` in `frontend/src/lib/outcome.ts` is that rule in one place, and it gives the reason in a sentence written next to the button, never only in a tooltip: with leaks, "Fix the leaks and Re-test to unlock."; a running Re-test, no BLOCKED table and a failed cleanup each have their own sentence. When the user's own Re-test makes it eligible, the padlock opens with one short animation (under 650 ms). A page that is opened already eligible (a refresh) shows the open padlock without animation.
 
 **R69.** Animation limits. Every animation in R65, R66 and R68 runs once and lasts under 800 ms (the longest, the badge, is 700 ms). With `prefers-reduced-motion: reduce` none of them runs and the final state is shown at once. They work in both themes and at 375 px. The tests read the CSS and fail if one lasts 800 ms or more or repeats.
 
@@ -338,7 +338,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 # Part 2: Screen guidance
 
-The four screens follow the contract: Connect, Progress, Report, Certificate. Approve fix and Re-test are actions on the Report screen. Layout and visual design are the developer's choice. This part describes behaviour only.
+The four screens follow the contract: Connect, Progress, Report, Re-test result. Approve fix and Re-test are actions on the Report screen. Layout and visual design are the developer's choice. This part describes behaviour only.
 
 ## 2.1 Screen: Connect
 
@@ -407,7 +407,7 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 - Copy the reproducer and the fix SQL.
 - Approve fix, on a finding whose `fix.status` is `proposed` (R31).
 - Re-test: the user types both keys again and ticks the test-project box (R33).
-- Open the certificate view (Screen 2.4), when the conditions of R35 hold.
+- Open the re-test result view (Screen 2.4), when the conditions of R35 hold.
 
 **States.**
 - Loading: the findings call is open.
@@ -428,7 +428,7 @@ The four screens follow the contract: Connect, Progress, Report, Certificate. Ap
 - Must show the disclaimer (R39).
 - Must not send `projectUrl` in the Re-test body (R33).
 
-## 2.4 Screen: Certificate
+## 2.4 Screen: Re-test result
 
 **Purpose.** Show the result of the checks when no leak remains.
 
@@ -469,7 +469,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 
 **R73.** The headline of a result must not be `summary.leaked` alone. `summary.leaked` counts tables only. For an audit with a website, `summary.siteLeaked` counts secret keys found in the scripts of the site (the key itself is never in any answer). A site with a secret key and zero leaking tables has `leaked` 0 and `siteLeaked` 1: it must not look clean. Use `clientReport.headline` (R80) when it exists. Otherwise: `leaked` + `siteLeaked` above 0 is a leak; both 0 is "no leak found by these checks" only when `gate.decision` is `ready_by_these_checks` (R77). `siteLeaked` is missing for an audit without a website: treat it as 0.
 
-**R74.** Certificate and Re-test for an audit without Supabase details. A website-only audit has no tables. `POST /audits/:id/retest` and `GET /audits/:id/certificate` answer `409 NOT_ELIGIBLE` for it (R48). The UI should **hide** the Re-test and the certificate actions when `target.projectUrl` is missing, or show the reason from `error.message` next to a locked action (R68). "Approve fix" does not exist for it (no findings, R31). The rest of R35 is unchanged: a certificate needs a `BLOCKED` table.
+**R74.** Re-test result and Re-test for an audit without Supabase details. A website-only audit has no tables. `POST /audits/:id/retest` and `GET /audits/:id/certificate` answer `409 NOT_ELIGIBLE` for it (R48). The UI should **hide** the Re-test and the re-test result actions when `target.projectUrl` is missing, or show the reason from `error.message` next to a locked action (R68). "Approve fix" does not exist for it (no findings, R31). The rest of R35 is unchanged: a re-test result needs a `BLOCKED` table.
 
 ## 3.2 Progress screen: module rows
 
@@ -673,7 +673,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 
 **R83.** Empty and special states.
 - **Supabase only** (the old request, flag on): the website checks are in `coverage.skipped` as "Not provided" and have `required: false` in `plan`; `summary` has no `siteLeaked`; `clientReport.findings.site` is `null`. Show an invitation "Add a website address to check the site too" (R76) in place of site evidence. The roadmap has `provide-input` items for the two website checks.
-- **Website only**: no tables. `findings` is `[]` and `summary` is all zeros (plus `siteLeaked`). Do **not** show "No findings" as the result (R40 is about tables); show "No Supabase details were given, so no table was checked." with the invitation to add them. `cleanup` stays `null`, so no cleanup warning (R25 does not apply). No Re-test and no certificate (R74).
+- **Website only**: no tables. `findings` is `[]` and `summary` is all zeros (plus `siteLeaked`). Do **not** show "No findings" as the result (R40 is about tables); show "No Supabase details were given, so no table was checked." with the invitation to add them. `cleanup` stays `null`, so no cleanup warning (R25 does not apply). No Re-test and no re-test result (R74).
 - **Both**: everything, tables and site, in one report. The headline names both (R73).
 - **A check failed or is partial**: the coverage says so (R78) and the gate is `not_ready`. This is not an audit error.
 - **No stage fields** (`schemaVersion` missing): none of Part 3 is shown (R72).
@@ -727,7 +727,7 @@ Mock rules (extend R43 to R46): the switch stays off by default and one switch c
 15. A failed Re-test shows `lastRetest.error.message`, keeps the old findings, does not show the audit as failed, and allows Re-test again (R51).
 16. Added and removed tables are shown, and a finding shows its previous verdict when it differs (R52, R53).
 17. Approve fix is shown only for a `proposed` fix. A second approval is not an error. `409 NO_FIX_TO_APPROVE` shows its message (R31, R47).
-18. The certificate action appears only when `summary.leaked` is 0, `summary.blocked` is at least 1 and `cleanup` is not `"failed"`. A `409 NOT_ELIGIBLE` shows `error.message`. `recordHash` is labelled "integrity fingerprint, not a signature" (R35).
+18. The re-test result action appears only when `summary.leaked` is 0, `summary.blocked` is at least 1 and `cleanup` is not `"failed"`. A `409 NOT_ELIGIBLE` shows `error.message`. `recordHash` is labelled "integrity fingerprint, not a signature" (R35).
 19. The mock switch is off by default. With it off, all six audit routes in R2 (not `/health`) use the backend (R43, R44).
 20. All four screens are usable at 375, 768 and 1280 px (R54).
 21. The first visit opens in the dark theme whatever the system setting is. The toggle on every screen changes the theme, the choice stays after a reload, and there is no flash on load (R55). Text has 4.5:1 and the edges of controls 3:1 in both themes.
@@ -735,18 +735,18 @@ Mock rules (extend R43 to R46): the switch stays off by default and one switch c
 23. The key fields are labelled "Publishable key" and "Secret key". `anonKey` and `serviceKey` appear nowhere in the UI (R58).
 24. The app has a manifest, icons (192 and 512, normal and maskable) and a small service worker, and can be installed. In DevTools > Application > Cache Storage the only cache is `vca-offline-v1` and it holds only `/offline.html`: no API response, no script or style, and no request that carried the access code. With the network off, a page that cannot load shows the offline page (R59).
 25. `frontend/README.md` has a "Design notes" section and eight screenshots: four screens in light and dark (R60).
-26. The Report screen has a coverage section with the lists Checked, Not covered and Limits (R61). The sentence in R39 is shown on the Report and Certificate screens.
+26. The Report screen has a coverage section with the lists Checked, Not covered and Limits (R61). The sentence in R39 is shown on the Report and Re-test result screens.
 27. A module `message` is shown under its row; a finding with `explanationSource` `"ai"` shows "Written by AI"; the Connect screen shows the Groq line (R62).
 28. The summary card shows "N of M findings verified fixed by a Re-test" only when a leak was found; a LEAKED -> INCONCLUSIVE finding is not counted as fixed (R63).
 29. Badges: First audit completed, First leak fixed (verified by Re-test) and Zero leaks reached are earned only by the rules of R64, are stored only as a date and a flag under `vca-badges-v1`, and are not given for a failed or running Re-test. The text says "saved in this browser" and the R39 sentence is shown (R64).
 30. A badge animates once, only for the user's own action, never after a refresh, and not at all with reduced motion; both themes keep readable text (R65).
 31. A finding card shows "Fix confirmed" only for a finding that a Re-test moved from LEAKED to BLOCKED (not for LEAKED -> INCONCLUSIVE); the seal animates once after the user's own Re-test and not after a refresh (R66).
 32. After a completed Re-test a strip shows Leaked, Inconclusive and Blocked as before -> after, from the real findings; it is not shown for a failed Re-test; tables that were not re-checked or are new are left out and named (R67).
-33. "Open certificate view" is locked with the reason next to it ("Fix the leaks and Re-test to unlock." for leaks), opens with one short animation only after the user's own Re-test, and has no new rule of eligibility (R68). No animation lasts 800 ms or more, and none runs with reduced motion (R69).
+33. "Open result view" is locked with the reason next to it ("Fix the leaks and Re-test to unlock." for leaks), opens with one short animation only after the user's own Re-test, and has no new rule of eligibility (R68). No animation lasts 800 ms or more, and none runs with reduced motion (R69).
 34. On the home page the first visit of a tab opens the logo scene on the whole screen (3 s at most, over the header, the scene in the middle and not cut at 1908x874, 1366x768 and 375x667) with a Skip button, tap and Esc; the headline starts only after it; a refresh in the same tab skips it; with reduced motion there is no intro; the hero has a Replay intro button that plays the scene again (R70).
 35. With `LOCK_C_AGENTS` off the UI behaves as R1 to R70; with it on, nothing breaks and no module row is hard-coded. Switching the flag on is done together with the deploy of this UI (R71, R75).
 36. A website-only audit with a secret key in a script is never shown as clean: `summary.leaked` 0 and `summary.siteLeaked` 1 give a leak headline (R73).
-37. A website-only audit has no Re-test action and no certificate action, or shows the `409 NOT_ELIGIBLE` reason (R74).
+37. A website-only audit has no Re-test action and no re-test result action, or shows the `409 NOT_ELIGIBLE` reason (R74).
 38. Module rows follow the backend's list and order; a `skipped` row shows its `reason` in the chosen language and is not coloured as a failure; `TIMEOUT`, `INTERRUPTED` and the project-hold `409` show the backend's message (R75, R85).
 39. The Connect form has an optional Website address and an optional Supabase group (all three fields together); it sends `confirmSiteAccess: true` with a website and `confirmTestProject: true` with the group; a half-filled group blocks start; `400` messages are shown as given (R76).
 40. The gate banner shows "No leak found by these checks." or "Not ready" with the reasons, never "safe" (R77).
