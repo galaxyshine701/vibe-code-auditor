@@ -280,7 +280,7 @@ Optional. They appear only when the backend runs with `LOCK_C_AGENTS=on`. With i
 - The audit's own `status` does NOT get `skipped`. It stays `queued` | `running` | `completed` | `failed`.
 - `modules[].reason`: `{ "en": "...", "ur": "..." }`, both languages. Only present on a `skipped` row. A `skipped` row has no `message`. A `failed` row still has `message` and no `reason`.
 - More rows: when more agents are added to the run, each one appears in `modules` after the rows above, in the same shape (`id`, `name`, `status`, `progress`, and `message` or `reason` when they apply). A client shows the rows it finds and does not depend on a fixed list.
-- Stage rows: with `LOCK_C_AGENTS=on` the stage steps show as rows too, after the `data-access-prover` row (and the `report-agent` row when it is on), in this order: `planner`, `ownership`, `evidence`, `guide`. They are plain code (no AI). `planner`, `evidence` and `guide` are `completed` when they finish. `ownership` is `skipped` with the same `reason` as `ownership.reason`, because ownership is not checked yet. With the flag off these four rows do not exist, and every other field is exactly as before.
+- Stage rows: with `LOCK_C_AGENTS=on` the stage steps show as rows too, after the `data-access-prover` row (and the `report-agent` row when it is on), in this order: `planner`, `ownership`, `evidence`, `roadmap`, `guide` (`roadmap` is described in "Additive: roadmap and client report"). They are plain code (no AI). `planner`, `evidence`, `roadmap` and `guide` are `completed` when they finish. `ownership` is `skipped` with the same `reason` as `ownership.reason`, because ownership is not checked yet. With the flag off these four rows do not exist, and every other field is exactly as before.
 - The stage fields (`plan`, `ownership`, `evidence`, `coverage`, `gate`) have the same values with the flag on and off. The `gate` is worked out only from the checks, the coverage, the evidence and `cleanup`; a `skipped` or `failed` row never changes it by itself.
 - If the `evidence` step fails or runs out of time, the audit status is NOT changed (it stays `completed`), and the `evidence` row is `failed` with a `message`. The `gate` is then `not_ready`, its first reason is "The evidence of this run is not available, so there is no result.", `GET /audits/:id/evidence` has no `items`, and every planned check is in `coverage.failedToRun`. If the `guide` step itself fails or runs out of time, the `gate` is `not_ready` with the reason "The result of this run could not be worked out, so there is no result." A missing step never makes a run look ready.
 - Time limits: every agent has its own time limit, and the whole run has one too. A run that runs out of time ends as `failed` with `error.code` `TIMEOUT` (a fixed plain sentence, no keys). `TIMEOUT` is a new value of the existing `error.code` field; no field was added for it. In a re-test the audit stays `completed` and `lastRetest.error.code` is `TIMEOUT`, as for any failed re-test.
@@ -316,7 +316,7 @@ What changes in the answers (only for a request that has a `websiteUrl`, or when
 ### Additive: website checks and evidence that is not about a table (`LOCK_C_AGENTS`)
 Optional. With a `websiteUrl` (see "Additive request: a website, with or without Supabase") the two website checks run. They are plain code (no AI), read only what any visitor can read, and use a network guard that refuses private addresses. With the flag off nothing here exists.
 - Rows: `tls-headers` and `bundle-secrets` appear in `modules` (after `ownership`, before `evidence`), in the same shape as the other rows. They run together with the Prover, not after it. If one runs out of time its row is `failed` with a `message`, and its check is in `coverage.failedToRun`.
-- `tls-headers` reads the front page and looks at the security headers (Strict-Transport-Security, Content-Security-Policy, X-Content-Type-Options, framing, Referrer-Policy) and at whether the page was reached over https. The certificate itself is NOT read yet: `coverage.outOfScope` names "Certificate validity and expiry" with the reason "Not implemented yet". Out of scope does not hold the gate back.
+- `tls-headers` reads the front page and looks at the security headers (Strict-Transport-Security, Content-Security-Policy, X-Content-Type-Options, framing, Referrer-Policy) and at whether the page was reached over https. The certificate itself is NOT read yet: `coverage.outOfScope` names "TLS validity period and expiry" with the reason "Not implemented yet". Out of scope does not hold the gate back.
 - `bundle-secrets` reads the front page and the scripts of the same origin (at most 30 files, 2 MB each, 15 MB in all) and looks for a Supabase secret key (`sb_secret_...`) or a `service_role` key. It does not test whether a key works. Scripts of another origin are named in `coverage.outOfScope`. A script that was not read (limit, size, error, stop) is named in `coverage.partial[].notRead`, and a required check that is `partial` keeps the gate `not_ready`.
 - A site that cannot be read: the check is in `coverage.failedToRun` with a fixed sentence (never the address), and the audit still completes.
 - `GET /audits/:id/evidence`: the items of these checks use the same shape as the others, with these differences. `findingId` and `table` are `null` (they are not about a finding or a table). `kind` is `"site-headers"` or `"site-bundle"`. `subject` says what it is about: a header name (`"strict-transport-security"`, `"content-security-policy"`, `"x-content-type-options"`, `"framing"`, `"referrer-policy"`, `"https"`) or a script (`host/path` only: a query, a hash and a login are always cut off). The items of the Data Access Prover are as before; for them `kind` is missing, and a missing `kind` means `"table"`. A client must accept `null` in `findingId` and `table`.
@@ -328,6 +328,77 @@ Optional. With a `websiteUrl` (see "Additive request: a website, with or without
 - `verdict` for `site-bundle`: `LEAKED` = a secret key is in a script of the site (the gate is then `not_ready`). For `site-headers`: `BLOCKED` = the header is there, `INCONCLUSIVE` = it is missing or weak. A header is never `LEAKED`. The key itself is never in any answer: only its kind (in the sentence) and the script's name.
 - `summary.leaked`, `blocked` and `inconclusive` and `findings` stay about tables. For an audit that has a `websiteUrl`, `summary` also has `siteLeaked`: the number of secret keys found in the scripts of the site (the `site-bundle` evidence items with verdict `LEAKED`), `0` when none or when the site could not be read (the coverage says what was not checked). An audit without a `websiteUrl` has no `siteLeaked` key at all, and with the flag off nothing changes.
 - With the flag on, a run with a website and no Supabase details can be `ready_by_these_checks` when both website checks completed with no leak and the cleanup is not `"failed"`. The sentence "Today the gate is always `not_ready`" below is true only with the flag off.
+
+### Additive: roadmap and client report (`LOCK_C_AGENTS`)
+Optional. Two new routes and one new row. They exist only for a run made with `LOCK_C_AGENTS=on`. **With the flag off nothing here exists** and every answer is exactly as before. `GET /audits/:id` gets no new field: only the `roadmap` row (see "Stage rows").
+- `roadmap` is a code-only agent (no AI) that runs after `evidence` and before `guide`. It still runs after a failure. It has its own time limit (the finalizer limit). If it fails or runs out of time its row is `failed` (a `message`, fixed sentence for a timeout), the audit is not changed, the roadmap is empty and the client report says "Roadmap not available." in `limits`. If the `guide` itself fails, the roadmap is empty and the client report is a fixed `not_ready` one.
+- A re-test makes both again (from the findings after the merge). A failed re-test leaves them as they were.
+- `404` `NOT_FOUND` for an unknown audit, and for an audit that has none (made with the flag off, or before this step).
+- They never contain a key, a query, a hash, or the Prover's SQL (a fix item points at the finding that holds it).
+
+#### GET /audits/:id/roadmap
+```json
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "rm_001",
+      "kind": "fix-finding",
+      "severity": "critical",
+      "fromRequiredCheck": true,
+      "title": { "en": "Fix the leak in table \"bookings\"", "ur": "..." },
+      "why": { "en": "...", "ur": "..." },
+      "steps": [ { "en": "...", "ur": "..." } ],
+      "refs": { "checkId": "data-access-prover", "findingIds": ["fnd_001"], "evidenceIds": ["ev_fnd_001"] }
+    }
+  ],
+  "truncated": 0
+}
+```
+- `kind`: `fix-finding` | `fix-site-secret` | `improve-header` | `confirm` | `cleanup` | `finish-check` | `provide-input` | `retest`. A client shows a kind it does not know as plain text.
+- `severity`: the usual values. `fromRequiredCheck`: the item comes from a check that is required in this run.
+- `steps`: 1 to 4 items. `refs.findingIds` are ids from `GET .../findings`; `refs.evidenceIds` are ids from `GET .../evidence`; `refs.checkId` is an id from `plan`.
+- Which item comes from what:
+  - `fix-finding`: a table that is `LEAKED`. Severity is the finding's. The SQL stays in the finding's `fix`.
+  - `fix-site-secret`: a secret key in a script of the site. Always `critical`. The steps say: rotate the key (Supabase -> API keys), remove it from the code and env files, redeploy, run the audit again.
+  - `improve-header`: a header that is missing or weak. `https` is `high`; `strict-transport-security` and `content-security-policy` are `medium`; `x-content-type-options` and `framing` are `low`; `referrer-policy` is `info`.
+  - `confirm`: a table that is `INCONCLUSIVE`.
+  - `cleanup`: `cleanup` is `"failed"`. `high`.
+  - `finish-check`: a check that is `partial` or `failedToRun`. `medium`. For `partial` the `why` names what was not read.
+  - `provide-input`: an optional check that was "Not provided". `info`.
+  - `retest`: there is a fix item and Supabase details were given. `info`.
+  - No item for: a `BLOCKED` table or header, a check that is "Not implemented yet", ownership.
+- Order (fixed, the same input always gives the same list): severity (`critical` first), then items from a required check first, then kind (`fix-site-secret`, `fix-finding`, `cleanup`, `finish-check`, `improve-header`, `confirm`, `provide-input`, `retest`), then the id of what it refers to. The ids `rm_001`... are given after sorting.
+- At most 100 items. `truncated` is how many were left out (the least important ones).
+- A run with nothing to do (or no roadmap) has `"items": []`.
+
+#### GET /audits/:id/client-report
+```json
+{
+  "schemaVersion": 1,
+  "headline": { "en": "Leak found by these checks: 1 table.", "ur": "..." },
+  "decision": "not_ready",
+  "reasons": [ { "en": "...", "ur": "..." } ],
+  "scope": {
+    "checked": [ { "id": "data-access-prover", "title": { "en": "...", "ur": "..." } } ],
+    "notProvided": [], "notImplemented": [], "partial": [], "failedToRun": [],
+    "outOfScope": [ { "name": "TLS validity period and expiry", "reason": { "en": "...", "ur": "..." } } ]
+  },
+  "findings": {
+    "tables": { "leaked": 1, "blocked": 1, "inconclusive": 1 },
+    "site": { "siteLeaked": 0, "headersMissing": 2 }
+  },
+  "topActions": ["rm_001", "rm_002", "rm_003"],
+  "limits": [ { "en": "...", "ur": "..." } ],
+  "disclaimer": { "en": "...", "ur": "..." }
+}
+```
+- `decision` and `reasons` are the `gate`, copied.
+- `headline`: a leak (a table or a secret key in a script, both are named) says so; `ready_by_these_checks` says "No leak found by these checks."; not ready with no leak says the result is not complete; nothing finished says "No result". The words are always "by these checks". A client must not use `summary.leaked` alone as the headline: a secret key in a script is `summary.siteLeaked`.
+- `scope`: every planned check is in exactly one of `checked`, `notProvided`, `notImplemented` (skipped for another reason, today: not built yet), `partial`, `failedToRun`. Each is `{ "id", "title" }`. `outOfScope` is the same list as `coverage.outOfScope`.
+- `findings.tables` is `null` when the data access check did not complete. Its counts are the counts of `summary`. `findings.site` is `null` when no website check ran; `siteLeaked` is the same number as `summary.siteLeaked`, `headersMissing` is the number of headers that are missing or weak.
+- `topActions`: the ids of the first three roadmap items.
+- Wording: never a claim of approval (not "certified", "safe to launch", "guaranteed", "secure", and the same in Roman Urdu).
 
 ### Additive fields: the stages (`schemaVersion` 2)
 Added to `GET /audits/:id` and a new route `GET /audits/:id/evidence`. Nothing is renamed or removed. An audit that finished a run (an audit or a re-test) after the stages were added has the fields below; an older audit does not. A client treats a missing `schemaVersion` as `1` and shows no stage fields for it.
