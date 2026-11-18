@@ -8,7 +8,7 @@ If this document and `docs/api-contract.md` differ on a field name or value, the
 
 | Version | Date | Change |
 |---|---|---|
-| v0.7.0 | 18 Nov 2026 | Additive only. Agent pipeline (`LOCK_C_AGENTS=on`): audit of a website with or without Supabase, dynamic module rows (`skipped`, `reason`, `TIMEOUT`), stage fields (`gate`, `plan`, `coverage`), evidence of site checks (`kind`), and the routes `GET /audits/:id/evidence`, `/roadmap` and `/client-report` (R71 to R88, Part 3). Mock bundles in `docs/frontend-mock/`. Nothing of R1 to R70 is changed. |
+| v0.7.0 | 18 Nov 2026 | Additive, plus two corrections: R13 now says audits are kept in the audit store (not memory), and the Certificate screen is labelled "Re-test result" with check labels written by the UI from the check id (R87). Agent pipeline (`LOCK_C_AGENTS=on`): audit of a website with or without Supabase, dynamic module rows (`skipped`, `reason`, `TIMEOUT`), stage fields (`gate`, `plan`, `coverage`), evidence of site checks (`kind`), and the routes `GET /audits/:id/evidence`, `/roadmap` and `/client-report` (R71 to R88, Part 3). Mock bundles in `docs/frontend-mock/`. Nothing of R1 to R70 is changed. |
 | v0.6.2 | 15 Nov 2026 | Intro of the home page is now its own logo scene on the whole screen, rendered in the layout so that it is fixed to the screen (R70). |
 | v0.6.1 | 15 Nov 2026 | Intro of the home page: the example run on the whole screen, once per tab, with Visitor, a lock and one verdict per chip (R70). |
 | v0.6.0 | 15 Nov 2026 | "Fix confirmed" seal, Before -> After strip and certificate lock with an unlock animation (R66 to R69). |
@@ -110,7 +110,7 @@ The field names are fixed. `anonKey` carries the publishable key. `serviceKey` c
 
 **R12.** `GET /api/v1/audits/:id/findings` does not check the audit status. It answers `200` with `{ "findings": [] }` while the audit is running and when the audit has failed. It answers `404 NOT_FOUND` only for an unknown id. While a Re-test runs, it answers with the findings of the run before, each with `retest.status` `running`. The frontend must read the findings only after the status is `completed`, except that it keeps showing the findings it already has during a Re-test (R50).
 
-**R13.** Audits are kept in the backend's memory. After a server restart every audit is gone. The backend keeps the newest 50 audits. A request for a gone audit gives `404 NOT_FOUND`. The frontend must treat that answer as "this audit no longer exists" and offer to start a new audit. The same applies to the approve, retest and certificate routes.
+**R13.** Audits are kept in the audit store (a table in the platform's own database), not in memory. A server restart does not remove them. The backend keeps the newest 50 audits (v0.7.0: corrected, see R85). A request for an unknown audit, or one that is no longer among the newest 50, gives `404 NOT_FOUND`. The frontend must treat that answer as "this audit no longer exists" and offer to start a new audit. The same applies to the approve, retest and certificate routes.
 
 ## 1.3 Findings
 
@@ -540,7 +540,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 - `outOfScope`: `{ name, reason }`. Left out on purpose. It is **not** a failure and not partial (for example a script of another origin, or "TLS validity period and expiry").
 - `nothingToTest`: reserved, always `[]` today. Show nothing for an empty list.
 - `limits`: `{ en, ur }` sentences, always shown.
-- Names of checks come from `plan[].title` (`{ en, ur }`) by `id`; an unknown id is shown as the id.
+- Names of checks: the UI writes its own labels from the check `id` (R87). It must not show `plan[].title` or a `title` of the client report directly. An unknown id is shown as the id.
 - A required check (`plan[].required`) that is not in `checked` is a reason for `not_ready`. Mark `required`.
 - `limits` and the lists are shown as given: a limit of a check that was not provided can still be in `limits`; the buckets say what was actually checked.
 
@@ -606,7 +606,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 }
 ```
 - `headline` `{ en, ur }`: use it as the headline (R73). `decision` and `reasons` are the `gate` (R77).
-- `scope`: the buckets of R78 in short form. `checked`, `notProvided`, `notImplemented`, `partial` and `failedToRun` are lists of `{ id, title }`; `outOfScope` is a list of `{ name, reason }`. Every planned check is in exactly one list. `notImplemented` is a check that was skipped for a reason other than "Not provided".
+- `scope`: the buckets of R78 in short form. `checked`, `notProvided`, `notImplemented`, `partial` and `failedToRun` are lists of `{ id, title }` (label them from `id`, R87; `title` is not shown); `outOfScope` is a list of `{ name, reason }`. Every planned check is in exactly one list. `notImplemented` is a check that was skipped for a reason other than "Not provided".
 - `findings.tables` is `null` when the table check did not complete: show "not checked", never zero. Its counts equal `summary`. `findings.site` is `null` when no site check ran; `siteLeaked` equals `summary.siteLeaked`; `headersMissing` is the number of headers that are missing or weak.
 - `topActions` are the ids of the first three roadmap items (R81): show them as "Do this first", linking to the roadmap.
 - `limits` and `disclaimer` `{ en, ur }` are always shown; show `disclaimer` together with the sentence of R39. When `limits` contains "Roadmap not available." the roadmap could not be made: say so and show no steps.
@@ -669,7 +669,7 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 - An empty `items` list is not an error and not a claim of safety: show "No next steps from these checks." (the gate banner shows the rest).
 - The roadmap never holds the Prover's SQL; it points at the finding. R32 still applies to the SQL.
 
-**R82.** Language. The toggle of R42 also switches: `gate.reasons`, the coverage `reason`s and `limits`, evidence `summary`, `plan[].title`, module `reason`, every roadmap text (`title`, `why`, `steps`) and every client-report text. `message`, `error.message`, `cleanupNote` and the finding `title` are plain English from the backend (as in R17). Both languages are always present; if one is missing, show English.
+**R82.** Language. The toggle of R42 also switches: `gate.reasons`, the coverage `reason`s and `limits`, evidence `summary`, module `reason`, every roadmap text (`title`, `why`, `steps`) and every client-report text. `message`, `error.message`, `cleanupNote` and the finding `title` are plain English from the backend (as in R17). Both languages are always present; if one is missing, show English.
 
 **R83.** Empty and special states.
 - **Supabase only** (the old request, flag on): the website checks are in `coverage.skipped` as "Not provided" and have `required: false` in `plan`; `summary` has no `siteLeaked`; `clientReport.findings.site` is `null`. Show an invitation "Add a website address to check the site too" (R76) in place of site evidence. The roadmap has `provide-input` items for the two website checks.
@@ -684,7 +684,13 @@ Everything here is **additive**. The shapes below were taken from real runs of t
 
 **R86.** A failed or stopped run still has stage fields. If the audit has `status` `failed`: show `error.message` and no finding cards (R24). `/evidence` can have no `items`, `coverage.failedToRun` names the checks, the roadmap can have `finish-check` or `cleanup` items, and the client report says "No result" in its headline. If a step of the pipeline itself failed or ran out of time, its module row is `failed` and the audit is **not** changed: the gate is `not_ready` with a fixed reason ("The evidence of this run is not available, so there is no result." or "The result of this run could not be worked out, so there is no result."); if the roadmap step failed, the roadmap is `[]` and the client report says "Roadmap not available." in `limits`. A missing step never makes a run look ready.
 
-**R87.** Names in the UI. The product name in every new text is the placeholder **[Project name]**. The UI must not show the words MCP or Jira anywhere (R37 stays). Its own labels, buttons and fixed texts in the new parts must not use the word "certificate" (say "result" or "TLS"): the check "TLS validity period and expiry" (in `coverage.outOfScope`) was renamed for this reason. Texts that come from the backend are shown as given.
+**R87.** Names in the UI (stricter in v0.7.0).
+- The product name in every new text is the placeholder **[Project name]**.
+- The UI must not show the words MCP or Jira anywhere (R37 stays).
+- **Check labels come from the check `id`, written by the UI, in both languages.** The UI must never show an API title (`plan[].title`, `scope[].title`) directly. Fixed labels: `tls-headers` -> "Website headers and HTTPS"; `bundle-secrets` -> "Secret keys in the site's scripts"; `data-access-prover` -> "Table data access"; `active-checks` -> "Active checks (not built yet)". An unknown id is shown as the id. (Reason: the API title of `tls-headers` still contains the word "certificate".)
+- The word "certificate" is not used in the UI's own words. The old Certificate screen (R35, R36, R68, Screen 2.4) is labelled **"Re-test result"** (the button "Open result view", the screen title "Re-test result"). The route stays `GET /api/v1/audits/:id/certificate`. R38 stays: no "certificate of security".
+- The check "TLS validity period and expiry" (in `coverage.outOfScope`, text from the backend) was renamed so that it has no "certificate" in its name.
+- Other texts that come from the backend (`reason`, `summary`, `why`, `steps`, `gate.reasons`) are shown as given.
 
 **R88.** Wording of the new parts. Never "secure", "safe", "certified", "guaranteed" or "safe to launch" (and never the Roman Urdu mehfooz, surakshit, zamanat) as a claim, in the UI's own words (R38 and R40 stay). The backend's texts follow the rule and are tested for it; the UI's own words (labels, empty states, banner) must follow it too. Use "by these checks".
 
@@ -750,5 +756,5 @@ Mock rules (extend R43 to R46): the switch stays off by default and one switch c
 44. The roadmap is shown in the order received, with steps as a numbered list, a "Required check" label, links to the findings, and "N more steps are not shown" when `truncated` is above 0 (R81).
 45. The English / Roman Urdu toggle switches every `{ en, ur }` text of Part 3 (R82).
 46. Empty states exist for Supabase only, website only and both, and "No findings" is not shown as the result of a website-only audit (R83).
-47. No new text uses MCP, Jira or "certificate", and no new text claims safety (R87, R88). The product name in new texts is [Project name].
+47. No UI text uses MCP, Jira or "certificate"; check labels are written by the UI from the check id and no API title is shown directly; the old Certificate screen is labelled "Re-test result"; no new text claims safety (R87, R88). The product name in new texts is [Project name].
 48. The three mock bundles load in mock mode, and the UI renders each without a real backend (section 3.5).
