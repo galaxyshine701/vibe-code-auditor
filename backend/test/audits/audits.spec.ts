@@ -2,6 +2,8 @@ import { ConsoleLogger, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { ACCESS_CONFIG } from '../../src/access/access-code.guard.js';
+import { AUDIT_REPOSITORY } from '../../src/audits/audit-repository.js';
+import { InMemoryAuditRepository } from './in-memory-audit-repository.js';
 import { AppModule } from '../../src/app.module.js';
 import {
   DEFAULT_FRONTEND_ORIGIN,
@@ -40,6 +42,8 @@ async function buildApp(
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(GATEWAY_FACTORY)
     .useValue(factory)
+    .overrideProvider(AUDIT_REPOSITORY)
+    .useValue(new InMemoryAuditRepository())
     // these tests are about the audits, not the access code (see test/access)
     .overrideProvider(ACCESS_CONFIG)
     .useValue({ mode: 'open' })

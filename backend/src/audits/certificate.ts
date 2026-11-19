@@ -9,7 +9,7 @@ export const CERTIFICATE_DISCLAIMER =
 export interface CertificateSubject {
   id: string;
   label: string;
-  projectUrl: string;
+  projectUrl: string | null;
   createdAt: string;
   status: string;
   findings: Finding[];

@@ -10,10 +10,19 @@ import {
   AccessCodeGuard,
 } from '../access/access-code.guard.js';
 import { AttemptLimiter } from '../access/attempt-limiter.js';
+import { AGENTS_SETUP, resolveAgentsSetup } from '../agents/agents-config.js';
 import { SupabaseGateway } from '../prover/gateway.js';
+import { AUDIT_REPOSITORY } from './audit-repository.js';
 import { AuditsController } from './audits.controller.js';
-import { AuditsService, GATEWAY_FACTORY } from './audits.service.js';
+import {
+  AUDIT_TIMING,
+  AuditsService,
+  DEFAULT_AUDIT_TIMING,
+  GATEWAY_FACTORY,
+} from './audits.service.js';
 import { REPORT_SETUP, resolveReportSetup } from '../report/report-config.js';
+import { resolvePlatformConfig } from './platform-config.js';
+import { SupabaseAuditRepository } from './supabase-audit-repository.js';
 
 @Module({
   controllers: [AuditsController],
@@ -24,6 +33,16 @@ import { REPORT_SETUP, resolveReportSetup } from '../report/report-config.js';
       provide: GATEWAY_FACTORY,
       useValue: (config: ConstructorParameters<typeof SupabaseGateway>[0]) =>
         new SupabaseGateway(config),
+    },
+    // How often progress is saved (tests use shorter times).
+    { provide: AUDIT_TIMING, useValue: DEFAULT_AUDIT_TIMING },
+    {
+      // Where audits are kept: a table in the platform's own Supabase project.
+      // Fails closed: without PLATFORM_SUPABASE_URL and
+      // PLATFORM_SUPABASE_SERVICE_KEY this throws and the server does not start.
+      provide: AUDIT_REPOSITORY,
+      useFactory: () =>
+        new SupabaseAuditRepository(resolvePlatformConfig(process.env)),
     },
     {
       // Fails closed: with no access code (and no explicit ALLOW_OPEN_API=yes)
@@ -53,6 +72,17 @@ import { REPORT_SETUP, resolveReportSetup } from '../report/report-config.js';
       },
     },
     { provide: ATTEMPT_LIMITER, useFactory: () => new AttemptLimiter() },
+    {
+      // Off unless LOCK_C_AGENTS=on. Warnings are fixed sentences, no values.
+      provide: AGENTS_SETUP,
+      useFactory: () => {
+        const { setup, warnings } = resolveAgentsSetup(process.env);
+        const log = new Logger('Agents');
+        for (const warning of warnings) log.warn(warning);
+        log.log(`Lock C agents: ${setup.enabled ? 'on' : 'off'}`);
+        return setup;
+      },
+    },
     {
       // Off unless REPORT_AGENT=groq. Warnings are fixed sentences, no values.
       provide: REPORT_SETUP,

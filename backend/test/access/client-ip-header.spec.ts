@@ -9,6 +9,8 @@ import {
 import { clientKey, resolveClientIp } from '../../src/access/client-ip.js';
 import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
+import { AUDIT_REPOSITORY } from '../../src/audits/audit-repository.js';
+import { InMemoryAuditRepository } from '../audits/in-memory-audit-repository.js';
 
 // A made-up code that only exists in these tests.
 const CODE = 'TEST-ONLY-made-up-code-0123456789';
@@ -133,6 +135,8 @@ describe('the rate limit with CLIENT_IP_HEADER', () => {
 
   async function buildApp(header: string | null) {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(AUDIT_REPOSITORY)
+      .useValue(new InMemoryAuditRepository())
       .overrideProvider(ACCESS_CONFIG)
       .useValue({ mode: 'code', code: CODE })
       .overrideProvider(CLIENT_IP_HEADER)

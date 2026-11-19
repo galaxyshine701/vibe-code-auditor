@@ -4,6 +4,8 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { ACCESS_CONFIG } from './../src/access/access-code.guard.js';
 import { AppModule } from './../src/app.module.js';
+import { AUDIT_REPOSITORY } from './../src/audits/audit-repository.js';
+import { InMemoryAuditRepository } from './audits/in-memory-audit-repository.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -14,6 +16,8 @@ describe('AppController (e2e)', () => {
     })
       .overrideProvider(ACCESS_CONFIG)
       .useValue({ mode: 'open' })
+      .overrideProvider(AUDIT_REPOSITORY)
+      .useValue(new InMemoryAuditRepository())
       .compile();
 
     app = moduleFixture.createNestApplication();

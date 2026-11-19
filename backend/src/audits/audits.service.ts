@@ -1,7 +1,25 @@
 import { randomBytes } from 'node:crypto';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+  type OnModuleDestroy,
+} from '@nestjs/common';
 import type { Agent, AgentState } from '../agents/agent.js';
-import { runPipeline } from '../agents/pipeline.js';
+import {
+  AGENTS_OFF,
+  AGENTS_SETUP,
+  type AgentsSetup,
+} from '../agents/agents-config.js';
+import { createBundleInspectorAgent } from '../agents/bundle-inspector-agent.js';
+import { createEvidenceAgent } from '../agents/evidence-agent.js';
+import { createHeadersInspectorAgent } from '../agents/headers-inspector-agent.js';
+import { createGuideAgent } from '../agents/guide-agent.js';
+import { createRoadmapAgent } from '../agents/roadmap-agent.js';
+import { createOwnershipAgent } from '../agents/ownership-agent.js';
+import { runPipeline, type Stage } from '../agents/pipeline.js';
+import { createPlannerAgent } from '../agents/planner-agent.js';
 import { createProverAgent, type RunContext } from '../agents/prover-agent.js';
 import { ApiError } from '../common/api-error.js';
 import type { Gateway } from '../prover/gateway.js';
@@ -12,62 +30,75 @@ import {
   type ProverConfig,
   type ProverResult,
 } from '../prover/types.js';
-import type { AuditInput, RetestInput } from './audit-input.js';
+import type { AuditRequest, RetestInput } from './audit-input.js';
+import type { AuditRecord, AuditStatus } from './audit-record.js';
+import {
+  AUDIT_REPOSITORY,
+  type AuditRepository,
+  type StoredAudit,
+} from './audit-repository.js';
 import { buildCertificate, certificateBlocker } from './certificate.js';
+import { redactForStorage } from './redact-for-storage.js';
 import { mergeRetest } from './retest-merge.js';
+import { sweepInterrupted } from './sweeper.js';
+import { failSafeLockC } from '../stages/failsafe.js';
+import { CHECKS, notProvidedReason } from '../stages/planner-config.js';
+import { runStages } from '../stages/run-stages.js';
 import { createReportAgent, REPORT_AGENT_ID } from '../report/report-agent.js';
 import { REPORT_SETUP, type ReportSetup } from '../report/report-config.js';
 
-export type AuditStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type { AuditStatus, LastRetest } from './audit-record.js';
 
 /** Builds the connection to the target project. Replaced by a fake in tests. */
 export type GatewayFactory = (config: ProverConfig) => Gateway;
 export const GATEWAY_FACTORY = Symbol('GATEWAY_FACTORY');
 
-export interface LastRetest {
-  status: 'running' | 'completed' | 'failed';
-  startedAt: string;
-  finishedAt: string | null;
-  tablesAdded: string[];
-  tablesRemoved: string[];
-  error: { code: string; message: string } | null;
+/** How often progress is saved, and how a failed final save is retried. */
+export interface AuditTiming {
+  flushMs: number;
+  retryBaseMs: number;
+  retryMaxMs: number;
 }
+export const AUDIT_TIMING = Symbol('AUDIT_TIMING');
+export const DEFAULT_AUDIT_TIMING: AuditTiming = {
+  flushMs: 1000,
+  retryBaseMs: 1000,
+  retryMaxMs: 30_000,
+};
 
 /**
- * One audit. There is deliberately NO field for a key here, so a key cannot
- * end up in a response by accident.
+ * The run that is working on one audit right now (in this process). The
+ * working copy of the record lives here; the audit store gets copies of it.
  */
-interface AuditRecord {
+interface ActiveRun {
   id: string;
-  status: AuditStatus;
-  createdAt: string;
-  label: string;
-  projectUrl: string;
-  progress: number;
-  findings: Finding[];
-  cleanup: 'ok' | 'failed' | null;
-  /** Only when cleanup failed: what to remove by hand. */
-  cleanupNote: string | null;
-  error: { code: string; message: string } | null;
-  /** when the latest completed run (the audit or a successful re-test) finished */
-  completedAt: string | null;
-  /** the next finding number to hand out; a number is never used twice */
-  nextFindingNumber: number;
-  lastRetest: LastRetest | null;
-  /** The Prover has finished (used while the Report agent is still working). */
-  proverDone: boolean;
-  /** The Report agent's row. null when the Report agent is off. */
-  reportRow: ReportRow | null;
-}
-
-interface ReportRow {
-  status: AuditStatus;
-  progress: number;
-  message?: string;
+  /** Only this run may write the row while it is `running`. */
+  runId: string;
+  record: AuditRecord;
+  /** every secret value of this run, for redactForStorage */
+  secrets: string[];
+  /** a guarded write changed 0 rows: the row is not ours any more */
+  stopped: boolean;
+  /** the audit watchdog fired (LOCK_C_AGENTS only): every agent is told to stop */
+  watchdogHit: boolean;
+  /** the Data Access Prover ran out of its own time (LOCK_C_AGENTS only) */
+  proverTimedOut: boolean;
+  /** the final write was started: no more progress writes */
+  closed: boolean;
+  dirty: boolean;
+  timer: NodeJS.Timeout | null;
+  lastFlushAt: number;
+  /** all writes of this run go through here, one after the other */
+  chain: Promise<unknown>;
 }
 
 const MODULE_ID = 'data-access-prover';
 const MAX_KEPT_AUDITS = 50;
+
+const TIMEOUT_MESSAGE = 'The audit reached its time limit and was stopped.';
+/** The Prover did not end in time, so nobody knows if its users are gone. */
+const TIMEOUT_CLEANUP_NOTE =
+  'The audit was stopped by its time limit before the cleanup was confirmed. Look in the test project for users whose email starts with "vca-" and ends with "@example.com", and delete them by hand.';
 
 const inProgress = () =>
   new ApiError(
@@ -76,40 +107,152 @@ const inProgress = () =>
     'Another audit is still running. Wait until it finishes, then try again.',
   );
 
+const projectHeld = () =>
+  new ApiError(
+    409,
+    'AUDIT_IN_PROGRESS',
+    'An earlier audit of this project is still stopping. Wait a few minutes, then try again.',
+  );
+
+/** The same project, however the address is written (letters, a trailing slash). */
+function projectKey(projectUrl: string): string {
+  try {
+    return new URL(projectUrl).host.toLowerCase();
+  } catch {
+    return projectUrl.trim().toLowerCase();
+  }
+}
+
+const notFound = () =>
+  new ApiError(404, 'NOT_FOUND', 'No audit with this id was found.');
+
 /**
- * Runs audits in the background and keeps them IN MEMORY ONLY.
- * There is no database: when the server restarts, every audit is gone.
- * Only one run (audit or re-test) happens at a time, so two runs can never
- * delete each other's temporary users in the same project.
+ * Runs audits in the background. Audits are kept in the audit store (a table
+ * in the platform's Supabase project), so they survive a restart.
+ * Only one run (audit or re-test) happens at a time IN THIS PROCESS
+ * (`runningId`), so two runs can never delete each other's temporary users in
+ * the same project.
  */
 @Injectable()
-export class AuditsService {
+export class AuditsService implements OnModuleDestroy {
   private readonly logger = new Logger('Audits');
-  private readonly audits = new Map<string, AuditRecord>();
   private runningId: string | null = null;
+  private destroyed = false;
+  private readonly timing: AuditTiming;
+  /** LOCK_C_AGENTS: off unless the module says otherwise. */
+  private readonly agents: AgentsSetup;
+  /**
+   * Runs that have finished but whose final write is not in the store yet
+   * (the store was unreachable). GET answers from here while it retries.
+   */
+  private readonly pending = new Map<string, ActiveRun>();
+  /**
+   * Projects that a Prover which was given up on may still be touching (its
+   * promise cannot be cancelled). Each hold ends when that Prover ends, or
+   * after `orphanHoldMs`, whichever is first. Several holds can share a project.
+   */
+  private readonly holds = new Map<string, Set<symbol>>();
 
   constructor(
     @Inject(GATEWAY_FACTORY) private readonly makeGateway: GatewayFactory,
     @Inject(REPORT_SETUP) private readonly reportSetup: ReportSetup,
-  ) {}
+    @Inject(AUDIT_REPOSITORY) private readonly repo: AuditRepository,
+    @Optional() @Inject(AUDIT_TIMING) timing?: AuditTiming,
+    @Optional() @Inject(AGENTS_SETUP) agents?: AgentsSetup,
+  ) {
+    this.timing = timing ?? DEFAULT_AUDIT_TIMING;
+    this.agents = agents ?? AGENTS_OFF;
+  }
+
+  onModuleDestroy(): void {
+    this.destroyed = true;
+  }
+
+  /** LOCK_C_AGENTS: only then does POST /audits take a websiteUrl. */
+  get acceptsWebsite(): boolean {
+    return this.agents.enabled;
+  }
+
+  /**
+   * Runs at boot, before the server listens. Fails (and the server does not
+   * start) when the store cannot be used. Then every row that is still
+   * `running` is closed as INTERRUPTED. Returns how many rows were closed.
+   */
+  async bootCheck(): Promise<number> {
+    await this.repo.ping();
+    const swept = await sweepInterrupted(this.repo);
+    if (swept > 0) {
+      this.logger.warn(`${swept} audit(s) were interrupted by a restart`);
+    }
+    return swept;
+  }
+
+  private isHeld(projectUrl: string): boolean {
+    return this.holds.has(projectKey(projectUrl));
+  }
+
+  /** No new audit or re-test of this project until `done` ends (or the hard cap). */
+  private holdProject(projectUrl: string, done: Promise<void>): void {
+    const key = projectKey(projectUrl);
+    const token = Symbol('hold');
+    const tokens = this.holds.get(key) ?? new Set<symbol>();
+    tokens.add(token);
+    this.holds.set(key, tokens);
+    let timer: NodeJS.Timeout | null = null;
+    const release = () => {
+      if (timer) clearTimeout(timer);
+      tokens.delete(token);
+      if (tokens.size === 0 && this.holds.get(key) === tokens) {
+        this.holds.delete(key);
+      }
+    };
+    timer = setTimeout(release, this.agents.orphanHoldMs);
+    timer.unref();
+    void done.then(release);
+    this.logger.warn(`a stopped Prover may still be running; ${key} is held`);
+  }
 
   /** The Report agent's row at the start of a run; none when it is off. */
-  private initialReportRow(): ReportRow | null {
-    return this.reportSetup.mode === 'groq'
+  private initialReportRow(hasSupabase = true): AuditRecord['reportRow'] {
+    // No Supabase details: no tables, so nothing for the Report agent to explain.
+    return this.reportSetup.mode === 'groq' && hasSupabase
       ? { status: 'queued', progress: 0 }
       : null;
   }
 
+  private newRun(record: AuditRecord, secrets: string[]): ActiveRun {
+    return {
+      id: record.id,
+      runId: `run_${randomBytes(8).toString('hex')}`,
+      record,
+      secrets: [...secrets, ...this.repo.ownSecrets],
+      stopped: false,
+      watchdogHit: false,
+      proverTimedOut: false,
+      closed: false,
+      dirty: false,
+      timer: null,
+      lastFlushAt: 0,
+      chain: Promise.resolve(),
+    };
+  }
+
   /** Starts an audit and returns at once. The work continues in the background. */
-  start(input: AuditInput): { id: string; status: AuditStatus } {
+  async start(
+    request: AuditRequest,
+  ): Promise<{ id: string; status: AuditStatus }> {
     // Check and claim in one synchronous step, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
+    if (request.supabase && this.isHeld(request.supabase.projectUrl)) {
+      throw projectHeld();
+    }
     const record: AuditRecord = {
       id: `aud_${randomBytes(8).toString('hex')}`,
       status: 'running',
       createdAt: new Date().toISOString(),
-      label: input.label,
-      projectUrl: input.projectUrl,
+      label: request.label,
+      projectUrl: request.supabase?.projectUrl ?? null,
+      ...(request.websiteUrl ? { websiteUrl: request.websiteUrl } : {}),
       progress: 0,
       findings: [],
       cleanup: null,
@@ -119,20 +262,37 @@ export class AuditsService {
       nextFindingNumber: 1,
       lastRetest: null,
       proverDone: false,
-      reportRow: this.initialReportRow(),
+      reportRow: this.initialReportRow(request.supabase !== null),
     };
-    this.audits.set(record.id, record);
-    this.runningId = record.id;
-    this.forgetOldAudits();
-
     // The keys live only in this call. They are not stored on the record.
-    const config: ProverConfig = {
-      supabaseUrl: input.projectUrl,
-      publishableKey: input.publishableKey,
-      secretKey: input.secretKey,
-    };
-    void this.execute(record, config);
-    return { id: record.id, status: record.status };
+    const config: ProverConfig | null = request.supabase
+      ? {
+          supabaseUrl: request.supabase.projectUrl,
+          publishableKey: request.supabase.publishableKey,
+          secretKey: request.supabase.secretKey,
+        }
+      : null;
+    const run = this.newRun(record, this.runSecrets(config));
+    this.runningId = record.id;
+    try {
+      await this.repo.insert({
+        id: record.id,
+        status: 'running',
+        createdAt: record.createdAt,
+        runId: run.runId,
+        record: redactForStorage(record, run.secrets),
+      });
+    } catch (error) {
+      this.runningId = null;
+      throw error;
+    }
+    try {
+      await this.repo.prune(MAX_KEPT_AUDITS);
+    } catch {
+      // An old audit that stays a little longer does no harm.
+    }
+    void this.execute(run, config);
+    return { id: record.id, status: 'running' };
   }
 
   /**
@@ -140,13 +300,23 @@ export class AuditsService {
    * visible; the new ones replace them in one step when the run has finished.
    * The address is always the one saved with the audit.
    */
-  retest(
+  async retest(
     id: string,
     parseInput: () => RetestInput,
-  ): { id: string; status: AuditStatus } {
-    const record = this.find(id);
+  ): Promise<{ id: string; status: AuditStatus }> {
+    const record = structuredClone(await this.readRecord(id));
+    const projectUrl = record.projectUrl;
+    if (projectUrl === null) {
+      throw new ApiError(
+        409,
+        'NOT_ELIGIBLE',
+        'This audit has no Supabase details, so there is nothing to re-test yet.',
+      );
+    }
     const input = parseInput();
+    // From here to the claim there is no `await`, so two requests cannot both pass.
     if (this.runningId) throw inProgress();
+    if (this.isHeld(projectUrl)) throw projectHeld();
     if (record.status !== 'completed') {
       throw new ApiError(
         409,
@@ -158,6 +328,7 @@ export class AuditsService {
     record.progress = 0;
     record.proverDone = false;
     record.reportRow = this.initialReportRow();
+    delete record.moduleRows;
     record.lastRetest = {
       status: 'running',
       startedAt: new Date().toISOString(),
@@ -166,20 +337,33 @@ export class AuditsService {
       tablesRemoved: [],
       error: null,
     };
-    this.runningId = record.id;
-
     const config: ProverConfig = {
-      supabaseUrl: record.projectUrl,
+      supabaseUrl: projectUrl,
       publishableKey: input.publishableKey,
       secretKey: input.secretKey,
     };
-    void this.executeRetest(record, config);
-    return { id: record.id, status: record.status };
+    const run = this.newRun(record, this.runSecrets(config));
+    this.runningId = record.id;
+    try {
+      const started = await this.repo.beginRetest(
+        record.id,
+        run.runId,
+        redactForStorage(record, run.secrets),
+      );
+      if (!started) throw inProgress();
+    } catch (error) {
+      this.runningId = null;
+      throw error;
+    }
+    void this.executeRetest(run, config);
+    return { id: record.id, status: 'running' };
   }
 
   /** A human decision only. It does not change the user's database. */
-  approveFix(id: string, findingId: string): Finding {
-    const record = this.find(id);
+  async approveFix(id: string, findingId: string): Promise<Finding> {
+    if (this.pending.has(id)) throw inProgress();
+    const stored = await this.readStored(id);
+    const record = stored.record;
     if (record.status === 'running' || record.status === 'queued') {
       throw inProgress();
     }
@@ -204,41 +388,75 @@ export class AuditsService {
       fix: { ...finding.fix, status: 'approved' },
     };
     record.findings[index] = approved;
+    // Saved only if nobody else saved in between and no run has started.
+    const saved = await this.repo.saveIdle(
+      id,
+      stored.version,
+      redactForStorage(record, this.repo.ownSecrets),
+    );
+    if (!saved) throw inProgress();
     return approved;
   }
 
-  certificate(id: string) {
-    const record = this.find(id);
+  async certificate(id: string) {
+    const record = await this.readRecord(id);
     const blocker = certificateBlocker(record);
     if (blocker) throw new ApiError(409, 'NOT_ELIGIBLE', blocker);
     return buildCertificate(record);
   }
 
-  get(id: string) {
-    const record = this.find(id);
+  async get(id: string) {
+    const record = await this.readRecord(id);
     const count = (verdict: string) =>
       record.findings.filter((f) => f.verdict === verdict).length;
     return {
       id: record.id,
       status: record.status,
       createdAt: record.createdAt,
-      target: { label: record.label, projectUrl: record.projectUrl },
+      target: {
+        label: record.label,
+        ...(record.projectUrl !== null
+          ? { projectUrl: record.projectUrl }
+          : {}),
+        ...(record.websiteUrl ? { websiteUrl: record.websiteUrl } : {}),
+      },
       summary: {
         leaked: count('LEAKED'),
         blocked: count('BLOCKED'),
         inconclusive: count('INCONCLUSIVE'),
+        // Additive: only for an audit that has a website. The secret keys found
+        // in its scripts. `leaked` above stays about tables.
+        ...(record.websiteUrl
+          ? {
+              siteLeaked: (record.lockC?.evidence ?? []).filter(
+                (e) => e.kind === 'site-bundle' && e.verdict === 'LEAKED',
+              ).length,
+            }
+          : {}),
       },
       modules: [
-        {
-          id: MODULE_ID,
-          name: 'Data Access Prover',
-          // While the Report agent still works, the Prover's own row is done.
-          status:
-            record.reportRow && record.proverDone
-              ? ('completed' as const)
-              : record.status,
-          progress: record.progress,
-        },
+        record.projectUrl === null
+          ? {
+              // A website-only audit: there is no Supabase project to test.
+              id: MODULE_ID,
+              name: 'Data Access Prover',
+              status: 'skipped' as const,
+              progress: 0,
+              reason: notProvidedReason({
+                needs: 'supabase',
+                title: CHECKS.find((c) => c.id === MODULE_ID)!.title,
+              }),
+            }
+          : {
+              id: MODULE_ID,
+              name: 'Data Access Prover',
+              // While the Report agent still works, the Prover's own row is done.
+              status:
+                record.reportRow && record.proverDone
+                  ? ('completed' as const)
+                  : record.status,
+              progress: record.progress,
+            },
         ...(record.reportRow
           ? [
               {
@@ -249,19 +467,83 @@ export class AuditsService {
                 ...(record.reportRow.message
                   ? { message: record.reportRow.message }
                   : {}),
+                ...(record.reportRow.reason
+                  ? { reason: record.reportRow.reason }
+                  : {}),
               },
             ]
           : []),
+        // Additive (LOCK_C_AGENTS). Missing when the flag is off.
+        ...Object.entries(record.moduleRows ?? {}).map(([id, row]) => ({
+          id,
+          name: row.name,
+          status: row.status,
+          progress: row.progress,
+          ...(row.message ? { message: row.message } : {}),
+          ...(row.reason ? { reason: row.reason } : {}),
+        })),
       ],
       cleanup: record.cleanup,
       ...(record.cleanupNote ? { cleanupNote: record.cleanupNote } : {}),
       ...(record.error ? { error: record.error } : {}),
       lastRetest: record.lastRetest,
+      // Additive (stages). Missing on an audit stored before the stages existed.
+      ...(record.lockC
+        ? {
+            schemaVersion: record.lockC.schemaVersion,
+            ownership: record.lockC.ownership,
+            plan: record.lockC.plan,
+            gate: record.lockC.gate,
+          }
+        : {}),
     };
   }
 
-  getFindings(id: string): { findings: Finding[] } {
-    const record = this.find(id);
+  /** Evidence items and coverage (additive). */
+  async evidence(id: string) {
+    const record = await this.readRecord(id);
+    if (!record.lockC) {
+      throw new ApiError(
+        404,
+        'NOT_FOUND',
+        'This audit has no evidence list (it was run before the stages existed).',
+      );
+    }
+    return {
+      schemaVersion: record.lockC.schemaVersion,
+      items: record.lockC.evidence,
+      coverage: record.lockC.coverage,
+    };
+  }
+
+  /** What to do next (additive). Only runs made with LOCK_C_AGENTS on have one. */
+  async roadmap(id: string) {
+    const record = await this.readRecord(id);
+    if (!record.lockC?.roadmap) {
+      throw new ApiError(
+        404,
+        'NOT_FOUND',
+        'This audit has no roadmap (it was run before the roadmap existed, or without the agent pipeline).',
+      );
+    }
+    return record.lockC.roadmap;
+  }
+
+  /** The summary for a client (additive). Same rule as the roadmap. */
+  async clientReport(id: string) {
+    const record = await this.readRecord(id);
+    if (!record.lockC?.clientReport) {
+      throw new ApiError(
+        404,
+        'NOT_FOUND',
+        'This audit has no client report (it was run before the report existed, or without the agent pipeline).',
+      );
+    }
+    return record.lockC.clientReport;
+  }
+
+  async getFindings(id: string): Promise<{ findings: Finding[] }> {
+    const record = await this.readRecord(id);
     // While a re-test runs the old findings stay, each marked "running".
     const retesting = record.lastRetest?.status === 'running';
     return {
@@ -274,13 +556,128 @@ export class AuditsService {
     };
   }
 
-  private find(id: string): AuditRecord {
-    const record = this.audits.get(id);
-    if (!record) {
-      throw new ApiError(404, 'NOT_FOUND', 'No audit with this id was found.');
-    }
-    return record;
+  private async readStored(id: string): Promise<StoredAudit> {
+    const stored = await this.repo.get(id);
+    if (!stored) throw notFound();
+    return stored;
   }
+
+  /**
+   * The record a reader sees. Normally it comes from the store. If a finished
+   * run could not save its final state yet, that run's own record is used
+   * first, but only while the store row still belongs to the same run.
+   */
+  private async readRecord(id: string): Promise<AuditRecord> {
+    const waiting = this.pending.get(id);
+    let stored: StoredAudit | null;
+    try {
+      stored = await this.repo.get(id);
+    } catch (error) {
+      if (waiting) return waiting.record;
+      throw error;
+    }
+    if (waiting && (!stored || stored.runId === waiting.runId)) {
+      return waiting.record;
+    }
+    if (!stored) throw notFound();
+    return stored.record;
+  }
+
+  private runSecrets(config: ProverConfig | null): string[] {
+    const groq =
+      this.reportSetup.mode === 'groq' ? [this.reportSetup.secret] : [];
+    return config
+      ? [config.publishableKey, config.secretKey, ...groq]
+      : [...groq];
+  }
+
+  // ---- saving a run ---------------------------------------------------
+
+  /** Runs `job` after the earlier writes of this run. The chain never breaks. */
+  private enqueue<T>(run: ActiveRun, job: () => Promise<T>): Promise<T> {
+    const next = run.chain.then(job);
+    run.chain = next.catch(() => undefined);
+    return next;
+  }
+
+  /** Something changed: save it soon, but at most about once per flushMs. */
+  private touch(run: ActiveRun): void {
+    run.dirty = true;
+    if (run.closed || run.stopped || run.timer || this.destroyed) return;
+    const wait = Math.max(
+      0,
+      this.timing.flushMs - (Date.now() - run.lastFlushAt),
+    );
+    run.timer = setTimeout(() => {
+      run.timer = null;
+      void this.flush(run);
+    }, wait);
+    run.timer.unref();
+  }
+
+  private flush(run: ActiveRun): Promise<void> {
+    return this.enqueue(run, async () => {
+      if (!run.dirty || run.closed || run.stopped) return;
+      run.dirty = false;
+      run.lastFlushAt = Date.now();
+      try {
+        const ok = await this.repo.writeRunning(
+          run.id,
+          run.runId,
+          redactForStorage(run.record, run.secrets),
+        );
+        if (!ok) this.markStopped(run);
+      } catch {
+        // The store did not answer. The change is kept and saved next time.
+        run.dirty = true;
+        this.touch(run);
+      }
+    });
+  }
+
+  /** A guarded write changed 0 rows: the row is not ours. Stop the run. */
+  private markStopped(run: ActiveRun): void {
+    if (!run.stopped) {
+      this.logger.warn(`${run.id} stopped: its record was changed elsewhere`);
+    }
+    run.stopped = true;
+  }
+
+  /**
+   * The final write. The record is redacted first, and the redacted copy is
+   * also what stays in memory, so a reader sees the same text before and after.
+   * If the store does not answer, this retries in the background and GET
+   * answers from the run's own record meanwhile.
+   */
+  private async persistFinal(
+    run: ActiveRun,
+    status: 'completed' | 'failed',
+  ): Promise<void> {
+    run.closed = true;
+    if (run.timer) clearTimeout(run.timer);
+    run.timer = null;
+    Object.assign(run.record, redactForStorage(run.record, run.secrets));
+    this.pending.set(run.id, run);
+    let delay = this.timing.retryBaseMs;
+    while (!this.destroyed) {
+      try {
+        const ok = await this.enqueue(run, () =>
+          this.repo.finish(run.id, run.runId, status, run.record),
+        );
+        if (!ok) this.markStopped(run);
+        break;
+      } catch {
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, delay);
+          timer.unref();
+        });
+        delay = Math.min(delay * 2, this.timing.retryMaxMs);
+      }
+    }
+    if (this.pending.get(run.id) === run) this.pending.delete(run.id);
+  }
+
+  // ---- running the agents ---------------------------------------------
 
   /**
    * Runs the pipeline: the Prover, then the Report agent when it is on.
@@ -288,30 +685,95 @@ export class AuditsService {
    * the findings of that result.
    */
   private async runAgents(
-    gateway: Gateway,
-    record: AuditRecord,
-    secrets: string[],
-  ): Promise<ProverResult> {
-    const context: RunContext = {};
-    const agents: Agent<RunContext>[] = [
-      createProverAgent(gateway, (percent) => {
-        record.progress = percent;
-      }),
-    ];
-    const setup = this.reportSetup;
-    if (setup.mode === 'groq') {
+    gateway: Gateway | null,
+    run: ActiveRun,
+    context: RunContext,
+  ): Promise<ProverResult | undefined> {
+    const record = run.record;
+    const flag = this.agents;
+    // The run is told to stop when its record was changed elsewhere, or (flag
+    // on) when the audit watchdog fired.
+    const shouldStop = () => run.stopped || run.watchdogHit;
+    // No gateway = no Supabase details (a website-only audit): no Prover.
+    const agents: Agent<RunContext>[] = [];
+    if (gateway) {
+      const prover = createProverAgent(
+        gateway,
+        (percent) => {
+          record.progress = percent;
+          this.touch(run);
+        },
+        shouldStop,
+      );
       agents.push(
-        createReportAgent({ llm: setup.llm, problem: setup.problem }),
+        flag.enabled
+          ? {
+              ...prover,
+              deadlineMs: flag.proverDeadlineMs,
+              // It has temporary users to remove, so it is not given up on at once.
+              abandonOnDeadline: false,
+              graceMs: flag.proverGraceMs,
+            }
+          : prover,
       );
     }
-    const allSecrets =
-      setup.mode === 'groq' ? [...secrets, setup.secret] : secrets;
+    const setup = this.reportSetup;
+    if (gateway && setup.mode === 'groq') {
+      const report = createReportAgent({
+        llm: setup.llm,
+        problem: setup.problem,
+      });
+      agents.push(
+        flag.enabled
+          ? { ...report, deadlineMs: flag.reportDeadlineMs }
+          : report,
+      );
+    }
 
-    await runPipeline(agents, context, {
-      redact: (text) => redact(text, allSecrets),
-      onState: (states) => this.showStates(record, states),
+    // Flag on: the code-only stage agents. The Evidence and the Guide still run
+    // after a failure (they are finalizers), so the stage result is always
+    // written, and never "ready" by accident.
+    const limit = flag.finalizerDeadlineMs ?? AGENTS_OFF.finalizerDeadlineMs!;
+    const timed = (agent: Agent<RunContext>): Agent<RunContext> => ({
+      ...agent,
+      deadlineMs: limit,
     });
-    return context.prover!;
+    // The website inspectors run when a website was given, in the same group as
+    // the Prover (they do not wait for each other). After a hard time limit the
+    // pipeline stops waiting for them, and the check counts as not done.
+    const inspectorLimit =
+      flag.inspectorDeadlineMs ?? AGENTS_OFF.inspectorDeadlineMs!;
+    const inspectors: Agent<RunContext>[] = context.websiteUrl
+      ? [createHeadersInspectorAgent(), createBundleInspectorAgent()].map(
+          (agent) => ({ ...agent, deadlineMs: inspectorLimit }),
+        )
+      : [];
+    const [proverStage, ...afterProver] = agents;
+    const together = [...(proverStage ? [proverStage] : []), ...inspectors];
+    const stages: Stage<RunContext>[] = flag.enabled
+      ? [
+          [timed(createPlannerAgent()), timed(createOwnershipAgent())],
+          ...(together.length > 1 ? [together] : together),
+          ...afterProver,
+          timed(createEvidenceAgent()),
+          timed(createRoadmapAgent()),
+          timed(createGuideAgent()),
+        ]
+      : agents;
+
+    await runPipeline(stages, context, {
+      redact: (text) => redact(text, run.secrets),
+      onState: (states) => this.showStates(run, states),
+      shouldStop,
+      skipRemaining: flag.enabled,
+      onAbandoned: (agentId, done) => {
+        // Only the Prover touches the tested project.
+        if (agentId === MODULE_ID && record.projectUrl) {
+          this.holdProject(record.projectUrl, done);
+        }
+      },
+    });
+    return context.prover;
   }
 
   /**
@@ -320,62 +782,194 @@ export class AuditsService {
    */
   private markReportNotRun(record: AuditRecord, message: string): void {
     if (record.reportRow?.status === 'queued') {
-      record.reportRow = { status: 'failed', progress: 0, message };
+      record.reportRow = this.agents.enabled
+        ? {
+            status: 'skipped',
+            progress: 0,
+            reason: {
+              en: message,
+              ur: 'Nahi chala: audit poora nahi hua.',
+            },
+          }
+        : { status: 'failed', progress: 0, message };
     }
   }
 
   /** Copies the agents' states to the record. Does nothing when only the Prover runs. */
-  private showStates(record: AuditRecord, states: AgentState[]): void {
-    const report = states[1];
-    if (!report) return;
-    if (states[0].status === 'completed') {
-      record.progress = 100;
-      record.proverDone = true;
+  private showStates(run: ActiveRun, states: AgentState[]): void {
+    const record = run.record;
+    // Found by id, not by position, so more agents can be added.
+    const prover = states.find((s) => s.id === MODULE_ID);
+    const report = states.find((s) => s.id === REPORT_AGENT_ID);
+    const others = states.filter(
+      (s) => s.id !== MODULE_ID && s.id !== REPORT_AGENT_ID,
+    );
+    if (prover?.code === 'TIMEOUT') run.proverTimedOut = true;
+    if (!report && others.length === 0) return;
+    // No Prover in this run (a website-only audit): the progress is the
+    // average of the rows of the agents that are there.
+    if (!prover && states.length > 0) {
+      record.progress = Math.round(
+        states.reduce((sum, s) => sum + s.progress, 0) / states.length,
+      );
     }
-    record.reportRow = {
-      status: report.status,
-      progress: report.progress,
-      ...(report.message ? { message: report.message } : {}),
+    if (report) {
+      if (prover?.status === 'completed') {
+        record.progress = 100;
+        record.proverDone = true;
+      }
+      record.reportRow = {
+        status: report.status,
+        progress: report.progress,
+        ...(report.message ? { message: report.message } : {}),
+        ...(report.reason ? { reason: report.reason } : {}),
+      };
+    }
+    if (others.length > 0) {
+      record.moduleRows = Object.fromEntries(
+        others.map((s) => [
+          s.id,
+          {
+            name: s.name,
+            status: s.status,
+            progress: s.progress,
+            ...(s.message ? { message: s.message } : {}),
+            ...(s.reason ? { reason: s.reason } : {}),
+          },
+        ]),
+      );
+    }
+    this.touch(run);
+  }
+
+  /**
+   * What the agents share during one run. Flag off: nothing (the old code path
+   * does not read it). Flag on: the way to describe a failure in the same
+   * words as the record, and (re-test) the findings after the merge.
+   */
+  private newContext(
+    run: ActiveRun,
+    fallback: string,
+    stageFindings?: RunContext['stageFindings'],
+  ): RunContext {
+    if (!this.agents.enabled) return {};
+    const websiteUrl = run.record.websiteUrl;
+    return {
+      provided: {
+        website: websiteUrl !== undefined,
+        supabase: run.record.projectUrl !== null,
+      },
+      ...(websiteUrl ? { websiteUrl, siteResults: {} } : {}),
+      describeFailure: (error) => {
+        const failure = this.describeFailure(run, error, fallback);
+        return { message: failure.message, cleanup: failure.cleanup };
+      },
+      ...(stageFindings ? { stageFindings } : {}),
+    };
+  }
+
+  /** From the start of a run until the audit watchdog fires (flag on only). */
+  private armWatchdog(run: ActiveRun): NodeJS.Timeout | null {
+    if (!this.agents.enabled) return null;
+    const timer = setTimeout(() => {
+      run.watchdogHit = true;
+      this.logger.warn(`${run.id} reached its time limit`);
+    }, this.agents.auditWatchdogMs);
+    timer.unref();
+    return timer;
+  }
+
+  /**
+   * The code, the text and the cleanup state of a run that failed. A run that
+   * ran out of time says so with a fixed sentence (and, when the Prover was
+   * given up on, the cleanup is not confirmed). Anything else is as before.
+   */
+  private describeFailure(run: ActiveRun, error: unknown, fallback: string) {
+    const known = error instanceof ProverError ? error : null;
+    const timedOut =
+      run.proverTimedOut || (run.watchdogHit && known?.code === 'RUN_STOPPED');
+    if (timedOut) {
+      return {
+        code: 'TIMEOUT',
+        message: TIMEOUT_MESSAGE,
+        cleanup: known?.cleanup ?? ('failed' as const),
+        cleanupNote: known?.cleanup ? known.cleanupNote : TIMEOUT_CLEANUP_NOTE,
+      };
+    }
+    return {
+      code: known?.code ?? 'PROVER_FAILED',
+      message: redact(
+        error instanceof Error ? error.message : fallback,
+        run.secrets,
+      ),
+      cleanup: known?.cleanup ?? null,
+      cleanupNote: known?.cleanupNote,
     };
   }
 
   private async execute(
-    record: AuditRecord,
-    config: ProverConfig,
+    run: ActiveRun,
+    config: ProverConfig | null,
   ): Promise<void> {
-    const secrets = [config.publishableKey, config.secretKey];
+    const record = run.record;
     this.logger.log(`${record.id} started`);
+    const watchdog = this.armWatchdog(run);
+    const context = this.newContext(run, 'The audit stopped unexpectedly.');
     try {
-      const gateway = this.makeGateway(config);
-      const result = await this.runAgents(gateway, record, secrets);
-      record.findings = result.findings.map((f) => ({
-        ...f,
-        retest: { ...f.retest, previousVerdict: null },
-      }));
-      record.nextFindingNumber = result.findings.length + 1;
-      record.cleanup = result.cleanup;
-      record.cleanupNote = result.cleanupNote ?? null;
+      const gateway = config ? this.makeGateway(config) : null;
+      const result = await this.runAgents(gateway, run, context);
+      if (result) {
+        record.findings = result.findings.map((f) => ({
+          ...f,
+          retest: { ...f.retest, previousVerdict: null },
+        }));
+        record.nextFindingNumber = result.findings.length + 1;
+        record.cleanup = result.cleanup;
+        record.cleanupNote = result.cleanupNote ?? null;
+      }
+      record.lockC = this.agents.enabled
+        ? (context.lockC ?? failSafeLockC())
+        : runStages({
+            findings: record.findings,
+            cleanup: record.cleanup,
+            // The Prover makes one finding per table: none means no table at all.
+            dataAccess: {
+              status: 'completed',
+              zeroTables: record.findings.length === 0,
+            },
+          });
       record.progress = 100;
       record.completedAt = new Date().toISOString();
       record.status = 'completed';
     } catch (error) {
-      const known = error instanceof ProverError ? error : null;
+      const failure = this.describeFailure(
+        run,
+        error,
+        'The audit stopped unexpectedly.',
+      );
       this.markReportNotRun(record, 'Not run: the audit did not finish.');
       record.status = 'failed';
-      record.cleanup = known?.cleanup ?? null;
-      record.cleanupNote = known?.cleanupNote ?? null;
-      record.error = {
-        code: known?.code ?? 'PROVER_FAILED',
-        message: redact(
-          error instanceof Error
-            ? error.message
-            : 'The audit stopped unexpectedly.',
-          secrets,
-        ),
-      };
+      record.cleanup = failure.cleanup;
+      record.cleanupNote = failure.cleanupNote ?? null;
+      record.error = { code: failure.code, message: failure.message };
+      record.lockC = this.agents.enabled
+        ? (context.lockC ?? failSafeLockC())
+        : runStages({
+            findings: [],
+            cleanup: record.cleanup,
+            dataAccess: {
+              status: 'failedToRun',
+              message: record.error.message,
+            },
+          });
     } finally {
+      if (watchdog) clearTimeout(watchdog);
       this.runningId = null;
       this.logger.log(`${record.id} ${record.status}`);
+      void this.persistFinal(
+        run,
+        record.status === 'completed' ? 'completed' : 'failed',
+      ).catch(() => undefined);
     }
   }
 
@@ -384,15 +978,29 @@ export class AuditsService {
    * touched until the new list is ready, so on failure there is nothing to undo.
    */
   private async executeRetest(
-    record: AuditRecord,
+    run: ActiveRun,
     config: ProverConfig,
   ): Promise<void> {
-    const secrets = [config.publishableKey, config.secretKey];
+    const record = run.record;
     const lastRetest = record.lastRetest!;
     this.logger.log(`${record.id} re-test started`);
+    const watchdog = this.armWatchdog(run);
+    // The stages look at the findings AFTER the merge (the ids the user sees).
+    const context = this.newContext(
+      run,
+      'The re-test stopped unexpectedly.',
+      (fresh) =>
+        mergeRetest(
+          record.findings,
+          fresh,
+          record.nextFindingNumber,
+          new Date().toISOString(),
+        ).findings,
+    );
     try {
       const gateway = this.makeGateway(config);
-      const result = await this.runAgents(gateway, record, secrets);
+      const result = await this.runAgents(gateway, run, context);
+      if (!result) throw new Error('The Prover left no result.');
       const finishedAt = new Date().toISOString();
       // Everything is worked out first, then swapped in together.
       const merged = mergeRetest(
@@ -406,6 +1014,16 @@ export class AuditsService {
       record.cleanup = result.cleanup;
       record.cleanupNote = result.cleanupNote ?? null;
       record.completedAt = finishedAt;
+      record.lockC = this.agents.enabled
+        ? (context.lockC ?? failSafeLockC())
+        : runStages({
+            findings: record.findings,
+            cleanup: record.cleanup,
+            dataAccess: {
+              status: 'completed',
+              zeroTables: record.findings.length === 0,
+            },
+          });
       record.lastRetest = {
         status: 'completed',
         startedAt: lastRetest.startedAt,
@@ -415,11 +1033,15 @@ export class AuditsService {
         error: null,
       };
     } catch (error) {
-      const known = error instanceof ProverError ? error : null;
+      const failure = this.describeFailure(
+        run,
+        error,
+        'The re-test stopped unexpectedly.',
+      );
       this.markReportNotRun(record, 'Not run: the Re-test did not finish.');
-      if (known?.cleanup) {
-        record.cleanup = known.cleanup;
-        record.cleanupNote = known.cleanupNote ?? null;
+      if (failure.cleanup) {
+        record.cleanup = failure.cleanup;
+        record.cleanupNote = failure.cleanupNote ?? null;
       }
       record.lastRetest = {
         status: 'failed',
@@ -427,29 +1049,15 @@ export class AuditsService {
         finishedAt: new Date().toISOString(),
         tablesAdded: [],
         tablesRemoved: [],
-        error: {
-          code: known?.code ?? 'PROVER_FAILED',
-          message: redact(
-            error instanceof Error
-              ? error.message
-              : 'The re-test stopped unexpectedly.',
-            secrets,
-          ),
-        },
+        error: { code: failure.code, message: failure.message },
       };
     } finally {
+      if (watchdog) clearTimeout(watchdog);
       record.status = 'completed';
       record.progress = 100;
       this.runningId = null;
       this.logger.log(`${record.id} re-test ${record.lastRetest?.status}`);
-    }
-  }
-
-  private forgetOldAudits(): void {
-    while (this.audits.size > MAX_KEPT_AUDITS) {
-      const oldest = this.audits.keys().next().value;
-      if (oldest === undefined || oldest === this.runningId) break;
-      this.audits.delete(oldest);
+      void this.persistFinal(run, 'completed').catch(() => undefined);
     }
   }
 }

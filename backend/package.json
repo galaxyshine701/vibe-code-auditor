@@ -16,6 +16,8 @@
     "start:prod": "node dist/main",
     "prove": "nest build && node dist/prover/cli.js",
     "smoke:groq": "nest build && node dist/report/smoke.js",
+    "smoke:safe-fetch": "nest build && node dist/net/smoke.js",
+    "smoke:site": "nest build && node scripts/smoke-site.mjs",
     "lint": "oxlint --type-aware src/ test/",
     "test": "vitest run",
     "test:watch": "vitest",

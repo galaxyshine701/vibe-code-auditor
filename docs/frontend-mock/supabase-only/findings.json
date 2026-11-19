@@ -1,0 +1,182 @@
+{
+  "findings": [
+    {
+      "id": "fnd_001",
+      "module": "data-access-prover",
+      "table": "bookings",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null,
+        "previousVerdict": null
+      },
+      "verdict": "LEAKED",
+      "severity": "critical",
+      "title": "Visitors and logged-in users can read, change and delete other users' rows in \"bookings\"",
+      "explanation": {
+        "en": "A row that belongs to the first user was reached. A logged-in user could read, change and delete it. A visitor could read it. The table has no rule that limits rows to their owner.",
+        "ur": "Pehle user ki row tak doosre log pahunch gaye. Login wala user ise parh, badal aur delete kar sakta tha. Bina login wala visitor ise parh sakta tha. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare."
+      },
+      "evidence": {
+        "rowsReturned": 1,
+        "httpStatus": 200,
+        "canaryRowId": "canary-0001",
+        "reproducer": "curl -H 'apikey: <ANON_KEY>' -H 'Authorization: Bearer <USER_B_JWT>' '<PROJECT_URL>/rest/v1/bookings?user_id=eq.canary-0002'",
+        "operations": [
+          {
+            "operation": "SELECT",
+            "actor": "user_b",
+            "allowed": true,
+            "httpStatus": 200,
+            "rowsReturned": 1
+          },
+          {
+            "operation": "UPDATE",
+            "actor": "user_b",
+            "allowed": true,
+            "httpStatus": 200,
+            "rowsReturned": 1
+          },
+          {
+            "operation": "DELETE",
+            "actor": "user_b",
+            "allowed": true,
+            "httpStatus": 200,
+            "rowsReturned": 1
+          },
+          {
+            "operation": "SELECT",
+            "actor": "anon",
+            "allowed": true,
+            "httpStatus": 200,
+            "rowsReturned": 1
+          },
+          {
+            "operation": "SELECT",
+            "actor": "owner",
+            "allowed": true,
+            "httpStatus": 200,
+            "rowsReturned": 1
+          },
+          {
+            "operation": "INSERT",
+            "actor": "owner",
+            "httpStatus": 201,
+            "rowsReturned": 1,
+            "allowed": true
+          }
+        ]
+      },
+      "fix": {
+        "status": "proposed",
+        "description": "Turn on row-level security and let users reach only their own rows. If a broader policy already exists on this table, remove it, because policies add up. Review before applying.",
+        "sql": "alter table public.\"bookings\" enable row level security;\ncreate policy \"Owners can select own rows\" on public.\"bookings\" for select to authenticated using ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can insert own rows\" on public.\"bookings\" for insert to authenticated with check ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can update own rows\" on public.\"bookings\" for update to authenticated using ((select auth.uid()) = \"user_id\") with check ((select auth.uid()) = \"user_id\");\ncreate policy \"Owners can delete own rows\" on public.\"bookings\" for delete to authenticated using ((select auth.uid()) = \"user_id\");"
+      }
+    },
+    {
+      "id": "fnd_002",
+      "module": "data-access-prover",
+      "table": "profiles",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null,
+        "previousVerdict": null
+      },
+      "verdict": "BLOCKED",
+      "severity": "info",
+      "title": "\"profiles\": other users and visitors were blocked",
+      "explanation": {
+        "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+        "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+      },
+      "evidence": {
+        "rowsReturned": 0,
+        "httpStatus": 200,
+        "canaryRowId": "canary-0002",
+        "reproducer": null,
+        "operations": [
+          {
+            "operation": "SELECT",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "UPDATE",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "DELETE",
+            "actor": "user_b",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "SELECT",
+            "actor": "anon",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0
+          },
+          {
+            "operation": "SELECT",
+            "actor": "owner",
+            "allowed": true,
+            "httpStatus": 200,
+            "rowsReturned": 1
+          },
+          {
+            "operation": "INSERT",
+            "actor": "owner",
+            "allowed": null,
+            "httpStatus": null,
+            "rowsReturned": null,
+            "note": "Not tested: the owner column is the primary key, so the owner cannot add a second row."
+          }
+        ]
+      },
+      "fix": null
+    },
+    {
+      "id": "fnd_003",
+      "module": "data-access-prover",
+      "table": "hotels",
+      "operation": "SELECT",
+      "retest": {
+        "status": "not_run",
+        "lastRunAt": null,
+        "previousVerdict": null
+      },
+      "verdict": "INCONCLUSIVE",
+      "severity": "low",
+      "title": "\"hotels\": no owner column, is this intended?",
+      "explanation": {
+        "en": "This table has no column that links a row to a user, so a canary row could not be planted. If it holds public information such as a hotel list, that is fine. Please confirm.",
+        "ur": "Is table me aisa column nahi jo row ko kisi user se jore, isliye canary row nahi daali ja saki. Agar isme sirf public maloomat hain (jaise hotel list) to theek hai. Barae meharbani confirm karein."
+      },
+      "evidence": {
+        "rowsReturned": 0,
+        "httpStatus": 200,
+        "canaryRowId": null,
+        "reproducer": null,
+        "operations": [
+          {
+            "operation": "SELECT",
+            "actor": "anon",
+            "allowed": false,
+            "httpStatus": 200,
+            "rowsReturned": 0,
+            "note": "No owner column, so no canary row was planted."
+          }
+        ]
+      },
+      "fix": null
+    }
+  ]
+}

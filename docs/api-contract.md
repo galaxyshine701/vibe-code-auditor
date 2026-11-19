@@ -183,7 +183,7 @@ A human approves the suggested fix. Response `200`: the updated finding with `fi
 - `404` `NOT_FOUND`: unknown audit or unknown finding.
 - `409` `AUDIT_IN_PROGRESS`: the audit (or a re-test of it) is still running.
 - `409` `NO_FIX_TO_APPROVE`: the finding has `fix: null` (for example it is `BLOCKED` or `INCONCLUSIVE`).
-- Approvals are kept in memory only (see "What the backend keeps").
+- Approvals are kept in the audit store, like the audits (see "What the backend keeps").
 
 ### POST /audits/:id/retest
 Runs the same checks again on the same audit. The keys are sent again on every re-test, because the backend never stores them.
@@ -232,7 +232,7 @@ In `GET /audits/:id`. `null` until a re-test has been started.
 }
 ```
 - `status`: `running` | `completed` | `failed`. `finishedAt` is `null` while running.
-- `error`: `null`, or `{ "code": "...", "message": "Plain-language message" }` when `status` is `failed`.
+- `error`: `null`, or `{ "code": "...", "message": "Plain-language message" }` when `status` is `failed`. `code` is `INTERRUPTED` when a server restart stopped the re-test (see "What the backend keeps").
 - `tablesAdded` / `tablesRemoved`: names of tables that appear in this run but not in the run before, and the other way round. Always arrays; empty while running and when `failed`.
 - `cleanup` and `cleanupNote` (see above) describe the most recent run that finished, the first audit or a re-test, successful or not. While a re-test runs they keep the value of the run before, and are updated when it ends.
 
@@ -264,13 +264,224 @@ Optional. They appear only when the backend runs with the Report agent on (`REPO
 - `modules[].message`: optional, only on a `failed` row. One plain sentence. It never contains a key, a request or the AI's own text.
 - Privacy: table names and check results (never keys) are sent to Groq to write the explanation. A key, the project address, the canary row id, the reproducer and user ids are never sent.
 
+### Additive fields: agent rows, `skipped`, `reason` and `TIMEOUT` (`LOCK_C_AGENTS`)
+Optional. They appear only when the backend runs with `LOCK_C_AGENTS=on`. With it off (the default) nothing changes: the response is the same as before.
+```json
+"modules": [
+  { "id": "data-access-prover", "name": "Data Access Prover", "status": "failed", "progress": 40 },
+  {
+    "id": "report-agent", "name": "Report agent", "status": "skipped", "progress": 0,
+    "reason": { "en": "Not run: the audit did not finish.", "ur": "Nahi chala: audit poora nahi hua." }
+  }
+],
+"error": { "code": "TIMEOUT", "message": "The audit reached its time limit and was stopped." }
+```
+- `modules[].status` gets one more value: `skipped`. The full list for a module row is `queued` | `running` | `completed` | `failed` | `skipped`. It means the agent did not run on purpose, for example because an earlier required step failed or the run was stopped.
+- The audit's own `status` does NOT get `skipped`. It stays `queued` | `running` | `completed` | `failed`.
+- `modules[].reason`: `{ "en": "...", "ur": "..." }`, both languages. Only present on a `skipped` row. A `skipped` row has no `message`. A `failed` row still has `message` and no `reason`.
+- More rows: when more agents are added to the run, each one appears in `modules` after the rows above, in the same shape (`id`, `name`, `status`, `progress`, and `message` or `reason` when they apply). A client shows the rows it finds and does not depend on a fixed list.
+- Stage rows: with `LOCK_C_AGENTS=on` the stage steps show as rows too, after the `data-access-prover` row (and the `report-agent` row when it is on), in this order: `planner`, `ownership`, `evidence`, `roadmap`, `guide` (`roadmap` is described in "Additive: roadmap and client report"). They are plain code (no AI). `planner`, `evidence`, `roadmap` and `guide` are `completed` when they finish. `ownership` is `skipped` with the same `reason` as `ownership.reason`, because ownership is not checked yet. With the flag off these four rows do not exist, and every other field is exactly as before.
+- The stage fields (`plan`, `ownership`, `evidence`, `coverage`, `gate`) have the same values with the flag on and off. The `gate` is worked out only from the checks, the coverage, the evidence and `cleanup`; a `skipped` or `failed` row never changes it by itself.
+- If the `evidence` step fails or runs out of time, the audit status is NOT changed (it stays `completed`), and the `evidence` row is `failed` with a `message`. The `gate` is then `not_ready`, its first reason is "The evidence of this run is not available, so there is no result.", `GET /audits/:id/evidence` has no `items`, and every planned check is in `coverage.failedToRun`. If the `guide` step itself fails or runs out of time, the `gate` is `not_ready` with the reason "The result of this run could not be worked out, so there is no result." A missing step never makes a run look ready.
+- Time limits: every agent has its own time limit, and the whole run has one too. A run that runs out of time ends as `failed` with `error.code` `TIMEOUT` (a fixed plain sentence, no keys). `TIMEOUT` is a new value of the existing `error.code` field; no field was added for it. In a re-test the audit stays `completed` and `lastRetest.error.code` is `TIMEOUT`, as for any failed re-test.
+- A `TIMEOUT` can leave the temporary test users in the test project (the checks were stopped before they could clean up). Then `cleanup` is `"failed"` and `cleanupNote` says to remove users with an email like `vca-*@example.com` by hand.
+- A stopped run may still be finishing in the background. Until it ends (at most about 10 minutes), a new audit or re-test of the SAME project is refused with `409` `AUDIT_IN_PROGRESS` and the message "An earlier audit of this project is still stopping. Wait a few minutes, then try again." Another project is not affected. The code is the existing one.
+
+### Additive request: a website, with or without Supabase (`LOCK_C_AGENTS`)
+Optional. `POST /audits` can start from a website address. This works only when the backend runs with `LOCK_C_AGENTS=on`. **With the flag off (the default) `websiteUrl` and `confirmSiteAccess` do not exist: they are ignored like any other extra field, and the request, its errors and its answer are exactly as before** (Supabase details and `confirmTestProject` are always required).
+```json
+{
+  "label": "My shop",
+  "websiteUrl": "https://www.example-shop.com",
+  "confirmSiteAccess": true,
+  "projectUrl": "https://example-project.supabase.co",
+  "anonKey": "<write-only, never returned>",
+  "serviceKey": "<write-only, never returned>",
+  "confirmTestProject": true
+}
+```
+- A request with no `websiteUrl` is the old request, checked exactly as before (same fields, same error messages).
+- With a `websiteUrl`: `confirmSiteAccess` must be exactly `true` (the caller says they may test this site). Otherwise `400` `INVALID_INPUT`.
+- `websiteUrl`: a public `https` address, no login, no port, no IP address. Only its front page is looked at; a path, query or hash is dropped. Otherwise `400` `INVALID_INPUT` that names the field only.
+- The Supabase group is `projectUrl` + `anonKey` + `serviceKey`. With a `websiteUrl` it is optional, but all or nothing: if some are given and some are not, `400` `INVALID_INPUT`, and the message names the missing fields only (never a value). When the group is given, `confirmTestProject` must be exactly `true`, as before. `confirmTestProject` is not needed without the group.
+- A request needs a `websiteUrl` or the Supabase group (the old request has the group).
+
+What changes in the answers (only for a request that has a `websiteUrl`, or when the flag is on; nothing changes with the flag off):
+- `GET /audits/:id`: `target` is `{ "label", "projectUrl"?, "websiteUrl"? }`. A website-only audit has no `projectUrl`. An audit with only Supabase details has no `websiteUrl`, as before.
+- A website-only audit has no tables: `findings` is `[]`, `summary` is all zeros, `cleanup` stays `null`, and the `data-access-prover` row is `skipped` with a `reason` "Not provided". There is no `report-agent` row. Its progress is the average of its rows and ends at 100.
+- Checks are chosen from what was given. A check whose input was not given is in `plan` with `required: false`, and in `coverage.skipped` with a `reason` that starts with "Not provided" and names the check, in both languages. A check whose input was given keeps `required: true` (the Data Access Prover when Supabase details were given, the website checks when a website was given). This also holds for the old request (Supabase only) when the flag is on: the two website checks are then "Not provided" and optional.
+- `gate`: when it is `not_ready`, every check that was not provided is named in `gate.reasons` ("Not checked, because it was not provided: ..."). A run with no Supabase details needs no blocked table (there is no table check), but it is never `ready_by_these_checks` unless at least one REQUIRED check completed. An empty coverage is never ready.
+- Re-test of a website-only audit: `409` `NOT_ELIGIBLE` for now. `GET /audits/:id/certificate` needs a BLOCKED table, so a website-only audit gets `409` `NOT_ELIGIBLE`.
+
+### Additive: website checks and evidence that is not about a table (`LOCK_C_AGENTS`)
+Optional. With a `websiteUrl` (see "Additive request: a website, with or without Supabase") the two website checks run. They are plain code (no AI), read only what any visitor can read, and use a network guard that refuses private addresses. With the flag off nothing here exists.
+- Rows: `tls-headers` and `bundle-secrets` appear in `modules` (after `ownership`, before `evidence`), in the same shape as the other rows. They run together with the Prover, not after it. If one runs out of time its row is `failed` with a `message`, and its check is in `coverage.failedToRun`.
+- `tls-headers` reads the front page and looks at the security headers (Strict-Transport-Security, Content-Security-Policy, X-Content-Type-Options, framing, Referrer-Policy) and at whether the page was reached over https. The certificate itself is NOT read yet: `coverage.outOfScope` names "TLS validity period and expiry" with the reason "Not implemented yet". Out of scope does not hold the gate back.
+- `bundle-secrets` reads the front page and the scripts of the same origin (at most 30 files, 2 MB each, 15 MB in all) and looks for a Supabase secret key (`sb_secret_...`) or a `service_role` key. It does not test whether a key works. Scripts of another origin are named in `coverage.outOfScope`. A script that was not read (limit, size, error, stop) is named in `coverage.partial[].notRead`, and a required check that is `partial` keeps the gate `not_ready`.
+- A site that cannot be read: the check is in `coverage.failedToRun` with a fixed sentence (never the address), and the audit still completes.
+- `GET /audits/:id/evidence`: the items of these checks use the same shape as the others, with these differences. `findingId` and `table` are `null` (they are not about a finding or a table). `kind` is `"site-headers"` or `"site-bundle"`. `subject` says what it is about: a header name (`"strict-transport-security"`, `"content-security-policy"`, `"x-content-type-options"`, `"framing"`, `"referrer-policy"`, `"https"`) or a script (`host/path` only: a query, a hash and a login are always cut off). The items of the Data Access Prover are as before; for them `kind` is missing, and a missing `kind` means `"table"`. A client must accept `null` in `findingId` and `table`.
+  ```json
+  { "id": "ev_site_bundle-secrets_1", "check": "bundle-secrets", "findingId": null, "table": null,
+    "subject": "www.example-shop.com/assets/app.js", "kind": "site-bundle",
+    "verdict": "LEAKED", "proof": "PROVEN", "summary": { "en": "...", "ur": "..." } }
+  ```
+- `verdict` for `site-bundle`: `LEAKED` = a secret key is in a script of the site (the gate is then `not_ready`). For `site-headers`: `BLOCKED` = the header is there, `INCONCLUSIVE` = it is missing or weak. A header is never `LEAKED`. The key itself is never in any answer: only its kind (in the sentence) and the script's name.
+- `summary.leaked`, `blocked` and `inconclusive` and `findings` stay about tables. For an audit that has a `websiteUrl`, `summary` also has `siteLeaked`: the number of secret keys found in the scripts of the site (the `site-bundle` evidence items with verdict `LEAKED`), `0` when none or when the site could not be read (the coverage says what was not checked). An audit without a `websiteUrl` has no `siteLeaked` key at all, and with the flag off nothing changes.
+- With the flag on, a run with a website and no Supabase details can be `ready_by_these_checks` when both website checks completed with no leak and the cleanup is not `"failed"`. The sentence "Today the gate is always `not_ready`" below is true only with the flag off.
+
+### Additive: roadmap and client report (`LOCK_C_AGENTS`)
+Optional. Two new routes and one new row. They exist only for a run made with `LOCK_C_AGENTS=on`. **With the flag off nothing here exists** and every answer is exactly as before. `GET /audits/:id` gets no new field: only the `roadmap` row (see "Stage rows").
+- `roadmap` is a code-only agent (no AI) that runs after `evidence` and before `guide`. It still runs after a failure. It has its own time limit (the finalizer limit). If it fails or runs out of time its row is `failed` (a `message`, fixed sentence for a timeout), the audit is not changed, the roadmap is empty and the client report says "Roadmap not available." in `limits`. If the `guide` itself fails, the roadmap is empty and the client report is a fixed `not_ready` one.
+- A re-test makes both again (from the findings after the merge). A failed re-test leaves them as they were.
+- `404` `NOT_FOUND` for an unknown audit, and for an audit that has none (made with the flag off, or before this step).
+- They never contain a key, a query, a hash, or the Prover's SQL (a fix item points at the finding that holds it).
+
+#### GET /audits/:id/roadmap
+```json
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "rm_001",
+      "kind": "fix-finding",
+      "severity": "critical",
+      "fromRequiredCheck": true,
+      "title": { "en": "Fix the leak in table \"bookings\"", "ur": "..." },
+      "why": { "en": "...", "ur": "..." },
+      "steps": [ { "en": "...", "ur": "..." } ],
+      "refs": { "checkId": "data-access-prover", "findingIds": ["fnd_001"], "evidenceIds": ["ev_fnd_001"] }
+    }
+  ],
+  "truncated": 0
+}
+```
+- `kind`: `fix-finding` | `fix-site-secret` | `improve-header` | `confirm` | `cleanup` | `finish-check` | `provide-input` | `retest`. A client shows a kind it does not know as plain text.
+- `severity`: the usual values. `fromRequiredCheck`: the item comes from a check that is required in this run.
+- `steps`: 1 to 4 items. `refs.findingIds` are ids from `GET .../findings`; `refs.evidenceIds` are ids from `GET .../evidence`; `refs.checkId` is an id from `plan`.
+- Which item comes from what:
+  - `fix-finding`: a table that is `LEAKED`. Severity is the finding's. The SQL stays in the finding's `fix`.
+  - `fix-site-secret`: a secret key in a script of the site. Always `critical`. The steps say: rotate the key (Supabase -> API keys), remove it from the code and env files, redeploy, run the audit again.
+  - `improve-header`: a header that is missing or weak. `https` is `high`; `strict-transport-security` and `content-security-policy` are `medium`; `x-content-type-options` and `framing` are `low`; `referrer-policy` is `info`.
+  - `confirm`: a table that is `INCONCLUSIVE`.
+  - `cleanup`: `cleanup` is `"failed"`. `high`.
+  - `finish-check`: a check that is `partial` or `failedToRun`. `medium`. For `partial` the `why` names what was not read.
+  - `provide-input`: an optional check that was "Not provided". `info`.
+  - `retest`: there is a fix item and Supabase details were given. `info`.
+  - No item for: a `BLOCKED` table or header, a check that is "Not implemented yet", ownership.
+- Order (fixed, the same input always gives the same list): severity (`critical` first), then items from a required check first, then kind (`fix-site-secret`, `fix-finding`, `cleanup`, `finish-check`, `improve-header`, `confirm`, `provide-input`, `retest`), then the id of what it refers to. The ids `rm_001`... are given after sorting.
+- At most 100 items. `truncated` is how many were left out (the least important ones).
+- A run with nothing to do (or no roadmap) has `"items": []`.
+
+#### GET /audits/:id/client-report
+```json
+{
+  "schemaVersion": 1,
+  "headline": { "en": "Leak found by these checks: 1 table.", "ur": "..." },
+  "decision": "not_ready",
+  "reasons": [ { "en": "...", "ur": "..." } ],
+  "scope": {
+    "checked": [ { "id": "data-access-prover", "title": { "en": "...", "ur": "..." } } ],
+    "notProvided": [], "notImplemented": [], "partial": [], "failedToRun": [],
+    "outOfScope": [ { "name": "TLS validity period and expiry", "reason": { "en": "...", "ur": "..." } } ]
+  },
+  "findings": {
+    "tables": { "leaked": 1, "blocked": 1, "inconclusive": 1 },
+    "site": { "siteLeaked": 0, "headersMissing": 2 }
+  },
+  "topActions": ["rm_001", "rm_002", "rm_003"],
+  "limits": [ { "en": "...", "ur": "..." } ],
+  "disclaimer": { "en": "...", "ur": "..." }
+}
+```
+- `decision` and `reasons` are the `gate`, copied.
+- `headline`: a leak (a table or a secret key in a script, both are named) says so; `ready_by_these_checks` says "No leak found by these checks."; not ready with no leak says the result is not complete; nothing finished says "No result". The words are always "by these checks". A client must not use `summary.leaked` alone as the headline: a secret key in a script is `summary.siteLeaked`.
+- `scope`: every planned check is in exactly one of `checked`, `notProvided`, `notImplemented` (skipped for another reason, today: not built yet), `partial`, `failedToRun`. Each is `{ "id", "title" }`. `outOfScope` is the same list as `coverage.outOfScope`.
+- `findings.tables` is `null` when the data access check did not complete. Its counts are the counts of `summary`. `findings.site` is `null` when no website check ran; `siteLeaked` is the same number as `summary.siteLeaked`, `headersMissing` is the number of headers that are missing or weak.
+- `topActions`: the ids of the first three roadmap items.
+- Wording: never a claim of approval (not "certified", "safe to launch", "guaranteed", "secure", and the same in Roman Urdu).
+
+### Additive fields: the stages (`schemaVersion` 2)
+Added to `GET /audits/:id` and a new route `GET /audits/:id/evidence`. Nothing is renamed or removed. An audit that finished a run (an audit or a re-test) after the stages were added has the fields below; an older audit does not. A client treats a missing `schemaVersion` as `1` and shows no stage fields for it.
+
+`GET /audits/:id` gets four more fields:
+```json
+"schemaVersion": 2,
+"ownership": {
+  "status": "skipped",
+  "reason": { "en": "Ownership of the site is not checked yet.", "ur": "Site ki malkiyat abhi check nahi hoti." }
+},
+"plan": [
+  { "id": "data-access-prover", "title": { "en": "...", "ur": "..." }, "mode": "keyed", "required": true },
+  { "id": "tls-headers", "title": { "en": "...", "ur": "..." }, "mode": "passive", "required": true },
+  { "id": "bundle-secrets", "title": { "en": "...", "ur": "..." }, "mode": "passive", "required": true },
+  { "id": "active-checks", "title": { "en": "...", "ur": "..." }, "mode": "active", "required": false }
+],
+"gate": {
+  "decision": "not_ready",
+  "reasons": [
+    { "en": "The required check \"Certificate and security headers of the site\" was skipped.", "ur": "..." }
+  ]
+}
+```
+- `schemaVersion`: `2` while these fields exist.
+- `ownership.status`: `skipped` | `proven` | `not_proven`. Today it is always `skipped`, with a `reason`. `proven` and `not_proven` are reserved for the day ownership of the site is checked.
+- `plan`: the checks of this run, in order. Every check is listed, also one that is not built yet. `mode`: `passive` (reads what any visitor can read), `keyed` (runs with the keys the user typed in) or `active` (sends probes to the site; allowed only after ownership is proven). `required`: a required check that did not complete keeps `gate.decision` at `not_ready`.
+- `gate.decision`: `ready_by_these_checks` | `not_ready`. It is `ready_by_these_checks` only when ALL of these are true: at least one check completed; every required check completed (not skipped, not partial, not failed to run); no leak was found; `cleanup` is not `"failed"`; and at least one table was shown to be blocked, or the Data Access Prover completed with no exposed table at all ("zero tables", see `coverage.nothingToTest`, reserved: not produced by the API today). An empty coverage is never ready. `gate.reasons` says why it is `not_ready` and is empty when it is ready. The words are always "by these checks": this is never a statement that an app is secure.
+- Today the gate is always `not_ready`: the checks `tls-headers` and `bundle-secrets` are required but not built yet, so they are `skipped`.
+- Every text that is `{ "en", "ur" }` has both languages.
+
+### GET /audits/:id/evidence
+New route. `404` `NOT_FOUND` for an unknown audit, and also for an audit that has no stage fields (an older audit).
+```json
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "ev_fnd_001",
+      "check": "data-access-prover",
+      "findingId": "fnd_001",
+      "table": "bookings",
+      "verdict": "LEAKED",
+      "proof": "PROVEN",
+      "summary": { "en": "...", "ur": "..." }
+    }
+  ],
+  "coverage": {
+    "checked": ["data-access-prover"],
+    "partial": [],
+    "skipped": [
+      { "id": "tls-headers", "reason": { "en": "Not implemented yet.", "ur": "Abhi bana nahi." } }
+    ],
+    "outOfScope": [],
+    "failedToRun": [],
+    "nothingToTest": [],
+    "limits": [
+      { "en": "Scripts from other origins are not scanned.", "ur": "Doosre origin ki scripts scan nahi hotin." }
+    ]
+  }
+}
+```
+- `items`: one per finding of the Data Access Prover. `findingId` is an id from `GET /audits/:id/findings`. `proof`: `PROVEN` (the check saw it directly: a leak, or a table that held up) or `UNVERIFIED` (the check could not tell: `INCONCLUSIVE`). `summary` is the finding's `explanation`.
+- `coverage`: what was and was not looked at. Every planned check is in exactly one of `checked`, `partial`, `skipped` or `failedToRun`; a check that reported nothing counts as `skipped`, so a gap never looks like a pass.
+  - `checked`: ids of the checks that completed.
+  - `partial`: `{ "id", "reason", "notRead": [{ "name", "reason" }] }`. The check ran but could not read part of what it should (a size cap or a time limit); `notRead` names each part. A required check that is `partial` keeps the gate at `not_ready`.
+  - `skipped` and `failedToRun`: `{ "id", "reason" }`.
+  - `nothingToTest`: **Reserved: not produced by the API today.** The list is always `[]` for now. `{ "id", "note" }`. A check that completed but found nothing to test, for example the Data Access Prover when no table is exposed ("zero tables"). It is in `checked` too, it is not a failure and not a skip, and the note says that no table data was tested. For `data-access-prover` it lets the gate be ready without a blocked table. The Prover still ends an audit with no exposed table as `failed` with `error.code` `NO_TABLES` (that does not change), so a client must not wait for this list to be filled. If the Prover ever completes an audit with zero tables, this list will carry the note and the gate rule above will apply.
+  - `outOfScope`: `{ "name", "reason" }`. Things left out on purpose, named one by one (for example a script of another origin). Out of scope is NOT partial and does not hold the gate back.
+  - `limits`: what these checks can not tell, in plain words.
+
 ### What happens to finding ids, tables and fixes between runs
 - A table that exists in both runs keeps the same finding `id`. A table that appears gets a new `id`, a `previousVerdict` of `null`, and `retest.status` by the rule above (so a new table that is `LEAKED` gets `failed`). A table that disappears is dropped from the list and is named in `lastRetest.tablesRemoved`; a dropped id is never reused. A table that disappeared is not proof that its leak was fixed, so the UI should show `tablesRemoved` to the user.
 - A finding that becomes `BLOCKED` or `INCONCLUSIVE` gets `fix: null` (those findings never have a fix). The approval is not kept; the `previousVerdict` of `LEAKED` and `retest.status = "passed"` tell the story.
 - A finding that is still `LEAKED` gets the fix the Prover proposes now. If the SQL is identical to the old one, `fix.status` stays as it was (for example `approved`). If the SQL is different, `fix.status` goes back to `proposed`, because the approval was for different SQL.
 
 ### What the backend keeps
-Audits, approvals and re-test results are kept in memory only (newest 50 audits). After a server restart they are gone, and every route in this file answers `404` `NOT_FOUND` for the old id.
+Audits, approvals and re-test results are kept in the audit store (a table in the platform's own Supabase project; never a key). The newest 50 audits are kept. A server restart does not remove them: every route in this file still answers for an old id, and `404` `NOT_FOUND` now means only that the id is unknown or was removed because it was not among the newest 50.
+
+A run that a restart stopped is closed when the server starts again:
+- An audit that was `running` becomes `status` `failed` with `error` `{ "code": "INTERRUPTED", "message": "..." }`.
+- A re-test that was `running` leaves the audit `completed` with its old findings unchanged, and `lastRetest` becomes `failed` with `error.code` `INTERRUPTED`. The top-level `error` stays absent.
+- In both cases `cleanup` is `"failed"` and `cleanupNote` says that users with an email like `vca-*@example.com`, or canary rows, may be left in the target project and must be removed by hand. `INTERRUPTED` is a new value of the existing `error.code` field; no field was added, renamed or removed.
 
 ### GET /audits/:id/certificate
 Available only when ALL of these are true: the audit `status` is `completed` (no run or re-test is going on), it has zero `LEAKED` findings, it has at least one `BLOCKED` finding, and `cleanup` is not `"failed"`. Otherwise `409` with `{ "error": { "code": "NOT_ELIGIBLE", "message": "..." } }`, and the message names the reason. An audit with only `INCONCLUSIVE` findings is not eligible: nothing was shown to be blocked.

@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AccessCodeGuard } from '../access/access-code.guard.js';
-import { parseAuditInput, parseRetestInput } from './audit-input.js';
+import { parseAuditRequest, parseRetestInput } from './audit-input.js';
 import { AuditsService } from './audits.service.js';
 
 // Every route here needs the X-Access-Code header (see AccessCodeGuard).
@@ -22,12 +22,29 @@ export class AuditsController {
   @Post()
   @HttpCode(202)
   create(@Body() body: unknown) {
-    return this.audits.start(parseAuditInput(body));
+    return this.audits.start(
+      parseAuditRequest(body, this.audits.acceptsWebsite),
+    );
   }
 
   @Get(':id')
   status(@Param('id') id: string) {
     return this.audits.get(id);
+  }
+
+  @Get(':id/evidence')
+  evidence(@Param('id') id: string) {
+    return this.audits.evidence(id);
+  }
+
+  @Get(':id/roadmap')
+  roadmap(@Param('id') id: string) {
+    return this.audits.roadmap(id);
+  }
+
+  @Get(':id/client-report')
+  clientReport(@Param('id') id: string) {
+    return this.audits.clientReport(id);
   }
 
   @Get(':id/findings')
