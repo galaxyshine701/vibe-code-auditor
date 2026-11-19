@@ -28,8 +28,7 @@ export function ConnectGroups({
   return (
     <div className="source-groups">
       <p className="muted small source-lede">
-        Add a website address, Supabase details, or both. Each group is
-        optional, but at least one must be complete.
+        Each group is optional, but at least one must be complete.
       </p>
 
       <fieldset
