@@ -125,6 +125,22 @@ export function t(lang: Lang, key: CopyKey): string {
   return COPY[key][lang];
 }
 
+// What a roadmap item is about (R81). A kind the UI does not know is shown as given.
+const KIND_LABELS: Record<string, Pair> = {
+  'fix-finding': { en: 'Fix a table', ur: 'Table theek karein' },
+  'fix-site-secret': { en: 'Remove a secret key', ur: 'Secret key hatayein' },
+  'improve-header': { en: 'Improve a header', ur: 'Header behtar karein' },
+  confirm: { en: 'Confirm', ur: 'Tasdeeq karein' },
+  cleanup: { en: 'Clean up', ur: 'Safai karein' },
+  'finish-check': { en: 'Finish a check', ur: 'Check poora karein' },
+  'provide-input': { en: 'Add input', ur: 'Input dein' },
+  retest: { en: 'Re-test', ur: 'Re-test' },
+};
+
+export function kindLabel(kind: string, lang: Lang): string {
+  return KIND_LABELS[kind]?.[lang] ?? kind;
+}
+
 /** "N more steps are not shown." (R81) */
 export function moreSteps(count: number, lang: Lang): string {
   return lang === 'ur'

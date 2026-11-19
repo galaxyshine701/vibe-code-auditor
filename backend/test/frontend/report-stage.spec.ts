@@ -164,25 +164,130 @@ describe('the components do not show an API title or decide anything', () => {
     }
   });
 
-  it('the report styles reduce motion', () => {
+  it('the report styles reduce motion, for every animation of the report', () => {
     const css = read('app', 'report.css');
-    const block = css.slice(
-      css.lastIndexOf('@media (prefers-reduced-motion: reduce)'),
-    );
+    const blocks = css
+      .split('@media (prefers-reduced-motion: reduce)')
+      .slice(1)
+      .join(' ');
     for (const selector of [
       '.gate-mark',
       '.gate-reasons li',
       '.stat-tile',
       '.bucket',
+      '.roadmap-item',
+      '.evidence-row',
     ]) {
-      expect(block, selector).toContain(selector);
+      expect(blocks, selector).toContain(selector);
     }
-    expect(block).toContain('animation: none');
+    expect(blocks).toContain('animation: none');
+    // every animated selector of the file is named in a reduced-motion block
+    const animated = [...css.matchAll(/([.\w:-]+)\s*\{[^}]*animation:/g)].map(
+      (m) => m[1],
+    );
+    for (const selector of animated) {
+      if (selector.includes('::after')) continue;
+      expect(blocks, selector).toContain(selector);
+    }
   });
 
   it('the report styles use the tokens of the theme, no colour of their own', () => {
     const css = read('app', 'report.css');
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\b(rgb|rgba|hsl|hsla)\(/);
+  });
+});
+
+describe('the roadmap (R81)', () => {
+  const roadmap = read('components', 'roadmap-list.tsx');
+
+  it('keeps the order received: no sort, and the helper that does not sort is used', () => {
+    expect(roadmap).toContain('roadmapItems(roadmap?.items)');
+    expect(roadmap).not.toMatch(/\.sort\(|\.reverse\(/);
+  });
+
+  it('steps are a numbered list, and the first three are open', () => {
+    expect(roadmap).toContain('<ol className="roadmap-steps">');
+    expect(roadmap).toContain('const OPEN_FIRST = 3');
+    expect(roadmap).toContain('open={index < OPEN_FIRST}');
+  });
+
+  it('"Required check" comes from showsRequiredLabel, which is only fix-* and improve-header', () => {
+    expect(roadmap).toContain('showsRequiredLabel(item)');
+    expect(roadmap).toContain("'requiredCheck'");
+  });
+
+  it('says "N more steps are not shown." when truncated, "No next steps from these checks." when empty, and hides the steps when the roadmap is not available', () => {
+    expect(roadmap).toContain('moreSteps(truncated, lang)');
+    expect(roadmap).toContain("'roadmapEmpty'");
+    expect(roadmap).toContain('roadmapUnavailable(report)');
+    // a 404 (no roadmap) hides the section, unless the report says it is not available
+    expect(roadmap).toContain('if (!roadmap && !unavailable) return null;');
+  });
+
+  it('links to the finding and the evidence only where the screen has them', () => {
+    expect(roadmap).toContain('findingIds.has(id)');
+    expect(roadmap).toContain('evidenceIds.has(id)');
+    expect(read('components', 'finding-card.tsx')).toContain(
+      'id={`finding-${finding.id}`}',
+    );
+    expect(read('components', 'evidence-groups.tsx')).toContain(
+      'id={`evidence-${item.id}`}',
+    );
+  });
+
+  it('never holds SQL: it points at the finding (R32)', () => {
+    expect(roadmap).not.toMatch(/\.sql|fix\.sql/);
+  });
+
+  it('the page shows it after the scope and before the findings', () => {
+    const page = read('app', 'audits', '[id]', 'report', 'page.tsx');
+    expect(page.indexOf('<ScopeBuckets')).toBeLessThan(
+      page.indexOf('<RoadmapList'),
+    );
+    expect(page.indexOf('<RoadmapList')).toBeLessThan(
+      page.indexOf('<EvidenceGroups'),
+    );
+    expect(page.indexOf('<EvidenceGroups')).toBeLessThan(
+      page.indexOf('<FindingCard'),
+    );
+  });
+});
+
+describe('the evidence (R79)', () => {
+  const evidence = read('components', 'evidence-groups.tsx');
+
+  it('is grouped by kind with the helper, and a missing kind is a table', () => {
+    expect(evidence).toContain('groupEvidence(evidence.items)');
+    expect(evidence).toContain('kindOf(item)');
+  });
+
+  it('the three kinds have a title in both languages, an unknown kind is shown as given', () => {
+    for (const key of ['kindTable', 'kindHeaders', 'kindBundle']) {
+      expect(evidence).toContain(key);
+      expect(copy.COPY[key].en).not.toBe('');
+    }
+    expect(evidence).toContain(': group.kind');
+  });
+
+  it('a verdict the UI does not know is plain text; the known ones use the badge of R56', () => {
+    expect(evidence).toContain('<VerdictBadge');
+    expect(evidence).toContain('className="verdict-badge"');
+  });
+
+  it('a site item has no fix, no Approve fix and no Re-test status', () => {
+    expect(evidence).not.toMatch(/ApproveFix|retest\./);
+    expect(evidence).not.toContain('FindingCard');
+  });
+
+  it('shows the subject as the UI labels it (a header) or as given (a script as host/path)', () => {
+    expect(evidence).toContain('subjectLabel(item.subject, lang)');
+  });
+
+  it('the rows come one after the other', () => {
+    expect(evidence).toContain("'--i': index");
+    expect(read('app', 'report.css')).toMatch(
+      /\.evidence-row \{[^}]*animation: evidenceIn[^}]*animation-delay: calc\([^)]*var\(--i/,
+    );
   });
 });

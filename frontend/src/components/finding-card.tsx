@@ -136,7 +136,10 @@ export function FindingCard({
   }
 
   return (
-    <article className={`finding-card finding-${finding.verdict.toLowerCase()}`}>
+    <article
+      id={`finding-${finding.id}`}
+      className={`finding-card finding-${finding.verdict.toLowerCase()}`}
+    >
       <div className="finding-top">
         <div className="finding-badges">
           <VerdictBadge

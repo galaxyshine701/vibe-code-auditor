@@ -539,3 +539,343 @@
     animation: none;
   }
 }
+
+/* ---- the roadmap: steps on a line, in the order to follow (R81) ---- */
+.roadmap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* the line that joins the steps */
+.roadmap::before {
+  content: "";
+  position: absolute;
+  top: 1.2rem;
+  bottom: 1.2rem;
+  left: calc(0.95rem - 1px);
+  width: 2px;
+  background: linear-gradient(var(--line-strong), var(--line));
+}
+
+.roadmap-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.9rem 1fr;
+  gap: 12px;
+  align-items: start;
+  scroll-margin-top: 5.5rem;
+  animation: gateRise 0.45s ease-out both;
+  animation-delay: calc(0.1s + var(--i, 0) * 60ms);
+}
+
+.roadmap-number {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  margin-top: 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--bg);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.roadmap-item:nth-child(-n + 3) .roadmap-number {
+  color: var(--btn-ink);
+  border-color: var(--btn-bg);
+  background: var(--btn-bg);
+}
+
+.roadmap-item:target details {
+  border-color: var(--ink);
+}
+
+.roadmap-item details {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  transition: border-color 0.2s ease;
+}
+
+.roadmap-item summary {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 40px 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  position: relative;
+}
+
+.roadmap-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.roadmap-item summary::after {
+  content: "+";
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.roadmap-item details[open] summary::after {
+  content: "\2212";
+}
+
+.roadmap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.roadmap-kind {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.roadmap-title {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+
+.roadmap-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 14px 14px;
+  animation: gateRise 0.3s ease-out both;
+}
+
+.roadmap-body h3 {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.roadmap-body p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.roadmap-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.roadmap-steps li {
+  position: relative;
+  padding-left: 30px;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+  counter-increment: step;
+}
+
+.roadmap-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  display: grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.roadmap-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.roadmap-empty {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 13px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.roadmap-more {
+  margin: 12px 0 0;
+}
+
+/* ---- the evidence, by kind; the rows come one after the other (R79) ---- */
+.evidence-group {
+  margin-top: 18px;
+}
+
+.evidence-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.evidence-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence-row {
+  --tone: var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--tone);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  scroll-margin-top: 5.5rem;
+  animation: evidenceIn 0.4s ease-out both;
+  animation-delay: calc(0.1s + var(--i, 0) * 55ms);
+}
+
+.evidence-leaked {
+  --tone: var(--leak);
+}
+
+.evidence-blocked {
+  --tone: var(--ok);
+}
+
+.evidence-inconclusive {
+  --tone: var(--grey);
+}
+
+.evidence-row:target {
+  border-color: var(--ink);
+}
+
+@keyframes evidenceIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.evidence-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.evidence-subject {
+  min-width: 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.proof-chip {
+  margin-left: auto;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+.evidence-row p {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+.evidence-meaning {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.evidence-summary {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.evidence-row .text-link {
+  align-self: flex-start;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 520px) {
+  .roadmap-item {
+    grid-template-columns: 1.6rem 1fr;
+    gap: 8px;
+  }
+
+  .roadmap-number {
+    width: 1.6rem;
+    height: 1.6rem;
+    font-size: 0.7rem;
+  }
+
+  .roadmap::before {
+    left: calc(0.8rem - 1px);
+  }
+
+  .proof-chip {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roadmap-item,
+  .roadmap-body,
+  .evidence-row {
+    animation: none;
+  }
+}

@@ -15,10 +15,12 @@ import { Disclaimer } from '@/components/disclaimer';
 import { ErrorBanner } from '@/components/error-banner';
 import { FindingCard } from '@/components/finding-card';
 import { FixProgress } from '@/components/fix-progress';
+import { EvidenceGroups } from '@/components/evidence-groups';
 import { GateBanner } from '@/components/gate-banner';
 import { LangToggle } from '@/components/lang-toggle';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { RetestForm } from '@/components/retest-form';
+import { RoadmapList } from '@/components/roadmap-list';
 import { ScopeBuckets } from '@/components/scope-buckets';
 import { useBadges } from '@/components/use-badges';
 import { getAudit, getFindings, getStageBundle, retest } from '@/lib/api';
@@ -427,6 +429,10 @@ export default function ReportPage() {
   const buckets = stages
     ? bucketsOf(stage?.clientReport, stage?.evidence?.coverage, audit?.plan)
     : null;
+  const findingIdSet = new Set((findings ?? []).map((finding) => finding.id));
+  const evidenceIdSet = new Set(
+    (stage?.evidence?.items ?? []).map((item) => item.id),
+  );
   const fixedIds = new Set(
     (findings ?? []).filter(isVerifiedFixed).map((finding) => finding.id),
   );
@@ -473,6 +479,18 @@ export default function ReportPage() {
             lang={language}
           />
           <ScopeBuckets buckets={buckets} lang={language} />
+          <RoadmapList
+            roadmap={stage?.roadmap ?? null}
+            report={stage?.clientReport ?? null}
+            lang={language}
+            findingIds={findingIdSet}
+            evidenceIds={evidenceIdSet}
+          />
+          <EvidenceGroups
+            evidence={stage?.evidence ?? null}
+            lang={language}
+            findingIds={findingIdSet}
+          />
         </>
       ) : null}
 
