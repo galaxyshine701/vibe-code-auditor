@@ -1,0 +1,541 @@
+/* The Report of the agent pipeline: the gate banner, the summary, the buckets of
+   coverage, the roadmap and the evidence (R77 to R83). The tokens of the theme
+   only. Motion is small and says something about state: the verdict lands, the
+   reasons and the rows come one by one. Nothing moves with reduced motion. */
+
+.report-heading > :first-child {
+  min-width: 0;
+}
+
+/* ---- the gate banner ---- */
+.gate-banner {
+  --tone: var(--grey);
+  --tone-soft: var(--grey-soft);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: start;
+  padding: 22px 24px;
+  border: 1px solid var(--tone);
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--tone-soft), transparent 70%), var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.gate-leak {
+  --tone: var(--leak);
+  --tone-soft: var(--leak-soft);
+  box-shadow: 0 0 0 1px var(--leak-glow), var(--shadow-soft);
+}
+
+.gate-clear {
+  --tone: var(--ok);
+  --tone-soft: var(--ok-soft);
+}
+
+.gate-not-ready {
+  --tone: var(--canary);
+  --tone-soft: var(--canary-soft);
+}
+
+.gate-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border: 1px solid var(--tone);
+  border-radius: 50%;
+  color: var(--tone);
+  background: var(--tone-soft);
+  animation: gateMark 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.gate-not-ready .gate-mark {
+  color: var(--ink);
+}
+
+.gate-mark::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--tone);
+  border-radius: 50%;
+  opacity: 0;
+  animation: gateRing 1.1s ease-out 0.3s 1 both;
+}
+
+@keyframes gateMark {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gateRing {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+.gate-body {
+  min-width: 0;
+}
+
+.gate-body > p,
+.gate-body > h2 {
+  margin: 0;
+}
+
+.gate-eyebrow {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gate-headline {
+  margin-top: 4px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2.6vw, 1.75rem);
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+  animation: gateRise 0.5s ease-out 0.15s both;
+}
+
+.gate-status {
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  font-weight: 600;
+  animation: gateRise 0.5s ease-out 0.25s both;
+}
+
+@keyframes gateRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.gate-reasons {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.gate-why {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gate-reasons ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gate-reasons li {
+  position: relative;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  animation: gateRise 0.4s ease-out both;
+  animation-delay: calc(0.45s + var(--i, 0) * 90ms);
+}
+
+.gate-reasons li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+/* ---- the summary ---- */
+.client-summary,
+.scope-card,
+.roadmap-card,
+.evidence-card {
+  padding: 24px;
+}
+
+.client-summary h2,
+.scope-card h2,
+.roadmap-card h2,
+.evidence-card h2 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+}
+
+.summary-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 22px;
+  margin-top: 14px;
+}
+
+.summary-group h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stat-tile {
+  flex: 1 1 6.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  animation: gateRise 0.45s ease-out both;
+  animation-delay: calc(0.1s + var(--i, 0) * 70ms);
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-tile strong {
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: break-word;
+}
+
+.stat-leaked {
+  border-color: var(--leak);
+  background: var(--leak-soft);
+}
+
+.stat-leaked .stat-value {
+  color: var(--leak);
+}
+
+.stat-blocked .stat-value {
+  color: var(--ok);
+}
+
+.stat-inconclusive .stat-value {
+  color: var(--grey);
+}
+
+.not-checked {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+}
+
+.do-first {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.do-first h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.do-first ol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  counter-reset: first;
+}
+
+.do-first li {
+  counter-increment: first;
+}
+
+.do-first li a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--ink);
+  background: var(--surface-soft);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.do-first li a::before {
+  content: counter(first);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  color: var(--btn-ink);
+  background: var(--btn-bg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.do-first li a:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-strong);
+}
+
+.do-first li a span:last-child {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* ---- the buckets of coverage ---- */
+.bucket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16.5rem, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.bucket {
+  --tone: var(--line-strong);
+  min-width: 0;
+  padding: 15px 16px 16px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--tone);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  animation: gateRise 0.45s ease-out both;
+  animation-delay: calc(0.1s + var(--i, 0) * 80ms);
+}
+
+.bucket-ok {
+  --tone: var(--ok);
+}
+
+.bucket-warn {
+  --tone: var(--canary);
+}
+
+.bucket-fail {
+  --tone: var(--leak);
+}
+
+.bucket header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.bucket h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.bucket-count {
+  min-width: 1.5rem;
+  padding: 2px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.bucket ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bucket > ul > li {
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.bucket > ul > li:first-child {
+  border-top: 0;
+}
+
+.bucket-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bucket-name {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+.required-tag {
+  padding: 2px 8px;
+  border: 1px solid var(--canary);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--canary-soft);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.bucket-reason {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.bucket-add {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+
+.not-read {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--canary-soft);
+}
+
+.not-read-title {
+  margin: 0 0 4px;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.not-read ul li {
+  padding: 2px 0;
+  border: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.not-read code {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.limits {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface-soft);
+}
+
+.limits summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.limits ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.limits li {
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 520px) {
+  .gate-banner {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .client-summary,
+  .scope-card,
+  .roadmap-card,
+  .evidence-card {
+    padding: 18px 14px;
+  }
+
+  .report-heading {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-mark,
+  .gate-mark::after,
+  .gate-headline,
+  .gate-status,
+  .gate-reasons li,
+  .stat-tile,
+  .bucket {
+    animation: none;
+  }
+}

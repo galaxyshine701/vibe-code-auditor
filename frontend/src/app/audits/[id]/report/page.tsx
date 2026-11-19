@@ -8,16 +8,20 @@ import { useApp } from '@/components/app-provider';
 import { BadgeStrip } from '@/components/badges';
 import { BeforeAfter } from '@/components/before-after';
 import { CertificateAction } from '@/components/certificate-action';
+import { ClientSummary } from '@/components/client-summary';
 import { CleanupWarning } from '@/components/cleanup-warning';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { Disclaimer } from '@/components/disclaimer';
 import { ErrorBanner } from '@/components/error-banner';
 import { FindingCard } from '@/components/finding-card';
 import { FixProgress } from '@/components/fix-progress';
+import { GateBanner } from '@/components/gate-banner';
+import { LangToggle } from '@/components/lang-toggle';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { RetestForm } from '@/components/retest-form';
+import { ScopeBuckets } from '@/components/scope-buckets';
 import { useBadges } from '@/components/use-badges';
-import { getAudit, getFindings, retest } from '@/lib/api';
+import { getAudit, getFindings, getStageBundle, retest } from '@/lib/api';
 import {
   ApiError,
   RequestCancelledError,
@@ -30,8 +34,33 @@ import {
   shouldPlayUnlock,
 } from '@/lib/outcome';
 import { isVerifiedFixed } from '@/lib/progress';
+import { targetLines } from '@/lib/progress-rows';
+import { bucketsOf, hasStages, headlineOf, leakCount, pick } from '@/lib/stage';
+import { t } from '@/lib/stage-copy';
+import type { StageBundle } from '@/lib/stage-types';
 import type { AuditStatusResponse, Finding } from '@/lib/types';
+import { useLang } from '@/lib/use-lang';
 import { useApiError } from '@/lib/use-api-error';
+
+// Reads the three routes of the stages for a finished or failed run. A part that
+// answers 404 is null (hidden, R72); any other error is told, and the rest of
+// the report stays.
+async function readStage(
+  audit: AuditStatusResponse,
+  accessCode: string,
+  signal: AbortSignal,
+): Promise<{ bundle: StageBundle | null; error: string }> {
+  if (!hasStages(audit)) return { bundle: null, error: '' };
+  try {
+    return { bundle: await getStageBundle(audit, accessCode, signal), error: '' };
+  } catch (caught) {
+    if (caught instanceof RequestCancelledError) throw caught;
+    return {
+      bundle: null,
+      error: caught instanceof Error ? caught.message : 'Unknown error.',
+    };
+  }
+}
 
 export default function ReportPage() {
   const params = useParams<{ id: string }>();
@@ -45,7 +74,10 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [gone, setGone] = useState(false);
-  const [language, setLanguage] = useState<'en' | 'ur'>('en');
+  const [language, setLanguage] = useLang();
+  // The three routes of the stages (R72): a part that is null is hidden, never an error.
+  const [stage, setStage] = useState<StageBundle | null>(null);
+  const [stageError, setStageError] = useState('');
   const [retestRunning, setRetestRunning] = useState(false);
   const [retestStarting, setRetestStarting] = useState(false);
   const [retestError, setRetestError] = useState('');
@@ -98,8 +130,15 @@ export default function ReportPage() {
           return;
         }
 
+        // A failed run has the stage fields too (R86).
+        const stagePromise = readStage(status, accessCode, controller.signal);
+
         if (status.status === 'failed') {
           setFindings(null);
+          const stageResult = await stagePromise;
+          if (cancelled) return;
+          setStage(stageResult.bundle);
+          setStageError(stageResult.error);
           setLoading(false);
           return;
         }
@@ -107,6 +146,10 @@ export default function ReportPage() {
         const result = await getFindings(id, accessCode, controller.signal);
         if (cancelled) return;
         setFindings(sortFindings(result.findings));
+        const stageResult = await stagePromise;
+        if (cancelled) return;
+        setStage(stageResult.bundle);
+        setStageError(stageResult.error);
         setLoading(false);
       } catch (caught) {
         if (cancelled || caught instanceof RequestCancelledError) return;
@@ -163,6 +206,11 @@ export default function ReportPage() {
             if (fresh.length > 0) setSealAnimating(fresh);
           }
           setFindings(sorted);
+          // a Re-test makes the roadmap and the client report again (R84)
+          const stageResult = await readStage(status, accessCode, controller.signal);
+          if (cancelled) return;
+          setStage(stageResult.bundle);
+          setStageError(stageResult.error);
         }
         setRetestRunning(false);
       } catch (caught) {
@@ -195,7 +243,8 @@ export default function ReportPage() {
       retestActive,
       lastRetestStatus: audit.lastRetest?.status ?? null,
       findings,
-      leaked: audit.summary.leaked,
+      // tables and secret keys in the scripts of the site (R73)
+      leaked: leakCount(audit.summary),
       blocked: audit.summary.blocked,
       cleanup: audit.cleanup,
       actionObserved: retestAsked.current,
@@ -206,7 +255,7 @@ export default function ReportPage() {
       const lock = certificateLock({
         status: audit.status,
         retestActive,
-        leaked: audit.summary.leaked,
+        leaked: leakCount(audit.summary),
         blocked: audit.summary.blocked,
         cleanup: audit.cleanup,
       });
@@ -249,7 +298,7 @@ export default function ReportPage() {
       eligibleAtStart.current = certificateLock({
         status: audit?.status,
         retestActive: false,
-        leaked: audit?.summary.leaked ?? 0,
+        leaked: leakCount(audit?.summary),
         blocked: audit?.summary.blocked ?? 0,
         cleanup: audit?.cleanup,
       }).eligible;
@@ -307,8 +356,8 @@ export default function ReportPage() {
         <div className="card empty-card">
           <h1>This audit no longer exists.</h1>
           <p className="muted">
-            No audit with this id was found. Audits are kept in server memory,
-            so a server restart removes them.
+            No audit with this id was found. The server keeps the newest 50
+            audits, so an older one is no longer there.
           </p>
           <Link href="/" className="button button-primary">
             Start a new audit
@@ -361,7 +410,8 @@ export default function ReportPage() {
           retest: { ...finding.retest, status: 'running' as const },
         }))
       : findings;
-  const leakedCount = audit?.summary.leaked ?? 0;
+  // R73: a leak is a leaking table or a secret key in a script of the site
+  const leakedCount = leakCount(audit?.summary);
   const blockedCount = audit?.summary.blocked ?? 0;
   const inconclusiveCount = audit?.summary.inconclusive ?? 0;
   // The same rule as before, in one place (R68).
@@ -372,6 +422,11 @@ export default function ReportPage() {
     blocked: blockedCount,
     cleanup: audit?.cleanup,
   });
+  const stages = audit ? hasStages(audit) : false;
+  const headline = audit ? headlineOf(audit, stage?.clientReport ?? null) : null;
+  const buckets = stages
+    ? bucketsOf(stage?.clientReport, stage?.evidence?.coverage, audit?.plan)
+    : null;
   const fixedIds = new Set(
     (findings ?? []).filter(isVerifiedFixed).map((finding) => finding.id),
   );
@@ -382,13 +437,43 @@ export default function ReportPage() {
         <div>
           <h1>{audit?.target.label ?? 'Audit report'}</h1>
           {audit ? (
-            <p className="muted break">{audit.target.projectUrl}</p>
+            <ul className="target-lines">
+              {targetLines(audit.target).map((line) => (
+                <li key={line.kind}>
+                  <span className="target-kind">
+                    {line.kind === 'website' ? 'Website' : 'Supabase'}
+                  </span>
+                  <span className="muted break">{line.url}</span>
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
+        {stages ? <LangToggle lang={language} onChange={setLanguage} /> : null}
       </div>
 
       {audit?.cleanup === 'failed' ? (
         <CleanupWarning note={audit.cleanupNote} />
+      ) : null}
+
+      {stages ? (
+        <>
+          <GateBanner gate={audit?.gate} headline={headline} lang={language} />
+          {stageError ? (
+            <div className="notice notice-info" role="status">
+              {t(language, 'stageError')} {stageError}
+            </div>
+          ) : null}
+          <ClientSummary
+            report={stage?.clientReport ?? null}
+            roadmapItems={stage?.roadmap?.items}
+            summary={audit?.summary}
+            hasWebsite={Boolean(audit?.target.websiteUrl)}
+            hasSupabase={Boolean(audit?.target.projectUrl)}
+            lang={language}
+          />
+          <ScopeBuckets buckets={buckets} lang={language} />
+        </>
       ) : null}
 
       {failed ? (
@@ -416,24 +501,7 @@ export default function ReportPage() {
             <div className="toolbar-row">
               <div className="toolbar-group">
                 <span className="toolbar-label">Explanation</span>
-                <div className="segmented" role="group" aria-label="Language">
-                  <button
-                    type="button"
-                    className={language === 'en' ? 'segment active' : 'segment'}
-                    aria-pressed={language === 'en'}
-                    onClick={() => setLanguage('en')}
-                  >
-                    English
-                  </button>
-                  <button
-                    type="button"
-                    className={language === 'ur' ? 'segment active' : 'segment'}
-                    aria-pressed={language === 'ur'}
-                    onClick={() => setLanguage('ur')}
-                  >
-                    Roman Urdu
-                  </button>
-                </div>
+                <LangToggle lang={language} onChange={setLanguage} />
               </div>
 
               <div className="toolbar-actions">
@@ -505,7 +573,9 @@ export default function ReportPage() {
             <RateLimitNotice />
           </section>
 
+          {!stages || (findings && findings.length > 0) ? (
           <section className="card summary-card">
+            {!stages ? (
             <div className="summary-grid summary-grid-report">
               <div className="summary-item summary-leaked">
                 <span>{audit?.summary.leaked ?? 0}</span>
@@ -520,8 +590,9 @@ export default function ReportPage() {
                 <strong>Blocked</strong>
               </div>
             </div>
+            ) : null}
             <FixProgress findings={findings} retestActive={retestActive} />
-            {leakedCount === 0 && blockedCount >= 1 ? (
+            {!stages && leakedCount === 0 && blockedCount >= 1 ? (
               <>
                 <p className="no-leak-line">No leak found by these checks.</p>
                 {inconclusiveCount > 0 ? (
@@ -532,6 +603,7 @@ export default function ReportPage() {
               </>
             ) : null}
           </section>
+          ) : null}
 
           <BadgeStrip
             state={badges.state}
@@ -613,8 +685,15 @@ export default function ReportPage() {
             ))}
           </div>
 
-          <Disclaimer>
-            <CoverageNotes summary="Checked, not covered and limits" />
+          <Disclaimer statement={stages ? '' : undefined}>
+            {stage?.clientReport?.disclaimer ? (
+              <p className="muted small">
+                {pick(stage.clientReport.disclaimer, language)}
+              </p>
+            ) : null}
+            {!stages || audit?.target.projectUrl ? (
+              <CoverageNotes summary="Checked, not covered and limits" />
+            ) : null}
           </Disclaimer>
         </>
       )}

@@ -9,6 +9,7 @@ import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
 import './intro.css';
 import './stage.css';
+import './report.css';
 
 export const metadata: Metadata = {
   title: PROJECT_NAME,
