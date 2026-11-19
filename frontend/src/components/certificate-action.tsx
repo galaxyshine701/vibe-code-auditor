@@ -23,7 +23,7 @@ function Padlock({ open }: { open: boolean }) {
   );
 }
 
-// "Open certificate view" (R68). Locked until the audit is eligible, with the
+// "Open result view" (R68, R87: the screen is called Re-test result). Locked until the audit is eligible, with the
 // reason always written next to it (not in a tooltip). The lock opens with a
 // short animation, once, only when the user's own Re-test made it eligible.
 export function CertificateAction({
@@ -49,7 +49,7 @@ export function CertificateAction({
       <div className={`cert-action ${playUnlock ? 'is-unlocking' : ''}`}>
         <Link href={`/audits/${auditId}/certificate`} className="button button-ghost cert-button">
           <Padlock open />
-          Open certificate view
+          Open result view
         </Link>
       </div>
     );
@@ -65,7 +65,7 @@ export function CertificateAction({
         onClick={(event) => event.preventDefault()}
       >
         <Padlock open={false} />
-        Open certificate view
+        Open result view
       </button>
       <p className="muted small cert-reason" id="cert-reason">
         {lock.reason}

@@ -291,3 +291,67 @@ describe('the evidence (R79)', () => {
     );
   });
 });
+
+describe('the empty and special states (R83), Re-test (R74) and the Re-test result (R87)', () => {
+  const page = read('app', 'audits', '[id]', 'report', 'page.tsx');
+
+  it('an audit of a website only has no Re-test and no re-test result action', () => {
+    expect(page).toContain(
+      'const retestAllowed = audit ? canRetest(audit) : true;',
+    );
+    expect(page).toContain('{retestAllowed ? (');
+    expect(page).toContain('<CertificateAction');
+    // the action sits inside the toolbar that is hidden without Supabase details
+    expect(page.indexOf('{retestAllowed ? (')).toBeLessThan(
+      page.indexOf('<CertificateAction'),
+    );
+  });
+
+  it('a website only audit says no table was checked, not "No findings"', () => {
+    expect(page).toContain(
+      'const noTables = audit ? websiteOnly(audit) : false;',
+    );
+    expect(page).toContain('{noTables ? (');
+    expect(page.indexOf('<NoTables')).toBeLessThan(
+      page.indexOf('<h3>No findings</h3>'),
+    );
+  });
+
+  it('a Supabase only audit invites to add a website, in place of the site evidence', () => {
+    expect(page).toContain('invitesWebsite(audit) ? <InviteWebsite');
+    expect(page.indexOf('<EvidenceGroups')).toBeLessThan(
+      page.indexOf('<InviteWebsite'),
+    );
+  });
+
+  it('the invitations lead to a new audit, where the Connect form has both groups', () => {
+    const invites = read('components', 'stage-invites.tsx');
+    expect(invites).toContain('href="/"');
+    expect(invites).toContain("'inviteWebsite'");
+    expect(invites).toContain("'noTables'");
+  });
+
+  it('the old Certificate screen is "Re-test result": button, title, loading and access texts', () => {
+    expect(read('components', 'certificate-action.tsx')).toContain(
+      'Open result view',
+    );
+    expect(read('components', 'certificate-action.tsx')).not.toMatch(
+      /Open certificate/,
+    );
+    const screen = read('app', 'audits', '[id]', 'certificate', 'page.tsx');
+    expect(screen).toContain('Re-test result');
+    expect(screen).toContain('Checking the re-test result');
+    expect(screen).not.toMatch(/Issued/);
+    expect(copy.COPY.retestResult.en).toBe('Re-test result');
+    // the route and the code keep their names
+    expect(read('components', 'certificate-action.tsx')).toContain(
+      '/certificate`',
+    );
+  });
+
+  it('with the flag off the page is the old one: the old summary and the old line are still there', () => {
+    expect(page).toContain('{!stages ? (');
+    expect(page).toContain('<h3>No findings</h3>');
+    expect(page).toContain('summary-grid-report');
+  });
+});

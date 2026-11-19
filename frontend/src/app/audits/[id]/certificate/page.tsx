@@ -9,6 +9,7 @@ import { Disclaimer } from '@/components/disclaimer';
 import { ErrorBanner } from '@/components/error-banner';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { getCertificate } from '@/lib/api';
+import { PROJECT_NAME } from '@/lib/brand';
 import {
   ApiError,
   RequestCancelledError,
@@ -78,7 +79,7 @@ export default function CertificatePage() {
     return (
       <AccessGate
         title="Access code required"
-        description="Enter the access code to open this certificate view. It stays in this page’s memory only."
+        description="Enter the access code to open this re-test result. It stays in this page’s memory only."
       />
     );
   }
@@ -89,7 +90,7 @@ export default function CertificatePage() {
         <div className="card loading-card" role="status">
           <span className="spinner" aria-hidden="true" />
           <div>
-            <strong>Checking the certificate view…</strong>
+            <strong>Checking the re-test result…</strong>
             <p className="muted">This view stays inside the app.</p>
           </div>
         </div>
@@ -165,19 +166,20 @@ export default function CertificatePage() {
           <div className="certificate-glow" aria-hidden="true" />
           <div className="certificate-top">
             <span className="seal" aria-hidden="true">
-              VCA
+              {PROJECT_NAME.charAt(0)}
             </span>
             <div>
+              <p className="certificate-eyebrow">Re-test result</p>
               <h1>No leak found by these checks</h1>
             </div>
           </div>
           <p className="certificate-sub">
-            Issued for audit <span className="mono-small">{certificate.auditId}</span>
+            For audit <span className="mono-small">{certificate.auditId}</span>
           </p>
 
           <dl className="certificate-grid">
             <div>
-              <dt>Issued at</dt>
+              <dt>Recorded at</dt>
               <dd>{formatDate(certificate.issuedAt)}</dd>
             </div>
             <div>

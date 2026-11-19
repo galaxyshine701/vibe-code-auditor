@@ -22,6 +22,7 @@ import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { RetestForm } from '@/components/retest-form';
 import { RoadmapList } from '@/components/roadmap-list';
 import { ScopeBuckets } from '@/components/scope-buckets';
+import { InviteWebsite, NoTables } from '@/components/stage-invites';
 import { useBadges } from '@/components/use-badges';
 import { getAudit, getFindings, getStageBundle, retest } from '@/lib/api';
 import {
@@ -37,7 +38,16 @@ import {
 } from '@/lib/outcome';
 import { isVerifiedFixed } from '@/lib/progress';
 import { targetLines } from '@/lib/progress-rows';
-import { bucketsOf, hasStages, headlineOf, leakCount, pick } from '@/lib/stage';
+import {
+  bucketsOf,
+  canRetest,
+  hasStages,
+  headlineOf,
+  invitesWebsite,
+  leakCount,
+  pick,
+  websiteOnly,
+} from '@/lib/stage';
 import { t } from '@/lib/stage-copy';
 import type { StageBundle } from '@/lib/stage-types';
 import type { AuditStatusResponse, Finding } from '@/lib/types';
@@ -425,6 +435,10 @@ export default function ReportPage() {
     cleanup: audit?.cleanup,
   });
   const stages = audit ? hasStages(audit) : false;
+  // R74, R83: an audit of a website only has no table: no Re-test, no re-test
+  // result, and "No findings" is not its result
+  const retestAllowed = audit ? canRetest(audit) : true;
+  const noTables = audit ? websiteOnly(audit) : false;
   const headline = audit ? headlineOf(audit, stage?.clientReport ?? null) : null;
   const buckets = stages
     ? bucketsOf(stage?.clientReport, stage?.evidence?.coverage, audit?.plan)
@@ -491,6 +505,7 @@ export default function ReportPage() {
             lang={language}
             findingIds={findingIdSet}
           />
+          {audit && invitesWebsite(audit) ? <InviteWebsite lang={language} /> : null}
         </>
       ) : null}
 
@@ -515,6 +530,7 @@ export default function ReportPage() {
             lastRetest={retestActive ? null : lastRetest}
           />
 
+          {retestAllowed ? (
           <section className="card report-toolbar">
             <div className="toolbar-row">
               <div className="toolbar-group">
@@ -590,6 +606,7 @@ export default function ReportPage() {
             ) : null}
             <RateLimitNotice />
           </section>
+          ) : null}
 
           {!stages || (findings && findings.length > 0) ? (
           <section className="card summary-card">
@@ -623,12 +640,15 @@ export default function ReportPage() {
           </section>
           ) : null}
 
-          <BadgeStrip
-            state={badges.state}
-            celebrating={badges.celebrating}
-            onCelebrated={badges.finishCelebration}
-            inconclusiveCount={inconclusiveCount}
-          />
+          {/* the badges are about tables: a website only audit has none */}
+          {!noTables ? (
+            <BadgeStrip
+              state={badges.state}
+              celebrating={badges.celebrating}
+              onCelebrated={badges.finishCelebration}
+              inconclusiveCount={inconclusiveCount}
+            />
+          ) : null}
 
           {!retestActive && lastRetest?.status === 'completed' ? (
             <div className="notice notice-success" role="status">
@@ -668,40 +688,47 @@ export default function ReportPage() {
               ))
             : null}
 
-          <div className="findings-heading">
-            <h2>Findings</h2>
-            {findings ? (
-              <span className="muted small">
-                {findings.length} {findings.length === 1 ? 'finding' : 'findings'}
-              </span>
-            ) : null}
-          </div>
-
-          {findings && findings.length === 0 ? (
-            <div className="card empty-card">
-              <h3>No findings</h3>
-              <p className="muted">These checks returned no findings.</p>
+          {noTables ? (
+            <NoTables lang={language} />
+          ) : (
+            <>
+            <div className="findings-heading">
+              <h2>Findings</h2>
+              {findings ? (
+                <span className="muted small">
+                  {findings.length} {findings.length === 1 ? 'finding' : 'findings'}
+                </span>
+              ) : null}
             </div>
-          ) : null}
 
-          <div className="findings-grid">
-            {shownFindings?.map((finding) => (
-              <FindingCard
-                key={finding.id}
-                auditId={id}
-                finding={finding}
-                language={language}
-                actionsDisabled={
-                  retestActive || retestStarting || audit?.status === 'running'
-                }
-                sealed={fixedIds.has(finding.id)}
-                sealAnimate={sealAnimating.includes(finding.id)}
-                onSealDone={finishSeal}
-                onUpdated={updateFinding}
-                onNotFound={() => void checkAuditStillExists()}
-              />
-            ))}
-          </div>
+            {findings && findings.length === 0 ? (
+              <div className="card empty-card">
+                <h3>No findings</h3>
+                <p className="muted">These checks returned no findings.</p>
+              </div>
+            ) : null}
+
+            <div className="findings-grid">
+              {shownFindings?.map((finding) => (
+                <FindingCard
+                  key={finding.id}
+                  auditId={id}
+                  finding={finding}
+                  language={language}
+                  actionsDisabled={
+                    retestActive || retestStarting || audit?.status === 'running'
+                  }
+                  sealed={fixedIds.has(finding.id)}
+                  sealAnimate={sealAnimating.includes(finding.id)}
+                  onSealDone={finishSeal}
+                  onUpdated={updateFinding}
+                  onNotFound={() => void checkAuditStillExists()}
+                />
+              ))}
+            </div>
+
+            </>
+          )}
 
           <Disclaimer statement={stages ? '' : undefined}>
             {stage?.clientReport?.disclaimer ? (

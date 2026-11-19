@@ -21,7 +21,7 @@ const BADGES: Record<BadgeId, { name: string; locked: string }> = {
   no_leak_found: {
     name: 'Zero leaks reached',
     locked:
-      'An audit with no leak and at least one table BLOCKED (certificate eligible).',
+      'An audit with no leak and at least one table BLOCKED (re-test result available).',
   },
 };
 
@@ -105,7 +105,7 @@ export function BadgeStrip({
       <h2 id="badges-heading">Badges</h2>
       <p className="muted small">
         Saved in this browser only. They are not proof and are not part of the
-        certificate or its record hash.
+        re-test result or its record hash.
       </p>
       <p className="visually-hidden" role="status">
         {earnedNow.length > 0

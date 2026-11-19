@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // The words of the UI (R38, R87, R88): never "safe", "secure", "certified",
@@ -16,14 +16,6 @@ const BANNED: [string, RegExp][] = [
   ['Jira', /\bjira\b/i],
   ['mehfooz', /\b(mehfooz|mahfooz|surakshit|zamanat)\b/i],
 ];
-
-// Files that still say "certificate" in the text the user sees. They are
-// renamed to "Re-test result" in the Report commit, which removes them here.
-const PENDING = new Set([
-  'app/audits/[id]/certificate/page.tsx',
-  'components/certificate-action.tsx',
-  'components/badges.tsx',
-]);
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -49,7 +41,11 @@ export function visibleText(source: string, jsx: boolean): string[] {
     .replace(/(^|[^:])\/\/.*$/gm, '$1')
     // the route name is code, not words
     .split('/certificate')
-    .join('/route');
+    .join('/route')
+    // class names are code, not words (the Re-test result screen keeps the old
+    // class names of its styles)
+    .replace(/className\s*=\s*"[^"]*"/g, '')
+    .replace(/className\s*=\s*\{`[^`]*`\}/g, '');
   const parts: string[] = [];
   // an interpolation is code, not words
   for (const m of code.matchAll(LITERAL)) {
@@ -62,9 +58,9 @@ export function visibleText(source: string, jsx: boolean): string[] {
 }
 
 describe('the words of the UI', () => {
-  const files = walk(SRC).filter(
-    (f) => !PENDING.has(relative(SRC, f).split(sep).join('/')),
-  );
+  // every file of the frontend: nothing is exempt any more (the old Certificate
+  // screen is called "Re-test result" now, R87)
+  const files = walk(SRC);
 
   for (const [name, pattern] of BANNED) {
     it(`never says "${name}" in its own words`, () => {
