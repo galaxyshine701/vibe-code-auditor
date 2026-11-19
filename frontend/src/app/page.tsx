@@ -9,10 +9,12 @@ import { HeroMotion } from '@/components/hero-motion';
 import { SecretInput } from '@/components/secret-input';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
+import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
 import { ApiError, NetworkError } from '@/lib/errors';
 import { useApiError } from '@/lib/use-api-error';
 
-const HEADLINE = ['Can', 'another', 'user', 'read', 'your', 'data?'];
+const HEADLINE = ['What', 'can', 'a', 'stranger', 'reach', 'on', 'your', 'app?'];
+const HEADLINE_TEXT = HEADLINE.join(' ');
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -106,8 +108,8 @@ export default function ConnectPage() {
     <div className="shell page-stack">
       <section className="hero">
         <div className="hero-copy">
-          <p className="hero-kicker">Data access prover</p>
-          <h1 className="hero-title" aria-label="Can another user read your data?">
+          <p className="hero-kicker">{PROJECT_TAGLINE}</p>
+          <h1 className="hero-title" aria-label={HEADLINE_TEXT}>
             {HEADLINE.map((word, index) => (
               <span key={word}>
                 <span
@@ -121,8 +123,9 @@ export default function ConnectPage() {
             ))}
           </h1>
           <p className="hero-lede">
-            Two temporary users, one canary row. The auditor tries to reach it
-            and shows you exactly what answered.
+            Add a website address, Supabase details, or both. {PROJECT_NAME}{' '}
+            looks at what a visitor can read and what another user can reach,
+            and shows the proof.
           </p>
 
           <div className="hero-gate" id="access-gate">
