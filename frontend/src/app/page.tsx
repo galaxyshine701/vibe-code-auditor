@@ -6,11 +6,21 @@ import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroMotion } from '@/components/hero-motion';
+import { ConnectGroups } from '@/components/connect-groups';
 import { SecretInput } from '@/components/secret-input';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
 import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
 import { ApiError, NetworkError } from '@/lib/errors';
+import {
+  EMPTY_FIELDS,
+  buildStartBody,
+  checkConnect,
+  clearKeys,
+  startHintOf,
+  startNote,
+  type ConnectFields,
+} from '@/lib/form';
 import { useApiError } from '@/lib/use-api-error';
 
 const HEADLINE = ['What', 'can', 'a', 'stranger', 'reach', 'on', 'your', 'app?'];
@@ -26,32 +36,33 @@ export default function ConnectPage() {
   } = useApp();
   const handleApiError = useApiError();
 
-  const [label, setLabel] = useState('');
-  const [projectUrl, setProjectUrl] = useState('');
-  const [anonKey, setAnonKey] = useState('');
-  const [serviceKey, setServiceKey] = useState('');
+  const [fields, setFields] = useState<ConnectFields>(EMPTY_FIELDS);
   const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [canRetry, setCanRetry] = useState(false);
 
+  function change(patch: Partial<ConnectFields>) {
+    setFields((current) => ({ ...current, ...patch }));
+  }
+
   const effectiveAccessCode = accessCode || accessCodeInput;
+  // R76: at least one group complete, and no group half filled.
+  const check = checkConnect(fields);
   const startDisabled =
-    submitting || !confirmed || rateLimitSecondsLeft > 0 || !effectiveAccessCode;
+    submitting ||
+    !check.canStart ||
+    rateLimitSecondsLeft > 0 ||
+    !effectiveAccessCode;
   // Say what is missing, but not while submitting or rate-limited.
-  const missing = [
-    !effectiveAccessCode ? 'enter the access code' : '',
-    !confirmed ? 'tick the TEST project box' : '',
-  ].filter(Boolean);
   const startHint =
-    !submitting && rateLimitSecondsLeft === 0 && missing.length > 0
-      ? `To start: ${missing.join(' and ')}.`
+    !submitting && rateLimitSecondsLeft === 0
+      ? startHintOf(check, Boolean(effectiveAccessCode))
       : '';
 
   async function runAudit() {
-    if (!confirmed) {
-      setError('Confirm that this is a TEST project before starting.');
+    if (!check.canStart) {
+      setError(startNote(check));
       setCanRetry(false);
       return;
     }
@@ -70,17 +81,11 @@ export default function ConnectPage() {
 
     try {
       const created = await startAudit(
-        {
-          projectUrl: projectUrl.trim(),
-          anonKey,
-          serviceKey,
-          confirmTestProject: true,
-          ...(label.trim() ? { label: label.trim() } : {}),
-        },
+        buildStartBody(fields),
         effectiveAccessCode,
       );
-      setAnonKey('');
-      setServiceKey('');
+      // after a 202 the keys are cleared; the website address may stay (R76)
+      setFields(clearKeys);
       router.push(`/audits/${created.id}`);
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
@@ -202,67 +207,16 @@ export default function ConnectPage() {
               </span>
               <input
                 type="text"
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-                placeholder="Hotel booking (test project)"
+                value={fields.label}
+                onChange={(event) => change({ label: event.target.value })}
+                placeholder="Example shop (test project)"
                 maxLength={120}
                 autoComplete="off"
               />
               <small>Used only to name this run. Maximum 120 characters.</small>
             </label>
 
-            <label className="field">
-              <span>Project URL</span>
-              <input
-                type="url"
-                value={projectUrl}
-                onChange={(event) => setProjectUrl(event.target.value)}
-                placeholder="https://example-project.supabase.co"
-                autoComplete="off"
-                spellCheck={false}
-                required
-              />
-              <small>
-                Plain origin only: https://&lt;project-ref&gt;.supabase.co
-              </small>
-            </label>
-
-            <div className="field-row">
-              <label className="field">
-                <span>Publishable key</span>
-                <SecretInput
-                  value={anonKey}
-                  onChange={(event) => setAnonKey(event.target.value)}
-                  maxLength={4096}
-                  required
-                />
-                <small>Never returned by the server.</small>
-              </label>
-
-              <label className="field">
-                <span>Secret key</span>
-                <SecretInput
-                  value={serviceKey}
-                  onChange={(event) => setServiceKey(event.target.value)}
-                  maxLength={4096}
-                  required
-                />
-                <small>Never returned by the server.</small>
-              </label>
-            </div>
-
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(event) => setConfirmed(event.target.checked)}
-              />
-              <span>
-                I confirm this is a <strong>TEST project</strong>, not
-                production. The auditor creates and removes temporary users and
-                canary rows.
-              </span>
-            </label>
+            <ConnectGroups fields={fields} check={check} onChange={change} />
 
             <RateLimitNotice />
             {error ? (
