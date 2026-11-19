@@ -4,13 +4,14 @@ import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
 import { IntroOverlay } from '@/components/intro-overlay';
 import { ServiceWorkerRegister } from '@/components/sw-register';
+import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
 import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Vibe Code Auditor',
+  title: PROJECT_NAME,
   description:
-    'Find out what another user can read, change or delete in a Supabase project.',
+    'Check what a visitor can read on your site and what another user can reach in your Supabase project. The result is "no leak found by these checks".',
 };
 
 // The first visit is dark, not decided by the system setting (R55). The
@@ -50,7 +51,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <main className="site-main">{children}</main>
           <footer className="site-footer">
             <div className="shell footer-inner">
-              <p>Vibe Code Auditor · Supabase access checks</p>
+              <p>
+                {PROJECT_NAME} · {PROJECT_TAGLINE}
+              </p>
             </div>
           </footer>
         </AppProvider>

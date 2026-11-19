@@ -1,4 +1,4 @@
-// Service worker of Vibe Code Auditor. It does ONE thing: when a page cannot be
+// Service worker of the app. It does ONE thing: when a page cannot be
 // loaded because the network is gone, it shows /offline.html.
 //
 // It never caches a response of the network. It does not touch the API, any

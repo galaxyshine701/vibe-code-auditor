@@ -1,3 +1,5 @@
+import { PROJECT_NAME } from '@/lib/brand';
+
 // The scene of the intro (R70): a logo reveal, with no state and no timers. It is
 // all CSS animation, so it starts at the first paint of the server's HTML and
 // does not wait for the page's code. The order: the canary dot comes, the lock
@@ -26,7 +28,7 @@ export function IntroScene() {
         </g>
         <circle className="intro-dot" cx="100" cy="128" r="13" />
       </svg>
-      <p className="intro-name">Vibe Code Auditor</p>
+      <p className="intro-name">{PROJECT_NAME}</p>
     </div>
   );
 }

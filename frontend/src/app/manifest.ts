@@ -1,14 +1,15 @@
 import type { MetadataRoute } from 'next';
+import { PROJECT_NAME } from '../lib/brand';
 
 // The web app manifest (R59). Colours are --bg of the dark theme, the theme the
 // app opens in (R55). The icons are drawn by scripts/make-icons.mjs.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Vibe Code Auditor',
-    short_name: 'Auditor',
+    name: PROJECT_NAME,
+    short_name: PROJECT_NAME,
     description:
-      'Find out what another user can read, change or delete in a Supabase test project.',
+      'Check what a visitor can read on your site and what another user can reach in a Supabase test project.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

@@ -281,8 +281,8 @@ describe('the manifest', async () => {
 
   it('has the fields an installable app needs', () => {
     expect(manifest).toMatchObject({
-      name: 'Vibe Code Auditor',
-      short_name: 'Auditor',
+      name: 'Gatecheck',
+      short_name: 'Gatecheck',
       start_url: '/',
       display: 'standalone',
       background_color: '#0f1114',
