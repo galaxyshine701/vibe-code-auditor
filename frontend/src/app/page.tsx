@@ -6,7 +6,6 @@ import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroMotion } from '@/components/hero-motion';
-import { IntroOverlay } from '@/components/intro-overlay';
 import { SecretInput } from '@/components/secret-input';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
@@ -105,7 +104,6 @@ export default function ConnectPage() {
 
   return (
     <div className="shell page-stack">
-      <IntroOverlay />
       <section className="hero">
         <div className="hero-copy">
           <p className="hero-kicker">Data access prover</p>

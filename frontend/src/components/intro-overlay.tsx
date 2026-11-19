@@ -1,12 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { INTRO_FADE_MS, INTRO_FALLBACK_MS } from '@/lib/intro';
-import { HeroMotion } from './hero-motion';
+import {
+  INTRO_FADE_MS,
+  INTRO_FALLBACK_MS,
+  INTRO_GRACE_MS,
+  remainingMs,
+} from '@/lib/intro';
+import { IntroScene } from './intro-scene';
 
-type IntroWindow = Window & { __vcaIntroTimer?: number };
+type IntroWindow = Window & {
+  __vcaIntroTimer?: number;
+  __vcaIntroAt?: number;
+};
 
-// The intro of the home page (R70): the example run on the whole screen, once per
+// The intro of the home page (R70): a logo scene on the whole screen, once per
 // tab. The <head> script (lib/intro.ts) has already decided and set
 // `data-intro="pending"` on <html> before the first paint; the CSS shows this
 // overlay only then. The page's own headline waits (CSS) until `data-intro` is
@@ -15,6 +23,11 @@ type IntroWindow = Window & { __vcaIntroTimer?: number };
 //   pending  the scene runs
 //   leaving  the overlay fades out (the headline still waits)
 //   done     the overlay is gone, the headline starts
+//
+// This component sits directly in <body> (layout.tsx), never inside the page:
+// the page's wrapper has an animation with a `transform`, and a `position:
+// fixed` child of such an element is fixed to the wrapper, not to the screen
+// (and its z-index cannot get above the header).
 //
 // If this code never runs, the timer of the head script sets "done", and a CSS
 // animation hides the overlay by itself: the app is never blocked.
@@ -44,7 +57,7 @@ export function IntroOverlay() {
 
   const root = () => document.documentElement;
 
-  /** Ends the intro with a fade (the story ended, or the user skipped it). */
+  /** Ends the intro with a fade (the scene ended, or the user skipped it). */
   const close = useCallback(() => {
     if (!active.current) return;
     active.current = false;
@@ -62,30 +75,46 @@ export function IntroOverlay() {
     );
   }, [clearTimers, nudgeAccessCode]);
 
-  /** Starts (or restarts) the intro. This code now owns the time limit. */
-  const begin = useCallback(() => {
-    const scoped = window as IntroWindow;
-    if (scoped.__vcaIntroTimer !== undefined) {
-      window.clearTimeout(scoped.__vcaIntroTimer);
-      scoped.__vcaIntroTimer = undefined;
-    }
-    clearTimers();
-    active.current = true;
-    root().setAttribute('data-intro', 'pending');
-    setMounted(true);
-    // the limit: the story plus 1.5 s, then it is gone whatever happened
-    timers.current.push(
-      window.setTimeout(() => {
-        active.current = false;
-        root().setAttribute('data-intro', 'done');
-        setMounted(false);
-      }, INTRO_FALLBACK_MS),
-    );
-    window.requestAnimationFrame(() => skipButton.current?.focus({ preventScroll: true }));
-  }, [clearTimers]);
+  /**
+   * Starts (or restarts) the intro. The end is counted from when the scene
+   * started (the head script, or now for a replay), and this code now owns the
+   * time limit.
+   */
+  const begin = useCallback(
+    (replay: boolean) => {
+      const scoped = window as IntroWindow;
+      if (scoped.__vcaIntroTimer !== undefined) {
+        window.clearTimeout(scoped.__vcaIntroTimer);
+        scoped.__vcaIntroTimer = undefined;
+      }
+      clearTimers();
+      const now = window.performance.now();
+      if (replay || scoped.__vcaIntroAt === undefined) scoped.__vcaIntroAt = now;
+      const left = remainingMs(now - scoped.__vcaIntroAt);
+      active.current = true;
+      root().setAttribute('data-intro', 'pending');
+      setMounted(true);
+      timers.current.push(window.setTimeout(close, left));
+      // the limit: the normal end plus 1.5 s, then it is gone whatever happened
+      timers.current.push(
+        window.setTimeout(
+          () => {
+            active.current = false;
+            root().setAttribute('data-intro', 'done');
+            setMounted(false);
+          },
+          Math.min(left + INTRO_FADE_MS + INTRO_GRACE_MS, INTRO_FALLBACK_MS),
+        ),
+      );
+      window.requestAnimationFrame(() =>
+        skipButton.current?.focus({ preventScroll: true }),
+      );
+    },
+    [clearTimers, close],
+  );
 
   useEffect(() => {
-    if (root().getAttribute('data-intro') === 'pending') begin();
+    if (root().getAttribute('data-intro') === 'pending') begin(false);
     else setMounted(false);
 
     const replay = () => {
@@ -95,7 +124,7 @@ export function IntroOverlay() {
       returnFocus.current =
         focused instanceof HTMLElement && focused !== document.body ? focused : null;
       setRunId((id) => id + 1);
-      begin();
+      begin(true);
     };
     const onKey = (event: KeyboardEvent) => {
       if (!active.current) return;
@@ -124,21 +153,19 @@ export function IntroOverlay() {
       className="intro-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="Introduction: an example run"
+      aria-label="Introduction"
       onClick={close}
     >
-      <div className="intro-body">
-        <HeroMotion mode="intro" onFinish={close} key={runId} />
-        <button
-          type="button"
-          className="button intro-skip"
-          ref={skipButton}
-          onClick={close}
-        >
-          Skip intro
-        </button>
-        <p className="intro-hint muted small">Tap, click or press Esc to skip.</p>
-      </div>
+      <IntroScene key={runId} />
+      <button
+        type="button"
+        className="button intro-skip"
+        ref={skipButton}
+        onClick={close}
+      >
+        Skip intro
+      </button>
+      <p className="intro-hint">Tap, click or press Esc to skip.</p>
     </div>
   );
 }

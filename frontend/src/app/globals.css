@@ -3287,20 +3287,37 @@ h4 {
   transform: none;
 }
 
+/* The intro: a layer of the whole screen. It is a child of <body> (layout.tsx),
+   so nothing of the page can change what "fixed" means for it. Sizes are in
+   vmin (the smaller of the width and the height of the screen) and rem, never
+   a fixed height in px. */
 .intro-overlay {
   display: none;
+}
+
+html[data-intro="pending"],
+html[data-intro="leaving"] {
+  overflow: hidden;
+}
+
+html[data-intro="pending"] body,
+html[data-intro="leaving"] body {
+  overflow: hidden;
 }
 
 html[data-intro="pending"] .intro-overlay,
 html[data-intro="leaving"] .intro-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  overflow-y: auto;
+  z-index: 1000; /* above the header (30) and everything else */
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   background: var(--bg);
   opacity: 1;
   transition: opacity 0.35s ease;
@@ -3312,7 +3329,7 @@ html[data-intro="leaving"] .intro-overlay {
 }
 
 /* The way out if the page's own code never ends the intro: it hides itself
-   after the story plus 1.5 s, with no script (the app is never blocked). */
+   after 5 s, with no script (the app is never blocked). */
 html[data-intro="pending"] .intro-overlay {
   animation: introGone 0.01s linear 5s forwards;
 }
@@ -3324,22 +3341,160 @@ html[data-intro="pending"] .intro-overlay {
   }
 }
 
-.intro-body {
+.intro-scene {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: min(100%, 760px);
-  margin: auto;
+  gap: 2vmin;
+  max-width: 92vw;
+  text-align: center;
 }
 
-.intro-body .motion-panel {
-  width: 100%;
+.intro-mark {
+  display: block;
+  width: 38vmin;
+  height: 38vmin;
+  overflow: visible;
+}
+
+.intro-name {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display, var(--font-body));
+  font-size: max(1.35rem, 6.5vmin);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  animation: introName 0.5s ease-out 1.7s 1 both;
+}
+
+.intro-glow {
+  fill: var(--canary-glow);
+  filter: blur(14px);
+  opacity: 0;
+  animation: introFade 0.6s ease-out 0.1s 1 both;
+}
+
+.intro-dot {
+  fill: var(--canary);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: introDot 0.5s ease-out 0.1s 1 both;
+}
+
+.intro-lock {
+  animation: introFade 0.4s ease-out 0.5s 1 both;
+}
+
+.intro-body {
+  fill: var(--surface-soft);
+  stroke: var(--leak);
+  stroke-width: 6;
+  animation: introToCalm 0.2s ease 1.1s 1 both;
+}
+
+.intro-shackle {
+  stroke: var(--leak);
+  stroke-width: 9;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  transform: translateY(-12px) rotate(24deg);
+  animation:
+    introShackle 0.35s ease-in-out 1.1s 1 both,
+    introToCalm 0.2s ease 1.1s 1 both;
+}
+
+.intro-pulse {
+  fill: none;
+  stroke-width: 3;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.intro-pulse-alarm {
+  stroke: var(--leak);
+  animation: introPulse 0.6s ease-out 0.55s 1 both;
+}
+
+.intro-pulse-calm {
+  stroke: var(--ok);
+  animation: introPulse 0.6s ease-out 1.2s 1 both;
+}
+
+.intro-skip {
+  position: absolute;
+  top: max(0.75rem, 3vmin);
+  right: max(0.75rem, 3vmin);
 }
 
 .intro-hint {
+  position: absolute;
+  bottom: max(0.75rem, 3vmin);
+  left: 0;
+  right: 0;
   margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
   text-align: center;
+}
+
+@keyframes introFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes introDot {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes introShackle {
+  from {
+    transform: translateY(-12px) rotate(24deg);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes introToCalm {
+  to {
+    stroke: var(--ok);
+  }
+}
+
+@keyframes introPulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(4.2);
+  }
+}
+
+@keyframes introName {
+  from {
+    opacity: 0;
+    transform: translateY(1.2vmin);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* the headline waits for the intro: the two never run together */

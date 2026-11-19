@@ -10,9 +10,8 @@ import {
 } from 'react';
 import {
   chipState as statusChipState,
-  INTRO_HOLD_MS,
+  CARD_STORY_MS,
   INTRO_SCALE,
-  INTRO_STORY_MS,
   phaseAt,
   type Actor,
   type ChipState,
@@ -143,7 +142,7 @@ export function HeroMotion({
       window.setTimeout(() => setPhase('leaked'), phaseAt('leaked')),
       window.setTimeout(() => setPhase('fixing'), phaseAt('fixing')),
       window.setTimeout(() => setPhase('blocked'), phaseAt('blocked')),
-      window.setTimeout(() => finish.current?.(), INTRO_STORY_MS + INTRO_HOLD_MS),
+      window.setTimeout(() => finish.current?.(), CARD_STORY_MS + 500),
     ];
     return clearTimers;
   }, [intro, clearTimers]);

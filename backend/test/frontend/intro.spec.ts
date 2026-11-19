@@ -25,6 +25,9 @@ interface IntroModule {
   INTRO_HOLD_MS: number;
   INTRO_FADE_MS: number;
   INTRO_FALLBACK_MS: number;
+  INTRO_END_MS: number;
+  INTRO_TOTAL_MS: number;
+  remainingMs(elapsedMs: number): number;
   INTRO_BOOT_SCRIPT: string;
   PHASE_AT_MS: Record<'owner' | 'leaked' | 'fixing' | 'blocked', number>;
   phaseAt(phase: 'owner' | 'leaked' | 'fixing' | 'blocked'): number;
@@ -159,11 +162,11 @@ describe('the boot script of the <head>', () => {
     },
   );
 
-  it('arms a timer that ends the intro by itself: the story plus 1.5 s', () => {
+  it('arms a timer that ends the intro by itself after 5 s', () => {
     const run = runScript();
     expect(run.timeouts).toHaveLength(1);
     expect(run.timeouts[0].ms).toBe(intro.INTRO_FALLBACK_MS);
-    expect(intro.INTRO_FALLBACK_MS).toBe(intro.INTRO_STORY_MS + 1500);
+    expect(intro.INTRO_FALLBACK_MS).toBe(5000);
     run.timeouts[0].fn();
     expect(run.attributes.get('data-intro')).toBe('done');
     // the page's own code can replace it, so its id is kept
@@ -198,15 +201,65 @@ describe('the boot script of the <head>', () => {
   });
 });
 
-describe('the length of the story', () => {
-  it('is about 3.5 s, with one number scaling it', () => {
-    expect(intro.INTRO_STORY_MS).toBeGreaterThanOrEqual(3400);
-    expect(intro.INTRO_STORY_MS).toBeLessThanOrEqual(3600);
-    expect(intro.INTRO_STORY_MS).toBe(
-      Math.round(intro.PHASE_AT_MS.blocked * intro.INTRO_SCALE),
+describe('the length of the logo scene', () => {
+  it('is 3 s or less in all, fade included', () => {
+    expect(intro.INTRO_TOTAL_MS).toBeLessThanOrEqual(3000);
+    expect(intro.INTRO_TOTAL_MS).toBe(
+      intro.INTRO_STORY_MS + intro.INTRO_HOLD_MS + intro.INTRO_FADE_MS,
     );
+    expect(intro.INTRO_TOTAL_MS).toBeLessThan(intro.INTRO_FALLBACK_MS);
   });
 
+  it('the end is counted from when the scene started, not from when the page code is ready', () => {
+    expect(intro.remainingMs(0)).toBe(intro.INTRO_END_MS);
+    expect(intro.remainingMs(1000)).toBe(intro.INTRO_END_MS - 1000);
+    expect(intro.remainingMs(intro.INTRO_END_MS)).toBe(0);
+    expect(intro.remainingMs(99999)).toBe(0);
+    expect(intro.remainingMs(-5)).toBe(intro.INTRO_END_MS);
+  });
+
+  it('the script keeps the moment it started', () => {
+    expect(INTRO_BOOT_SCRIPT).toContain('__vcaIntroAt');
+  });
+
+  it('every animation of the scene ends within the story, in this order: dot, lock, alarm, lock closes, calm, name', () => {
+    const delayOf = (selector: string) => {
+      const rule = css.match(
+        new RegExp(selector + '\\s*\\{[^}]*?animation:\\s*([^;]+);'),
+      );
+      expect(rule, selector).not.toBeNull();
+      // the first animation of the rule: name, duration, easing, delay
+      const first = rule![1].split(',')[0];
+      const times = [...first.matchAll(/([\d.]+)s\b/g)].map((m) =>
+        Number(m[1]),
+      );
+      return { duration: times[0], delay: times[1] ?? 0 };
+    };
+    const dot = delayOf('\\.intro-dot');
+    const lock = delayOf('\\.intro-lock');
+    const alarm = delayOf('\\.intro-pulse-alarm');
+    const closes = delayOf('\\.intro-shackle');
+    const calm = delayOf('\\.intro-pulse-calm');
+    const name = delayOf('\\.intro-name');
+    expect(dot.delay).toBeLessThan(lock.delay);
+    expect(lock.delay).toBeLessThanOrEqual(alarm.delay);
+    expect(alarm.delay).toBeLessThan(closes.delay);
+    expect(closes.delay).toBeLessThan(calm.delay);
+    expect(calm.delay).toBeLessThan(name.delay);
+    for (const part of [dot, lock, alarm, closes, calm, name]) {
+      expect(part.delay + part.duration).toBeLessThanOrEqual(
+        intro.INTRO_STORY_MS / 1000,
+      );
+    }
+    // the lock turns from red to green: the alarm, then the calm
+    expect(css).toMatch(/\.intro-body \{[^}]*stroke: var\(--leak\)/);
+    expect(css).toMatch(
+      /@keyframes introToCalm \{\s*to \{\s*stroke: var\(--ok\)/,
+    );
+  });
+});
+
+describe('the card of the example run keeps its own timeline', () => {
   it('the phases come in order and the list is the one the CSS knows', () => {
     const { owner, leaked, fixing, blocked } = intro.PHASE_AT_MS;
     expect(owner).toBeLessThan(leaked);
@@ -216,9 +269,6 @@ describe('the length of the story', () => {
       const source = read('components', 'hero-motion.tsx');
       expect(source, phase).toContain(`${phase}: {`);
     }
-    expect(
-      intro.INTRO_STORY_MS + intro.INTRO_HOLD_MS + intro.INTRO_FADE_MS,
-    ).toBeLessThan(intro.INTRO_FALLBACK_MS);
   });
 });
 
@@ -307,7 +357,7 @@ describe('the intro and the headline never run together', () => {
   it('the overlay is hidden unless pending or leaving', () => {
     expect(css).toMatch(/\.intro-overlay \{\s*display: none;/);
     expect(css).toMatch(
-      /html\[data-intro="pending"\] \.intro-overlay,\s*html\[data-intro="leaving"\] \.intro-overlay \{[^}]*display: flex/,
+      /html\[data-intro="pending"\] \.intro-overlay,\s*html\[data-intro="leaving"\] \.intro-overlay \{[^}]*display: grid/,
     );
   });
 
@@ -317,7 +367,7 @@ describe('the intro and the headline never run together', () => {
     );
   });
 
-  it('a CSS animation removes the overlay by itself after the story plus 1.5 s', () => {
+  it('a CSS animation removes the overlay by itself after 5 s', () => {
     const match = css.match(
       /html\[data-intro="pending"\] \.intro-overlay \{\s*animation: introGone [\d.]+s linear ([\d.]+)s forwards/,
     );
@@ -336,13 +386,114 @@ describe('the intro and the headline never run together', () => {
     expect(block).toContain('display: none !important');
   });
 
-  it('the boot script comes in the <head> of the layout, and the page has the overlay', () => {
+  it('the boot script comes in the <head> of the layout', () => {
     const layout = read('app', 'layout.tsx');
     expect(layout).toContain('INTRO_BOOT_SCRIPT');
     expect(layout.indexOf('INTRO_BOOT_SCRIPT')).toBeLessThan(
       layout.indexOf('<body'),
     );
-    expect(read('app', 'page.tsx')).toContain('<IntroOverlay />');
+  });
+});
+
+describe('the overlay belongs to the whole screen (the reason it was cut off)', () => {
+  // The page's wrapper (.page-stack) has an animation that ends with
+  // `transform: translateY(0)` and `both`. A `position: fixed` child of an
+  // element with a transform is fixed to that element, not to the screen, and
+  // its z-index stays inside that element's own stacking context, below the
+  // header. So the overlay must not live in a page.
+  it('the animation of the page wrapper that does this is still there (so the rule matters)', () => {
+    expect(css).toMatch(/\.page-stack \{[^}]*animation: rise [^;]*both;/);
+    expect(css).toMatch(
+      /@keyframes rise \{[\s\S]*?to \{[^}]*transform: translateY\(0\)/,
+    );
+  });
+
+  it('is rendered directly in <body> of the layout, before the header and the page, not in <main>', () => {
+    const layout = read('app', 'layout.tsx');
+    const body = layout.slice(layout.indexOf('<body'));
+    expect(body).toContain('<IntroOverlay />');
+    expect(body.indexOf('<IntroOverlay />')).toBeLessThan(
+      body.indexOf('<AppProvider>'),
+    );
+    expect(body.indexOf('<IntroOverlay />')).toBeLessThan(
+      body.indexOf('<main'),
+    );
+  });
+
+  it('no page uses it, and it is rendered whatever the state (server HTML on an empty sessionStorage)', () => {
+    for (const page of [
+      ['app', 'page.tsx'],
+      ['app', 'audits', '[id]', 'page.tsx'],
+      ['app', 'audits', '[id]', 'report', 'page.tsx'],
+      ['app', 'audits', '[id]', 'certificate', 'page.tsx'],
+    ]) {
+      expect(read(...page), page.join('/')).not.toContain('IntroOverlay');
+    }
+    const source = read('components', 'intro-overlay.tsx');
+    // it starts as shown, with no check of window or storage, so the server writes it
+    expect(source).toContain('useState(true)');
+    expect(source).not.toMatch(/typeof window/);
+    expect(source.indexOf('useState(true)')).toBeLessThan(
+      source.indexOf('useEffect(() =>'),
+    );
+    // an empty sessionStorage: the head script says pending
+    expect(runScript().attributes.get('data-intro')).toBe('pending');
+  });
+
+  const overlayRule = () => {
+    const match = css.match(
+      /html\[data-intro="pending"\] \.intro-overlay,\s*html\[data-intro="leaving"\] \.intro-overlay \{([^}]*)\}/,
+    );
+    expect(match).not.toBeNull();
+    return match![1];
+  };
+
+  it('is fixed, inset 0, 100dvh high, with scroll locked while it runs', () => {
+    const rule = overlayRule();
+    expect(rule).toContain('position: fixed;');
+    expect(rule).toContain('inset: 0;');
+    expect(rule).toContain('height: 100dvh;');
+    expect(rule).toContain('place-items: center;');
+    expect(css).toMatch(
+      /html\[data-intro="pending"\],\s*html\[data-intro="leaving"\] \{\s*overflow: hidden;/,
+    );
+  });
+
+  it('its z-index is above the header and above every other z-index of the CSS', () => {
+    const z = Number(overlayRule().match(/z-index: (\d+)/)![1]);
+    const header = Number(css.match(/\.site-header \{[^}]*z-index: (\d+)/)![1]);
+    expect(z).toBeGreaterThan(header);
+    const others = [...css.matchAll(/z-index: (\d+)/g)]
+      .map((m) => Number(m[1]))
+      .filter((value) => value !== z);
+    expect(z).toBeGreaterThan(Math.max(...others));
+  });
+
+  it('no fixed px height in the intro rules: sizes are in vmin, dvh and rem', () => {
+    const rules = [...css.matchAll(/([^{}]*\.intro-[^{}]*)\{([^}]*)\}/g)].map(
+      (m) => m[2],
+    );
+    expect(rules.length).toBeGreaterThan(8);
+    for (const body of rules) {
+      expect(body).not.toMatch(/(?:^|[\s;])(?:min-|max-)?height:\s*[\d.]+px/);
+      expect(body).not.toMatch(/(?:^|[\s;])(?:min-|max-)?width:\s*[\d.]+px/);
+    }
+    expect(css).toMatch(
+      /\.intro-mark \{[^}]*width: [\d.]+vmin;[^}]*height: [\d.]+vmin;/,
+    );
+    expect(css).toMatch(
+      /\.intro-name \{[^}]*font-size: max\([\d.]+rem, [\d.]+vmin\)/,
+    );
+  });
+
+  it('reduced motion: no intro (the script does nothing and the CSS hides the overlay)', () => {
+    expect(runScript({ reduced: true }).attributes.has('data-intro')).toBe(
+      false,
+    );
+    const block = css.slice(
+      css.lastIndexOf('@media (prefers-reduced-motion: reduce)'),
+    );
+    expect(block).toContain('.intro-overlay');
   });
 });
 

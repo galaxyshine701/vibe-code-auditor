@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
+import { IntroOverlay } from '@/components/intro-overlay';
 import { ServiceWorkerRegister } from '@/components/sw-register';
 import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
@@ -41,6 +42,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
+        {/* directly in <body>, never in the page: see intro-overlay.tsx */}
+        <IntroOverlay />
         <ServiceWorkerRegister />
         <AppProvider>
           <AppHeader />
