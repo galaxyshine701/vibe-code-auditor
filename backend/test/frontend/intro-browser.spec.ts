@@ -127,6 +127,8 @@ async function freshTab(width: number, height: number) {
     open: () => cdp.send('Page.navigate', { url: URL_UNDER_TEST! }, sessionId),
     reload: () => cdp.send('Page.reload', {}, sessionId),
     evaluate,
+    send: (method: string, params: object = {}) =>
+      cdp.send(method, params, sessionId),
   };
 }
 
@@ -208,4 +210,77 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
     },
     30000,
   );
+
+  const STATE = "document.documentElement.getAttribute('data-intro')";
+
+  async function waitFor(
+    tab: { evaluate: (e: string) => Promise<any> },
+    expected: string | null,
+    ms: number,
+  ) {
+    const start = Date.now();
+    while (Date.now() - start < ms) {
+      if ((await tab.evaluate(STATE)) === expected) return Date.now() - start;
+      await sleep(30);
+    }
+    return -1;
+  }
+
+  it('the Skip button ends the scene at once (a fade, then done), long before 3.3 s', async () => {
+    const tab = await freshTab(1366, 768);
+    await tab.open();
+    expect(
+      await waitFor(tab, 'pending', 5000),
+      'pending',
+    ).toBeGreaterThanOrEqual(0);
+    await sleep(500);
+    await tab.evaluate("document.querySelector('.intro-skip').click()");
+    const took = await waitFor(tab, 'done', 2000);
+    expect(
+      took,
+      'done after skip: ' + (await tab.evaluate(STATE)),
+    ).toBeGreaterThanOrEqual(0);
+    expect(took).toBeLessThan(1000);
+    // the page is there: the headline is on the screen and the scroll is free
+    expect(
+      await tab.evaluate(
+        "!document.querySelector('.intro-overlay') && getComputedStyle(document.documentElement).overflow !== 'hidden'",
+      ),
+    ).toBe(true);
+  }, 20000);
+
+  it('the scene runs about 3.3 s and the gate opens by itself (the state goes pending, opening, done)', async () => {
+    const tab = await freshTab(1366, 768);
+    await tab.open();
+    expect(await waitFor(tab, 'pending', 5000)).toBeGreaterThanOrEqual(0);
+    // the beam, the callouts and the name are in the picture
+    expect(
+      await tab.evaluate(
+        "!!document.querySelector('.scan-beam') && document.querySelectorAll('.intro-callout').length >= 3",
+      ),
+    ).toBe(true);
+    const start = Date.now();
+    expect(await waitFor(tab, 'opening', 4000)).toBeGreaterThanOrEqual(0);
+    expect(await waitFor(tab, 'done', 4000)).toBeGreaterThanOrEqual(0);
+    expect(Date.now() - start).toBeLessThan(4500);
+  }, 20000);
+
+  it('with reduced motion it is a still wordmark that ends by itself in about a second', async () => {
+    const tab = await freshTab(375, 667);
+    await tab.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+    });
+    await tab.open();
+    expect(await waitFor(tab, 'pending', 5000)).toBeGreaterThanOrEqual(0);
+    const info = await tab.evaluate(
+      "(() => ({ mode: document.documentElement.getAttribute('data-intro-mode'), stage: getComputedStyle(document.querySelector('.intro-stage')).display, name: getComputedStyle(document.querySelector('.intro-name')).opacity, anim: getComputedStyle(document.querySelector('.intro-word')).animationName }))()",
+    );
+    expect(info.mode).toBe('reduced');
+    expect(info.stage).toBe('none');
+    expect(info.name).toBe('1');
+    expect(info.anim).toBe('none');
+    const took = await waitFor(tab, 'done', 4000);
+    expect(took).toBeGreaterThanOrEqual(0);
+    expect(took).toBeLessThan(2500);
+  }, 20000);
 });

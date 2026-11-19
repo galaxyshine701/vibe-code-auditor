@@ -5,25 +5,31 @@ import {
   INTRO_FADE_MS,
   INTRO_FALLBACK_MS,
   INTRO_GRACE_MS,
+  INTRO_STORY_MS,
   remainingMs,
+  type IntroMode,
 } from '@/lib/intro';
 import { IntroScene } from './intro-scene';
 
 type IntroWindow = Window & {
   __vcaIntroTimer?: number;
   __vcaIntroAt?: number;
+  __vcaIntroOwned?: boolean;
 };
 
-// The intro of the home page (R70): a logo scene on the whole screen, once per
-// tab. The <head> script (lib/intro.ts) has already decided and set
-// `data-intro="pending"` on <html> before the first paint; the CSS shows this
-// overlay only then. The page's own headline waits (CSS) until `data-intro` is
-// "done", so the two never run together.
+// The intro of the home page (R70): a scene on the whole screen, once per tab.
+// The <head> script (lib/intro.ts) has already decided and set
+// `data-intro="pending"` (and `data-intro-mode`) on <html> before the first
+// paint; the CSS shows this overlay only then.
 //
-//   pending  the scene runs
-//   leaving  the overlay fades out (the headline still waits)
-//   done     the overlay is gone, the headline starts
+//   pending  the scene runs; the headline waits (CSS)
+//   opening  the gate splits open by CSS; the headline starts to rise
+//   leaving  the overlay fades out: after a skip, and with reduced motion
+//   done     the overlay is gone
 //
+// With reduced motion (data-intro-mode="reduced") the scene is only the name,
+// still, for a short time. A skip (tap, click, Esc, the Skip button) works in
+// both modes.//
 // This component sits directly in <body> (layout.tsx), never inside the page:
 // the page's wrapper has an animation with a `transform`, and a `position:
 // fixed` child of such an element is fixed to the wrapper, not to the screen
@@ -56,6 +62,8 @@ export function IntroOverlay() {
   }, []);
 
   const root = () => document.documentElement;
+  const modeNow = (): IntroMode =>
+    root().getAttribute('data-intro-mode') === 'reduced' ? 'reduced' : 'full';
 
   /** Ends the intro with a fade (the scene ended, or the user skipped it). */
   const close = useCallback(() => {
@@ -75,6 +83,19 @@ export function IntroOverlay() {
     );
   }, [clearTimers, nudgeAccessCode]);
 
+  /** The natural end of the full scene: the gate has opened, the overlay goes. */
+  const finish = useCallback(() => {
+    if (!active.current) return;
+    active.current = false;
+    clearTimers();
+    root().setAttribute('data-intro', 'done');
+    setMounted(false);
+    const back = returnFocus.current;
+    returnFocus.current = null;
+    if (back && document.contains(back)) back.focus({ preventScroll: true });
+    nudgeAccessCode();
+  }, [clearTimers, nudgeAccessCode]);
+
   /**
    * Starts (or restarts) the intro. The end is counted from when the scene
    * started (the head script, or now for a replay), and this code now owns the
@@ -83,6 +104,8 @@ export function IntroOverlay() {
   const begin = useCallback(
     (replay: boolean) => {
       const scoped = window as IntroWindow;
+      // from now on this code handles a skip (the head script stops doing it)
+      scoped.__vcaIntroOwned = true;
       if (scoped.__vcaIntroTimer !== undefined) {
         window.clearTimeout(scoped.__vcaIntroTimer);
         scoped.__vcaIntroTimer = undefined;
@@ -90,11 +113,26 @@ export function IntroOverlay() {
       clearTimers();
       const now = window.performance.now();
       if (replay || scoped.__vcaIntroAt === undefined) scoped.__vcaIntroAt = now;
-      const left = remainingMs(now - scoped.__vcaIntroAt);
+      const mode = modeNow();
+      const elapsed = now - scoped.__vcaIntroAt;
+      const left = remainingMs(elapsed, mode);
       active.current = true;
       root().setAttribute('data-intro', 'pending');
       setMounted(true);
-      timers.current.push(window.setTimeout(close, left));
+      if (mode === 'full') {
+        // the gate opens at the end of the story, and the scene is over a moment later
+        timers.current.push(
+          window.setTimeout(
+            () => {
+              if (active.current) root().setAttribute('data-intro', 'opening');
+            },
+            Math.max(0, INTRO_STORY_MS - elapsed),
+          ),
+        );
+        timers.current.push(window.setTimeout(finish, left));
+      } else {
+        timers.current.push(window.setTimeout(close, left));
+      }
       // the limit: the normal end plus 1.5 s, then it is gone whatever happened
       timers.current.push(
         window.setTimeout(
@@ -110,7 +148,7 @@ export function IntroOverlay() {
         skipButton.current?.focus({ preventScroll: true }),
       );
     },
-    [clearTimers, close],
+    [clearTimers, close, finish],
   );
 
   useEffect(() => {
@@ -118,8 +156,14 @@ export function IntroOverlay() {
     else setMounted(false);
 
     const replay = () => {
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       if (active.current) return;
+      // reduced motion replays the still name, not the scene
+      root().setAttribute(
+        'data-intro-mode',
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'reduced'
+          : 'full',
+      );
       const focused = document.activeElement;
       returnFocus.current =
         focused instanceof HTMLElement && focused !== document.body ? focused : null;

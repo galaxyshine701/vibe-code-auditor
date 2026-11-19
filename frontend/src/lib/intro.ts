@@ -1,28 +1,60 @@
-// The opening of the home page (R70): a short logo scene fills the screen once
-// per tab, then the page shows its headline. The rules of "when" are here, in
+// The opening of the home page (R70): a short scene fills the screen once per
+// tab (a scan beam passes over a website and a database, a gate opens, the name
+// appears), then the page shows its headline. The rules of "when" are here, in
 // plain functions, so they can be tested. The boot script at the bottom is the
 // same rule written as text: it runs in the <head> before the first paint (like
 // the theme script), so the page never shows before the intro.
+//
+// When it is shown: only on the home page, only once per tab (the flag is in
+// sessionStorage and is written at once, so a refresh does not repeat it), and
+// only when the flag can be stored (otherwise it would repeat on every load).
+// With reduced motion it is a short STATIC wordmark instead of the scene.
+// How it ends: the end of the scene; a tap, a click, Esc or the Skip button; the
+// time limit of the page's code (end + 1.5 s); the timer of the head script
+// (5 s); and a CSS animation that hides the overlay after 5 s with no script.
 
 /** sessionStorage key: set when the intro starts, so a refresh in the same tab skips it. */
 export const INTRO_KEY = 'vca-intro-v1';
 
-// ---- The logo scene: the dot, the lock opens (alarm), the lock closes (calm), the name ----
+export type IntroMode = 'full' | 'reduced';
 
-/** The last thing of the scene (the name) is fully shown at this time. */
-export const INTRO_STORY_MS = 2200;
-/** The last frame stays this long before the overlay fades. */
-export const INTRO_HOLD_MS = 400;
-/** The fade of the overlay. */
+// ---- The scene (full mode). The CSS has the same numbers as custom properties (--t-*). ----
+
+/** When each part of the scene starts, in ms. The CSS (intro.css) uses the same times. */
+export const INTRO_SCENE_MS = {
+  /** the grid, the two objects draw on, the rings turn: 0 to 0.8 s */
+  draw: 0,
+  /** the beam sweeps, the callouts and the counter appear as it passes: 0.8 to 2.3 s */
+  beam: 800,
+  /** the rings contract into the gate line: 2.3 s */
+  contract: 2300,
+  /** the name appears, word by word */
+  word: 2450,
+  /** the gate splits open from the centre and the page shows */
+  open: 2850,
+} as const;
+
+/** The name is fully shown and the gate starts to open at this time. */
+export const INTRO_STORY_MS = INTRO_SCENE_MS.open;
+/** The gate opens for this long. */
+export const INTRO_HOLD_MS = 450;
+/** The fade of the overlay (nothing is left to see by then). */
 export const INTRO_FADE_MS = 350;
-/** The fade begins here. */
+/** The scene ends here: about 3.3 s. */
 export const INTRO_END_MS = INTRO_STORY_MS + INTRO_HOLD_MS;
-/** The whole intro, fade included: 3 s or less. */
+/** The whole intro, fade included. */
 export const INTRO_TOTAL_MS = INTRO_END_MS + INTRO_FADE_MS;
+/** With reduced motion: a static wordmark for this long. */
+export const INTRO_REDUCED_END_MS = 800;
 /** If nothing has ended the intro by then, it is removed anyway (the head script and the CSS use it too). */
 export const INTRO_FALLBACK_MS = 5000;
 /** After the page's own code has taken over, it gets this long beyond the normal end. */
 export const INTRO_GRACE_MS = 1500;
+
+/** The time the scene lasts (the end of the story, before the fade), by mode. */
+export function introEndMs(mode: IntroMode): number {
+  return mode === 'reduced' ? INTRO_REDUCED_END_MS : INTRO_END_MS;
+}
 
 // ---- The card of the example run (the hero's last frame). Its own timeline, kept for its "intro" mode. ----
 
@@ -71,17 +103,19 @@ export interface IntroContext {
 }
 
 /**
- * The intro is shown only on the home page, only once per tab, never with
- * reduced motion, and never when the flag cannot be stored (it would repeat on
- * every load).
+ * Which intro to show, or null for none. Only on the home page, only once per
+ * tab, and never when the flag cannot be stored (it would repeat on every
+ * load). With reduced motion it is the static wordmark, not the scene.
  */
+export function introModeOf(context: IntroContext): IntroMode | null {
+  if (context.pathname !== '/' || context.seen || !context.storageOk) {
+    return null;
+  }
+  return context.reducedMotion ? 'reduced' : 'full';
+}
+
 export function shouldShowIntro(context: IntroContext): boolean {
-  return (
-    context.pathname === '/' &&
-    !context.reducedMotion &&
-    context.storageOk &&
-    !context.seen
-  );
+  return introModeOf(context) !== null;
 }
 
 /**
@@ -90,17 +124,22 @@ export function shouldShowIntro(context: IntroContext): boolean {
  * CSS since the first paint, so the end is counted from there, not from the
  * moment the page's code is ready).
  */
-export function remainingMs(elapsedMs: number): number {
-  return Math.max(0, INTRO_END_MS - Math.max(0, elapsedMs));
+export function remainingMs(elapsedMs: number, mode: IntroMode = 'full'): number {
+  return Math.max(0, introEndMs(mode) - Math.max(0, elapsedMs));
 }
 
 /**
  * The same rule, as the inline script of the <head>. It sets
- * `data-intro="pending"` on <html> (the CSS shows the overlay, locks the scroll
- * and holds the headline), writes the flag at once (a refresh during the intro
+ * `data-intro="pending"` on <html> (the CSS shows the overlay and locks the
+ * scroll), and `data-intro-mode="reduced"` with reduced motion (the CSS shows the
+ * static wordmark only). It writes the flag at once (a refresh during the intro
  * does not repeat it), remembers when it started (`window.__vcaIntroAt`) and
  * arms a timer that sets `data-intro="done"` if the page's own code never ends
  * the intro. The timer id is kept in `window.__vcaIntroTimer` so that the page's
  * code can replace it by one that starts when it takes over.
+ *
+ * It also lets a click, a tap or Esc skip the scene BEFORE the page's code is
+ * ready (a fade, then done); once the page's code has taken over
+ * (`window.__vcaIntroOwned`), its own handlers do it.
  */
-export const INTRO_BOOT_SCRIPT = `(function(){try{var d=document.documentElement;if(location.pathname!=='/')return;if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var s=window.sessionStorage;if(s.getItem('${INTRO_KEY}'))return;s.setItem('${INTRO_KEY}','1');d.setAttribute('data-intro','pending');window.__vcaIntroAt=window.performance?window.performance.now():0;window.__vcaIntroTimer=setTimeout(function(){d.setAttribute('data-intro','done');},${INTRO_FALLBACK_MS});}catch(e){}})();`;
+export const INTRO_BOOT_SCRIPT = `(function(){try{var d=document.documentElement;if(location.pathname!=='/')return;var s=window.sessionStorage;if(s.getItem('${INTRO_KEY}'))return;s.setItem('${INTRO_KEY}','1');d.setAttribute('data-intro-mode',window.matchMedia('(prefers-reduced-motion: reduce)').matches?'reduced':'full');d.setAttribute('data-intro','pending');window.__vcaIntroAt=window.performance?window.performance.now():0;window.__vcaIntroTimer=setTimeout(function(){d.setAttribute('data-intro','done');},${INTRO_FALLBACK_MS});var skip=function(e){if(window.__vcaIntroOwned||d.getAttribute('data-intro')!=='pending')return;if(e.type==='keydown'&&e.key!=='Escape')return;document.removeEventListener('click',skip,true);document.removeEventListener('keydown',skip,true);d.setAttribute('data-intro','leaving');clearTimeout(window.__vcaIntroTimer);window.__vcaIntroTimer=setTimeout(function(){d.setAttribute('data-intro','done');},${INTRO_FADE_MS});};document.addEventListener('click',skip,true);document.addEventListener('keydown',skip,true);}catch(e){}})();`;

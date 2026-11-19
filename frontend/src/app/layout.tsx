@@ -7,6 +7,7 @@ import { ServiceWorkerRegister } from '@/components/sw-register';
 import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
 import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
+import './intro.css';
 import './stage.css';
 
 export const metadata: Metadata = {

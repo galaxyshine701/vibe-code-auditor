@@ -1,0 +1,488 @@
+/* The intro of the home page (R70): the scene, about 3.3 s, SVG and CSS only.
+   The rules of the layer itself (fixed, the whole screen, above the header, the
+   way out) are in globals.css; this file is what happens inside it. Colours are
+   the tokens of the theme, nothing else.
+
+     0 to 0.8 s    a grid; a website and a database draw on; rings turn
+     0.8 to 2.3 s  a beam sweeps; callouts and a counter appear as it passes
+     2.3 to 3.3 s  rings contract into a thin gate line; the name appears word by
+                   word; the gate splits open from the centre (the two halves
+                   slide away) and the page shows
+
+   The times are custom properties on .intro-scene (--t-*); lib/intro.ts has the
+   same numbers (INTRO_SCENE_MS) and a test compares them. */
+
+.intro-scene {
+  --t-draw: 0s;
+  --t-beam: 0.8s;
+  --t-contract: 2.3s;
+  --t-word: 2.45s;
+  --t-open: 2.85s;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ---- the two halves of the screen: they carry the background, and they are the gate ---- */
+.intro-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50.3%;
+  background: var(--bg);
+  will-change: transform;
+}
+
+.intro-panel-top {
+  top: 0;
+  animation: introPanelUp 0.45s cubic-bezier(0.7, 0, 0.2, 1) var(--t-open) both;
+}
+
+.intro-panel-bottom {
+  bottom: 0;
+  animation: introPanelDown 0.45s cubic-bezier(0.7, 0, 0.2, 1) var(--t-open) both;
+}
+
+@keyframes introPanelUp {
+  to {
+    transform: translateY(-101%);
+  }
+}
+
+@keyframes introPanelDown {
+  to {
+    transform: translateY(101%);
+  }
+}
+
+/* ---- the picture: one layout for a wide screen, one tall for a phone ---- */
+.intro-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation: introFadeOut 0.3s ease-in var(--t-open) forwards;
+}
+
+.intro-art {
+  grid-area: 1 / 1;
+  display: block;
+  overflow: visible;
+}
+
+.intro-art-wide {
+  width: min(92vw, 130dvh);
+  height: auto;
+  aspect-ratio: 640 / 360;
+}
+
+.intro-art-tall {
+  display: none;
+  height: min(84dvh, 160vw);
+  width: auto;
+  aspect-ratio: 320 / 600;
+}
+
+@media (max-width: 480px), (orientation: portrait) and (max-width: 820px) {
+  .intro-art-wide {
+    display: none;
+  }
+
+  .intro-art-tall {
+    display: block;
+  }
+}
+
+.intro-grid {
+  opacity: 0;
+  animation: introGridIn 0.7s ease-out var(--t-draw) both,
+    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+}
+
+.intro-grid-line {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+@keyframes introGridIn {
+  to {
+    opacity: 0.7;
+  }
+}
+
+/* rings: thin, dashed, turning slowly, then flattened into the gate line */
+.intro-rings {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: introFade 0.6s ease-out var(--t-draw) both,
+    introRingsFlat 0.4s cubic-bezier(0.6, 0, 0.8, 0.4) var(--t-contract) forwards;
+}
+
+.intro-ring {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 11;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: introSpin 16s linear infinite;
+}
+
+.intro-ring-back {
+  stroke-dasharray: 2 7;
+  animation-duration: 22s;
+  animation-direction: reverse;
+}
+
+@keyframes introSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes introRingsFlat {
+  to {
+    transform: scaleY(0.015);
+    opacity: 0;
+  }
+}
+
+/* the website and the database draw on, line by line */
+.intro-objects {
+  animation: introFadeOut 0.35s ease-in var(--t-contract) forwards;
+}
+
+.intro-draw {
+  fill: none;
+  stroke: var(--ink-soft);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: introDraw 0.55s ease-out var(--d, 0s) both;
+}
+
+.intro-dot-mark {
+  fill: var(--muted);
+  opacity: 0;
+  animation: introFade 0.3s ease-out var(--d, 0s) both;
+}
+
+@keyframes introDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---- the scan beam: a piece of its own, the hero's example card can use it later ---- */
+.scan-beam {
+  opacity: 0;
+}
+
+.scan-beam[data-axis="x"] {
+  animation: scanBeamX var(--beam-dur, 1.5s) linear var(--beam-delay, 0s) both;
+}
+
+.scan-beam[data-axis="y"] {
+  animation: scanBeamY var(--beam-dur, 1.5s) linear var(--beam-delay, 0s) both;
+}
+
+.scan-beam-glow {
+  filter: blur(0.35rem);
+}
+
+.scan-beam-core {
+  fill: var(--canary);
+  filter: drop-shadow(0 0 0.25rem var(--canary));
+}
+
+@keyframes scanBeamX {
+  from {
+    opacity: 0;
+    transform: translateX(var(--beam-from, 0px));
+  }
+  7% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(var(--beam-to, 0px));
+  }
+}
+
+@keyframes scanBeamY {
+  from {
+    opacity: 0;
+    transform: translateY(var(--beam-from, 0px));
+  }
+  7% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(var(--beam-to, 0px));
+  }
+}
+
+/* ---- what the beam looks at: a callout and a label, as it passes (--at) ---- */
+.intro-callout {
+  opacity: 0;
+  animation: introFade 0.3s ease-out var(--at, 1s) both,
+    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+}
+
+.intro-callout-line {
+  fill: none;
+  stroke: var(--canary);
+  stroke-width: 1;
+}
+
+.intro-callout-end {
+  fill: var(--canary);
+}
+
+.intro-label {
+  fill: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.intro-label-ur {
+  fill: var(--muted);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.intro-art-tall .intro-label {
+  font-size: 11px;
+}
+
+.intro-art-tall .intro-label-ur {
+  font-size: 10px;
+}
+
+/* lines of text that are masked: dots, never a real key */
+.intro-fragment {
+  fill: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  opacity: 0;
+  animation: introFragment 0.5s ease-out var(--at, 1s) both,
+    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+}
+
+.intro-art-tall .intro-fragment {
+  font-size: 9px;
+}
+
+@keyframes introFragment {
+  to {
+    opacity: 0.75;
+  }
+}
+
+/* the counter: 0/3, 1/3, 2/3, 3/3. Each number shows from its moment (--t1 to --t3) */
+.intro-counter {
+  opacity: 0;
+  animation: introFade 0.3s ease-out var(--t-beam) both,
+    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+}
+
+.intro-count {
+  fill: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  opacity: 0;
+}
+
+.intro-count-0 {
+  opacity: 1;
+  animation: introHide 0.01s steps(1) var(--t1) forwards;
+}
+
+.intro-count-1 {
+  animation: introShow 0.01s steps(1) var(--t1) both,
+    introHide 0.01s steps(1) var(--t2) forwards;
+}
+
+.intro-count-2 {
+  animation: introShow 0.01s steps(1) var(--t2) both,
+    introHide 0.01s steps(1) var(--t3) forwards;
+}
+
+.intro-count-3 {
+  fill: var(--canary);
+  animation: introShow 0.01s steps(1) var(--t3) both;
+}
+
+@keyframes introShow {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes introHide {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---- the gate line and the name ---- */
+.intro-gate {
+  position: absolute;
+  left: 10%;
+  top: 50%;
+  width: 80%;
+  height: 0.14rem;
+  margin-top: -0.07rem;
+  background: var(--canary);
+  box-shadow: 0 0 1.2rem var(--canary-glow), 0 0 0.3rem var(--canary);
+  opacity: 0;
+  transform: scaleX(0);
+  animation: introGate 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--t-contract) + 0.1s) both,
+    introFadeOut 0.2s ease-in calc(var(--t-open) + 0.05s) forwards;
+}
+
+@keyframes introGate {
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.intro-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  margin: 0;
+  padding: 0 4vw;
+  transform: translateY(calc(-100% - 0.7rem));
+  color: var(--ink);
+  font-family: var(--font-display, var(--font-body));
+  font-size: max(1.8rem, 9vmin);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-align: center;
+  animation: introFadeOut 0.3s ease-in var(--t-open) forwards;
+}
+
+.intro-word {
+  display: inline-block;
+  margin: 0 0.12em;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+  animation: introWord 0.5s cubic-bezier(0.2, 0.7, 0.2, 1)
+    calc(var(--t-word) + var(--w, 0) * 0.14s) both;
+}
+
+@keyframes introWord {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translateY(0.3em);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(-10% -4% -10% -4%);
+    transform: none;
+  }
+}
+
+@keyframes introFade {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes introFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* the Skip button and its hint step aside when the gate opens */
+html[data-intro="opening"] .intro-skip,
+html[data-intro="opening"] .intro-hint {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ---- reduced motion: a short, still wordmark (data-intro-mode="reduced", or the
+   media query itself, in case the script did not set the mode) ---- */
+html[data-intro-mode="reduced"] .intro-overlay {
+  transition-duration: 0.15s;
+}
+
+html[data-intro-mode="reduced"] .intro-stage,
+html[data-intro-mode="reduced"] .intro-gate {
+  display: none;
+}
+
+html[data-intro-mode="reduced"] .intro-panel,
+html[data-intro-mode="reduced"] .intro-name,
+html[data-intro-mode="reduced"] .intro-word {
+  animation: none;
+}
+
+html[data-intro-mode="reduced"] .intro-name {
+  transform: translateY(-50%);
+}
+
+html[data-intro-mode="reduced"] .intro-word {
+  opacity: 1;
+  clip-path: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-stage,
+  .intro-gate {
+    display: none;
+  }
+
+  .intro-panel,
+  .intro-name,
+  .intro-word {
+    animation: none;
+  }
+
+  .intro-name {
+    transform: translateY(-50%);
+  }
+
+  .intro-word {
+    opacity: 1;
+    clip-path: none;
+    transform: none;
+  }
+
+  .intro-overlay {
+    transition-duration: 0.15s;
+  }
+}
