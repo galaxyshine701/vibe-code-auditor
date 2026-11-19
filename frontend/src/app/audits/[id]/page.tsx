@@ -195,7 +195,7 @@ export default function ProgressPage() {
                     <div>
                       <strong>{module.name}</strong>
                       <span className={`module-status module-${module.status}`}>
-                        {STATUS_LABEL[module.status]}
+                        {STATUS_LABEL[module.status as AuditStatus] ?? module.status}
                       </span>
                     </div>
                     <span className="mono-small">{module.progress}%</span>
