@@ -49,6 +49,7 @@ export function ConnectGroups({
             Website address <em>https</em>
           </span>
           <input
+            id="website-url"
             type="url"
             value={fields.websiteUrl}
             onChange={(event) => onChange({ websiteUrl: event.target.value })}
@@ -92,6 +93,7 @@ export function ConnectGroups({
         <label className="field">
           <span>Project URL</span>
           <input
+            id="project-url"
             type="url"
             value={fields.projectUrl}
             onChange={(event) => onChange({ projectUrl: event.target.value })}

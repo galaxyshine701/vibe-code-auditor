@@ -5,12 +5,13 @@ import { useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
-import { HeroMotion } from '@/components/hero-motion';
+import { HeroCard } from '@/components/hero-card';
+import { LangToggle } from '@/components/lang-toggle';
 import { ConnectGroups } from '@/components/connect-groups';
 import { SecretInput } from '@/components/secret-input';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
-import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
+import { PROJECT_TAGLINE } from '@/lib/brand';
 import { ApiError, NetworkError } from '@/lib/errors';
 import {
   EMPTY_FIELDS,
@@ -21,10 +22,18 @@ import {
   startNote,
   type ConnectFields,
 } from '@/lib/form';
+import {
+  CHIPS,
+  STEPS,
+  headlineWords,
+  honestyLine,
+  pickText,
+  subLine,
+  type ChipId,
+} from '@/lib/hero-copy';
 import { useApiError } from '@/lib/use-api-error';
+import { useLang } from '@/lib/use-lang';
 
-const HEADLINE = ['What', 'can', 'a', 'stranger', 'reach', 'on', 'your', 'app?'];
-const HEADLINE_TEXT = HEADLINE.join(' ');
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -35,6 +44,30 @@ export default function ConnectPage() {
     rateLimitSecondsLeft,
   } = useApp();
   const handleApiError = useApiError();
+  const [lang, setLang] = useLang();
+  const HEADLINE = headlineWords(lang);
+  const HEADLINE_TEXT = HEADLINE.join(' ');
+
+  // A chip points at the group of the Connect form it is named after (Both: at
+  // both). The group says "here" for a moment.
+  function pickSource(chip: ChipId) {
+    const first = document.getElementById(
+      chip === 'supabase' ? 'project-url' : 'website-url',
+    );
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    first?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+    first?.focus({ preventScroll: true });
+    const groups = document.querySelectorAll<HTMLElement>('.source-group');
+    const wanted =
+      chip === 'both' ? [...groups] : [groups[chip === 'supabase' ? 1 : 0]];
+    for (const group of wanted) {
+      if (!group) continue;
+      group.classList.remove('is-nudged');
+      void group.offsetWidth;
+      group.classList.add('is-nudged');
+      window.setTimeout(() => group.classList.remove('is-nudged'), 1500);
+    }
+  }
 
   const [fields, setFields] = useState<ConnectFields>(EMPTY_FIELDS);
   const [accessCodeInput, setAccessCodeInput] = useState('');
@@ -113,10 +146,16 @@ export default function ConnectPage() {
     <div className="shell page-stack">
       <section className="hero">
         <div className="hero-copy">
-          <p className="hero-kicker">{PROJECT_TAGLINE}</p>
-          <h1 className="hero-title" aria-label={HEADLINE_TEXT}>
+          <div className="hero-copy-top">
+            <p className="hero-kicker">{PROJECT_TAGLINE}</p>
+            <LangToggle lang={lang} onChange={setLang} />
+          </div>
+          <h1
+            className={lang === 'ur' ? 'hero-title hero-title-ur' : 'hero-title'}
+            aria-label={HEADLINE_TEXT}
+          >
             {HEADLINE.map((word, index) => (
-              <span key={word}>
+              <span key={`${lang}-${index}`}>
                 <span
                   className="hero-word"
                   style={{ animationDelay: `${150 + index * 90}ms` }}
@@ -127,11 +166,20 @@ export default function ConnectPage() {
               </span>
             ))}
           </h1>
-          <p className="hero-lede">
-            Add a website address, Supabase details, or both. {PROJECT_NAME}{' '}
-            looks at what a visitor can read and what another user can reach,
-            and shows the proof.
-          </p>
+          <p className="hero-lede">{subLine(lang)}</p>
+          <div className="hero-chips" role="group" aria-label={pickText({ en: 'What to check', ur: 'Kya check karna hai' }, lang)}>
+            {CHIPS.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                className="hero-chip-btn"
+                data-chip={chip.id}
+                onClick={() => pickSource(chip.id)}
+              >
+                {pickText(chip.label, lang)}
+              </button>
+            ))}
+          </div>
 
           <div className="hero-gate" id="access-gate">
             {!accessCode ? (
@@ -176,11 +224,24 @@ export default function ConnectPage() {
           </div>
         </div>
 
-        {/* the example run is the intro now; here is its last frame (a wide screen only) */}
-        <div className="hero-scene">
-          <HeroMotion mode="static" />
+        {/* the example run: a beam resolves three evidence rows, then the gate */}
+        <div className="hero-card-wrap">
+          <HeroCard lang={lang} />
         </div>
       </section>
+
+      <ol className="hero-steps" aria-label={pickText({ en: 'How it works', ur: 'Kaise kaam karta hai' }, lang)}>
+        {STEPS.map((step, index) => (
+          <li className="hero-step" key={index}>
+            <span className="hero-step-number" aria-hidden="true">
+              {index + 1}
+            </span>
+            <h2>{pickText(step.title, lang)}</h2>
+            <p>{pickText(step.body, lang)}</p>
+          </li>
+        ))}
+      </ol>
+      <p className="hero-honesty">{honestyLine(lang)}</p>
 
       <div className="connect-grid">
         <section className="card form-card" aria-labelledby="start-heading">
@@ -249,7 +310,7 @@ export default function ConnectPage() {
 
         <aside className="stack">
           <section className="card info-card">
-            <h2>How it works</h2>
+            <h2>How the table check works</h2>
             <ol className="steps">
               <li>
                 <span>1</span>

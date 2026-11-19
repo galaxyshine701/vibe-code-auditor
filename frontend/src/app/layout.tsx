@@ -10,6 +10,7 @@ import './globals.css';
 import './intro.css';
 import './stage.css';
 import './report.css';
+import './hero.css';
 
 export const metadata: Metadata = {
   title: PROJECT_NAME,

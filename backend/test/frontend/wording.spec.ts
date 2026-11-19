@@ -73,10 +73,12 @@ describe('the words of the UI', () => {
     });
   }
 
-  it('the hero says what the product checks', () => {
+  it('the hero says what the product checks (its words are in hero-copy.ts)', () => {
+    const copy = readFileSync(join(SRC, 'lib', 'hero-copy.ts'), 'utf8');
+    expect(copy).toContain('Before you launch: what can a stranger reach?');
+    expect(copy).toMatch(/website address, Supabase details, or both/);
     const page = readFileSync(join(SRC, 'app', 'page.tsx'), 'utf8');
-    expect(page).toContain("'stranger'");
-    expect(page).toMatch(/website address, Supabase details, or both/);
+    expect(page).toContain('headlineWords(lang)');
     expect(page).not.toMatch(/Can another user read your data/);
   });
 });
