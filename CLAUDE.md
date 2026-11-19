@@ -14,6 +14,7 @@ The owner (Anam) is a beginner and does not write code. Reply in simple Roman Ur
 - Secrets live only in `backend/.env` (local) and Railway Variables. Never put a key in code, commits, logs, tests or chat. Redact keys in output.
 - `.gitignore` must include `.env`, `.env.*`, `node_modules/`, `dist/`. Check `git status` before every commit.
 - Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CONFIRM_TEST_PROJECT`, `PLATFORM_SUPABASE_URL`, `PLATFORM_SUPABASE_SERVICE_KEY` (the platform's own project for the audit store, never the tested project's keys). Keep `backend/.env.example` with empty values.
+- More env vars (all in `backend/.env.example`): `FRONTEND_ORIGIN`, `AUDIT_ACCESS_CODE` (a secret), `ALLOW_OPEN_API`, `TRUST_PROXY_HOPS`, `CLIENT_IP_HEADER`, `REPORT_AGENT`, `GROQ_API_KEY` (a secret), `GROQ_MODEL`, and the agent pipeline: `LOCK_C_AGENTS` (`on`/`off`, default off), `AUDIT_WATCHDOG_MS`, `AGENT_PROVER_DEADLINE_MS`, `AGENT_PROVER_GRACE_MS`, `AGENT_REPORT_DEADLINE_MS`, `AGENT_ORPHAN_HOLD_MS`, `AGENT_FINALIZER_DEADLINE_MS`, `AGENT_INSPECTOR_DEADLINE_MS` (the last seven are times in milliseconds; empty = the default).
 - Run only against a test project. Refuse unless `CONFIRM_TEST_PROJECT=yes`. Refuse if any table has more than 100 rows. Always clean up (users and canary rows) in a `finally` block.
 - Data goes through `@supabase/supabase-js`. No Prisma, no separate database.
 - Work on a branch `anam/<task-name>`, never on `main`. Commit messages start with the task id (`VCA-1: ...`). Open a Pull Request per task.

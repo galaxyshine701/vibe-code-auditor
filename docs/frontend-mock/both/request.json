@@ -1,0 +1,9 @@
+{
+  "label": "Example shop and its database",
+  "websiteUrl": "https://www.example-shop.com",
+  "confirmSiteAccess": true,
+  "projectUrl": "https://example-project.supabase.co",
+  "anonKey": "<publishable key: write-only, never returned>",
+  "serviceKey": "<secret key: write-only, never returned>",
+  "confirmTestProject": true
+}

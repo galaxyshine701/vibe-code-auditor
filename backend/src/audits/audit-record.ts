@@ -1,4 +1,5 @@
 import type { Finding } from '../prover/types.js';
+import type { LockC, Text } from '../stages/types.js';
 
 export type AuditStatus = 'queued' | 'running' | 'completed' | 'failed';
 
@@ -11,10 +12,15 @@ export interface LastRetest {
   error: { code: string; message: string } | null;
 }
 
+/**
+ * One agent row of an audit. `skipped` exists only for a row (never for the
+ * audit): the agent did not run on purpose, and `reason` says why.
+ */
 export interface ReportRow {
-  status: AuditStatus;
+  status: AuditStatus | 'skipped';
   progress: number;
   message?: string;
+  reason?: Text;
 }
 
 /**
@@ -28,7 +34,10 @@ export interface AuditRecord {
   status: AuditStatus;
   createdAt: string;
   label: string;
-  projectUrl: string;
+  /** The Supabase project. null for an audit of a website only. */
+  projectUrl: string | null;
+  /** The website that was looked at. Missing for an audit without one. */
+  websiteUrl?: string;
   progress: number;
   findings: Finding[];
   cleanup: 'ok' | 'failed' | null;
@@ -44,4 +53,14 @@ export interface AuditRecord {
   proverDone: boolean;
   /** The Report agent's row. null when the Report agent is off. */
   reportRow: ReportRow | null;
+  /**
+   * The rows of the agents added by LOCK_C_AGENTS, by agent id (name + row).
+   * Missing when the flag is off.
+   */
+  moduleRows?: Record<string, ReportRow & { name: string }>;
+  /**
+   * Plan, evidence, coverage and gate of the latest finished run. Missing on an
+   * audit that was stored before the stages existed.
+   */
+  lockC?: LockC;
 }

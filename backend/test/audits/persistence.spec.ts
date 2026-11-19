@@ -484,19 +484,24 @@ describe('audit state in the audit store', () => {
     const app = await open(repo, () => new FakeGateway(demoTables()));
     const id = (await api(app).post(BASE).send(validBody())).body.id as string;
     const done = await waitUntilDone(app, id);
-    // the keys that GET /audits/:id had before the audit store existed
-    expect(Object.keys(done.body).sort()).toEqual(
-      [
-        'cleanup',
-        'createdAt',
-        'id',
-        'lastRetest',
-        'modules',
-        'status',
-        'summary',
-        'target',
-      ].sort(),
-    );
+    // the keys that GET /audits/:id had before the audit store existed: all still there
+    const oldKeys = [
+      'cleanup',
+      'createdAt',
+      'id',
+      'lastRetest',
+      'modules',
+      'status',
+      'summary',
+      'target',
+    ];
+    for (const key of oldKeys) expect(done.body).toHaveProperty(key);
+    // only additions, and only these (the stages: see test/stages/api.spec.ts)
+    expect(
+      Object.keys(done.body)
+        .filter((key) => !oldKeys.includes(key))
+        .sort(),
+    ).toEqual(['gate', 'ownership', 'plan', 'schemaVersion']);
     expect(Object.keys(done.body.modules[0]).sort()).toEqual(
       ['id', 'name', 'progress', 'status'].sort(),
     );

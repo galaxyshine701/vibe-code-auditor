@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "ev_fnd_001",
+      "check": "data-access-prover",
+      "findingId": "fnd_001",
+      "table": "bookings",
+      "verdict": "LEAKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "A row that belongs to the first user was reached. A logged-in user could read, change and delete it. A visitor could read it. The table has no rule that limits rows to their owner.",
+        "ur": "Pehle user ki row tak doosre log pahunch gaye. Login wala user ise parh, badal aur delete kar sakta tha. Bina login wala visitor ise parh sakta tha. Is table me aisa rule nahi jo har row ko sirf uske maalik tak mehdood kare."
+      }
+    },
+    {
+      "id": "ev_fnd_002",
+      "check": "data-access-prover",
+      "findingId": "fnd_002",
+      "table": "profiles",
+      "verdict": "BLOCKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "The second test user and an anonymous visitor received no rows, and the first user's row stayed unchanged. No leak found by these checks.",
+        "ur": "Doosre test user aur bina login wale visitor ko koi row nahi mili, aur pehle user ki row waisi hi rahi. In checks se koi leak nahi mila."
+      }
+    },
+    {
+      "id": "ev_fnd_003",
+      "check": "data-access-prover",
+      "findingId": "fnd_003",
+      "table": "hotels",
+      "verdict": "INCONCLUSIVE",
+      "proof": "UNVERIFIED",
+      "summary": {
+        "en": "This table has no column that links a row to a user, so a canary row could not be planted. If it holds public information such as a hotel list, that is fine. Please confirm.",
+        "ur": "Is table me aisa column nahi jo row ko kisi user se jore, isliye canary row nahi daali ja saki. Agar isme sirf public maloomat hain (jaise hotel list) to theek hai. Barae meharbani confirm karein."
+      }
+    }
+  ],
+  "coverage": {
+    "checked": [
+      "data-access-prover"
+    ],
+    "partial": [],
+    "skipped": [
+      {
+        "id": "tls-headers",
+        "reason": {
+          "en": "Not provided: no website address was given, so \"Certificate and security headers of the site\" was not checked.",
+          "ur": "Diya nahi gaya: website ka address nahi diya gaya, isliye \"Site ka certificate aur security headers\" check nahi hua."
+        }
+      },
+      {
+        "id": "bundle-secrets",
+        "reason": {
+          "en": "Not provided: no website address was given, so \"Secret keys inside the scripts of the site\" was not checked.",
+          "ur": "Diya nahi gaya: website ka address nahi diya gaya, isliye \"Site ki scripts ke andar chhupi hui secret keys\" check nahi hua."
+        }
+      },
+      {
+        "id": "active-checks",
+        "reason": {
+          "en": "Not implemented yet. Active checks also need proven ownership of the site, and ownership is not checked yet.",
+          "ur": "Abhi bana nahi. Active checks ke liye site ki malkiyat sabit karna bhi zaroori hai, aur malkiyat abhi check nahi hoti."
+        }
+      }
+    ],
+    "outOfScope": [],
+    "failedToRun": [],
+    "nothingToTest": [],
+    "limits": [
+      {
+        "en": "Only table data is tested: read, update and delete as another signed-in user, and read as a visitor. Tables without an owner column are reported as inconclusive.",
+        "ur": "Sirf table ka data test hota hai: doosre login user ki tarah parhna, badalna, delete karna, aur visitor ki tarah parhna. Jis table mein owner column na ho wo inconclusive aata hai."
+      },
+      {
+        "en": "Only the front page is read. Cookie settings, TLS versions and other pages are not checked.",
+        "ur": "Sirf pehla page parha jata hai. Cookie settings, TLS versions aur doosre pages check nahi hote."
+      },
+      {
+        "en": "The bundle scan reads at most 30 script files of the same origin, each at most 2 MB after decompression and 15 MB in total. Scripts it could not read for these reasons are listed as not read.",
+        "ur": "Bundle scan zyada se zyada 30 same-origin script files parhta hai, har file decompress ke baad 2 MB tak aur kul 15 MB. In wajah se jo scripts na parhi ja sakin unka naam \"not read\" mein aata hai."
+      },
+      {
+        "en": "Scripts from other origins are not scanned.",
+        "ur": "Doosre origin ki scripts scan nahi hotin."
+      },
+      {
+        "en": "A key that is found is reported as exposed. Whether it still works is not tested.",
+        "ur": "Jo key milti hai use \"exposed\" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota."
+      },
+      {
+        "en": "No active check is built yet.",
+        "ur": "Abhi koi active check bana nahi."
+      }
+    ]
+  }
+}
