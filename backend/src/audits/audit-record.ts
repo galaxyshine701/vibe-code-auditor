@@ -38,6 +38,8 @@ export interface AuditRecord {
   projectUrl: string | null;
   /** The website that was looked at. Missing for an audit without one. */
   websiteUrl?: string;
+  /** The public GitHub repository that was read (Repo Scan). Missing when none. */
+  repoUrl?: string;
   progress: number;
   findings: Finding[];
   cleanup: 'ok' | 'failed' | null;

@@ -9,6 +9,8 @@ export interface AuditRequest {
   label: string;
   /** The front page of the site (an origin), or null. */
   websiteUrl: string | null;
+  /** A public GitHub repository to read (Repo Scan), when one was given. */
+  repo?: { owner: string; repo: string; url: string };
   /** The whole Supabase group, or null: it is never half there. */
   supabase: {
     projectUrl: string;
@@ -160,6 +162,46 @@ function parseWebsiteUrl(value: unknown): string {
   return url.origin; // only the front page is looked at
 }
 
+const REPO_MESSAGE =
+  'repoUrl must look like https://github.com/owner/repo (a public repository, no login, no path after the name).';
+const REPO_NAME = /^[A-Za-z0-9_.-]{1,100}$/;
+
+function parseRepoUrl(value: unknown): {
+  owner: string;
+  repo: string;
+  url: string;
+} {
+  if (typeof value !== 'string' || value.length > 300) {
+    throw invalid(REPO_MESSAGE);
+  }
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    throw invalid(REPO_MESSAGE);
+  }
+  const parts = url.pathname.replace(/\/$/, '').split('/');
+  const owner = parts[1] ?? '';
+  const repo = (parts[2] ?? '').replace(/\.git$/, '');
+  const plain =
+    url.protocol === 'https:' &&
+    url.hostname === 'github.com' &&
+    url.port === '' &&
+    url.username === '' &&
+    url.password === '' &&
+    url.search === '' &&
+    url.hash === '' &&
+    parts.length === 3 &&
+    REPO_NAME.test(owner) &&
+    REPO_NAME.test(repo) &&
+    owner !== '.' &&
+    owner !== '..' &&
+    repo !== '.' &&
+    repo !== '..';
+  if (!plain) throw invalid(REPO_MESSAGE);
+  return { owner, repo, url: `https://github.com/${owner}/${repo}` };
+}
+
 const SUPABASE_GROUP = ['projectUrl', 'anonKey', 'serviceKey'] as const;
 
 export function requestOf(input: AuditInput): AuditRequest {
@@ -192,20 +234,23 @@ export function parseAuditRequest(
 ): AuditRequest {
   const isObject =
     typeof body === 'object' && body !== null && !Array.isArray(body);
-  if (
-    !websiteEnabled ||
-    !isObject ||
-    !Object.prototype.hasOwnProperty.call(body, 'websiteUrl')
-  ) {
+  const has = (field: string) =>
+    isObject && Object.prototype.hasOwnProperty.call(body, field);
+  if (!websiteEnabled || !(has('websiteUrl') || has('repoUrl'))) {
     return requestOf(parseAuditInput(body));
   }
   const b = body as Record<string, unknown>;
-  const websiteUrl = parseWebsiteUrl(b.websiteUrl);
-  if (b.confirmSiteAccess !== true) {
-    throw invalid(
-      'Confirm you may test this site: set confirmSiteAccess to true.',
-    );
+  // The website is optional when a repository is given (Repo Scan).
+  let websiteUrl: string | null = null;
+  if (has('websiteUrl')) {
+    websiteUrl = parseWebsiteUrl(b.websiteUrl);
+    if (b.confirmSiteAccess !== true) {
+      throw invalid(
+        'Confirm you may test this site: set confirmSiteAccess to true.',
+      );
+    }
   }
+  const repo = has('repoUrl') ? parseRepoUrl(b.repoUrl) : null;
 
   const given = SUPABASE_GROUP.filter((field) => b[field] !== undefined);
   let supabase: AuditRequest['supabase'] = null;
@@ -228,7 +273,9 @@ export function parseAuditRequest(
     };
   }
 
-  let label = new URL(websiteUrl).hostname;
+  let label = websiteUrl
+    ? new URL(websiteUrl).hostname
+    : `${repo!.owner}/${repo!.repo}`;
   if (b.label !== undefined) {
     if (typeof b.label !== 'string' || b.label.length > MAX_LABEL_LENGTH) {
       throw invalid(
@@ -237,5 +284,5 @@ export function parseAuditRequest(
     }
     if (b.label.trim()) label = b.label.trim();
   }
-  return { label, websiteUrl, supabase };
+  return { label, websiteUrl, supabase, ...(repo ? { repo } : {}) };
 }

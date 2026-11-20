@@ -13,6 +13,9 @@ import {
   type AgentsSetup,
 } from '../agents/agents-config.js';
 import { createBundleInspectorAgent } from '../agents/bundle-inspector-agent.js';
+import { createRepoInspectorAgent } from '../agents/repo-inspector-agent.js';
+import { createGithubTransport } from '../repo/github-transport.js';
+import { REPO_SETUP, type RepoSetup } from '../repo/repo-config.js';
 import { createEvidenceAgent } from '../agents/evidence-agent.js';
 import { createHeadersInspectorAgent } from '../agents/headers-inspector-agent.js';
 import { createGuideAgent } from '../agents/guide-agent.js';
@@ -123,6 +126,14 @@ function projectKey(projectUrl: string): string {
   }
 }
 
+/** The owner and name from a stored https://github.com/owner/repo address. */
+function repoRefOf(
+  url: string | undefined,
+): { owner: string; repo: string } | undefined {
+  const match = /^https:\/\/github\.com\/([^/]+)\/([^/]+)$/.exec(url ?? '');
+  return match ? { owner: match[1], repo: match[2] } : undefined;
+}
+
 const notFound = () =>
   new ApiError(404, 'NOT_FOUND', 'No audit with this id was found.');
 
@@ -141,6 +152,8 @@ export class AuditsService implements OnModuleDestroy {
   private readonly timing: AuditTiming;
   /** LOCK_C_AGENTS: off unless the module says otherwise. */
   private readonly agents: AgentsSetup;
+  /** Repo Scan: how GitHub is reached (the token, if any, is only in here). */
+  private readonly repoSetup: RepoSetup;
   /**
    * Runs that have finished but whose final write is not in the store yet
    * (the store was unreachable). GET answers from here while it retries.
@@ -159,7 +172,12 @@ export class AuditsService implements OnModuleDestroy {
     @Inject(AUDIT_REPOSITORY) private readonly repo: AuditRepository,
     @Optional() @Inject(AUDIT_TIMING) timing?: AuditTiming,
     @Optional() @Inject(AGENTS_SETUP) agents?: AgentsSetup,
+    @Optional() @Inject(REPO_SETUP) repoSetup?: RepoSetup,
   ) {
+    this.repoSetup = repoSetup ?? {
+      transport: createGithubTransport(),
+      secrets: [],
+    };
     this.timing = timing ?? DEFAULT_AUDIT_TIMING;
     this.agents = agents ?? AGENTS_OFF;
   }
@@ -225,7 +243,11 @@ export class AuditsService implements OnModuleDestroy {
       id: record.id,
       runId: `run_${randomBytes(8).toString('hex')}`,
       record,
-      secrets: [...secrets, ...this.repo.ownSecrets],
+      secrets: [
+        ...secrets,
+        ...this.repo.ownSecrets,
+        ...this.repoSetup.secrets,
+      ],
       stopped: false,
       watchdogHit: false,
       proverTimedOut: false,
@@ -253,6 +275,7 @@ export class AuditsService implements OnModuleDestroy {
       label: request.label,
       projectUrl: request.supabase?.projectUrl ?? null,
       ...(request.websiteUrl ? { websiteUrl: request.websiteUrl } : {}),
+      ...(request.repo ? { repoUrl: request.repo.url } : {}),
       progress: 0,
       findings: [],
       cleanup: null,
@@ -419,6 +442,7 @@ export class AuditsService implements OnModuleDestroy {
           ? { projectUrl: record.projectUrl }
           : {}),
         ...(record.websiteUrl ? { websiteUrl: record.websiteUrl } : {}),
+        ...(record.repoUrl ? { repoUrl: record.repoUrl } : {}),
       },
       summary: {
         leaked: count('LEAKED'),
@@ -430,6 +454,15 @@ export class AuditsService implements OnModuleDestroy {
           ? {
               siteLeaked: (record.lockC?.evidence ?? []).filter(
                 (e) => e.kind === 'site-bundle' && e.verdict === 'LEAKED',
+              ).length,
+            }
+          : {}),
+        // Additive: only for an audit that has a repository. The secret keys
+        // found in its files.
+        ...(record.repoUrl
+          ? {
+              repoLeaked: (record.lockC?.evidence ?? []).filter(
+                (e) => e.kind === 'repo-file' && e.verdict === 'LEAKED',
               ).length,
             }
           : {}),
@@ -743,11 +776,14 @@ export class AuditsService implements OnModuleDestroy {
     // pipeline stops waiting for them, and the check counts as not done.
     const inspectorLimit =
       flag.inspectorDeadlineMs ?? AGENTS_OFF.inspectorDeadlineMs!;
-    const inspectors: Agent<RunContext>[] = context.websiteUrl
-      ? [createHeadersInspectorAgent(), createBundleInspectorAgent()].map(
-          (agent) => ({ ...agent, deadlineMs: inspectorLimit }),
-        )
-      : [];
+    const inspectors: Agent<RunContext>[] = [
+      ...(context.websiteUrl
+        ? [createHeadersInspectorAgent(), createBundleInspectorAgent()]
+        : []),
+      ...(context.repoRef
+        ? [createRepoInspectorAgent({ transport: this.repoSetup.transport })]
+        : []),
+    ].map((agent) => ({ ...agent, deadlineMs: inspectorLimit }));
     const [proverStage, ...afterProver] = agents;
     const together = [...(proverStage ? [proverStage] : []), ...inspectors];
     const stages: Stage<RunContext>[] = flag.enabled
@@ -854,12 +890,17 @@ export class AuditsService implements OnModuleDestroy {
   ): RunContext {
     if (!this.agents.enabled) return {};
     const websiteUrl = run.record.websiteUrl;
+    const repoRef = repoRefOf(run.record.repoUrl);
     return {
       provided: {
         website: websiteUrl !== undefined,
         supabase: run.record.projectUrl !== null,
+        // Missing (not false) when no repo: the context is as it always was.
+        ...(repoRef ? { repo: true } : {}),
       },
-      ...(websiteUrl ? { websiteUrl, siteResults: {} } : {}),
+      ...(websiteUrl || repoRef ? { siteResults: {} } : {}),
+      ...(websiteUrl ? { websiteUrl } : {}),
+      ...(repoRef ? { repoRef } : {}),
       describeFailure: (error) => {
         const failure = this.describeFailure(run, error, fallback);
         return { message: failure.message, cleanup: failure.cleanup };
