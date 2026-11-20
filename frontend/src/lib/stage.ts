@@ -53,11 +53,18 @@ const OWN_HEADLINE = {
   },
 } as const;
 
-/** Leaks in tables plus secret keys in the scripts of the site. siteLeaked missing = 0. */
+/**
+ * Leaks in tables, secret keys in the scripts of the site, and secret keys in
+ * the files of the repository. siteLeaked and repoLeaked missing = 0.
+ */
 export function leakCount(
   summary: AuditStatusResponse['summary'] | undefined,
 ): number {
-  return (summary?.leaked ?? 0) + (summary?.siteLeaked ?? 0);
+  return (
+    (summary?.leaked ?? 0) +
+    (summary?.siteLeaked ?? 0) +
+    (summary?.repoLeaked ?? 0)
+  );
 }
 
 /**
@@ -196,7 +203,7 @@ export interface EvidenceGroup {
   items: EvidenceItem[];
 }
 
-const KIND_ORDER = ['table', 'site-headers', 'site-bundle'];
+const KIND_ORDER = ['table', 'site-headers', 'site-bundle', 'repo-file'];
 
 /** A missing `kind` is "table". The order of the items inside a group is kept. */
 export function kindOf(item: EvidenceItem): string {
@@ -229,6 +236,11 @@ export function invitesWebsite(audit: Pick<AuditStatusResponse, 'target' | 'sche
   return hasStages(audit) && Boolean(audit.target?.projectUrl) && !audit.target?.websiteUrl;
 }
 
+/** An audit with no Supabase project (a website, a repository, or both): no table was checked. */
+export function noTableCheck(audit: Pick<AuditStatusResponse, 'target'>): boolean {
+  return !audit.target?.projectUrl;
+}
+
 /** An audit of a website only: no table was checked (R83). */
 export function websiteOnly(audit: Pick<AuditStatusResponse, 'target'>): boolean {
   return Boolean(audit.target?.websiteUrl) && !audit.target?.projectUrl;
@@ -240,7 +252,9 @@ export function websiteOnly(audit: Pick<AuditStatusResponse, 'target'>): boolean
 export function showsRequiredLabel(item: Pick<RoadmapItem, 'kind' | 'fromRequiredCheck'>): boolean {
   return (
     item.fromRequiredCheck === true &&
-    (item.kind.startsWith('fix-') || item.kind === 'improve-header')
+    (item.kind.startsWith('fix-') ||
+      item.kind === 'improve-header' ||
+      item.kind === 'improve-repo')
   );
 }
 

@@ -70,6 +70,8 @@ export interface AuditSummary {
   inconclusive: number;
   /** Secret keys found in the scripts of the site. Missing means 0 (R73). */
   siteLeaked?: number;
+  /** Secret keys found in the files of the GitHub repository. Missing means 0. */
+  repoLeaked?: number;
 }
 
 export interface AuditModule {
@@ -94,6 +96,8 @@ export interface AuditTarget {
   projectUrl?: string;
   /** Missing for an audit of Supabase only. */
   websiteUrl?: string;
+  /** The public GitHub repository that was read. Missing when none was given. */
+  repoUrl?: string;
 }
 
 export interface AuditStatusResponse {
@@ -150,9 +154,10 @@ export interface RetestInput {
 }
 
 /**
- * The body of POST /audits (R76). Two optional groups, at least one complete:
- * the website (websiteUrl + confirmSiteAccess) and the Supabase project
- * (projectUrl + anonKey + serviceKey + confirmTestProject).
+ * The body of POST /audits (R76). Three optional groups, at least one complete:
+ * the website (websiteUrl + confirmSiteAccess), the Supabase project
+ * (projectUrl + anonKey + serviceKey + confirmTestProject) and a public GitHub
+ * repository (repoUrl + confirmRepoAccess).
  */
 export interface StartAuditInput {
   label?: string;
@@ -162,4 +167,7 @@ export interface StartAuditInput {
   anonKey?: string;
   serviceKey?: string;
   confirmTestProject?: boolean;
+  /** The public GitHub repository (Repo Scan), with its box. */
+  repoUrl?: string;
+  confirmRepoAccess?: boolean;
 }

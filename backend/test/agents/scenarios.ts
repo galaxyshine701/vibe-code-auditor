@@ -13,6 +13,7 @@ import {
   GATEWAY_FACTORY,
   type GatewayFactory,
 } from '../../src/audits/audits.service.js';
+import { REPO_SETUP, type RepoSetup } from '../../src/repo/repo-config.js';
 import { REPORT_SETUP } from '../../src/report/report-config.js';
 import { InMemoryAuditRepository } from '../audits/in-memory-audit-repository.js';
 import { FakeGateway, type FakeTable } from '../prover/fake-gateway.js';
@@ -35,8 +36,9 @@ export async function buildWith(
   agents: AgentsSetup,
   llm?: FakeLlm,
   repo: InMemoryAuditRepository = new InMemoryAuditRepository(),
+  repoSetup?: RepoSetup,
 ): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+  const builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(GATEWAY_FACTORY)
     .useValue(factory)
     .overrideProvider(AUDIT_REPOSITORY)
@@ -46,8 +48,10 @@ export async function buildWith(
     .overrideProvider(AGENTS_SETUP)
     .useValue(agents)
     .overrideProvider(ACCESS_CONFIG)
-    .useValue({ mode: 'open' })
-    .compile();
+    .useValue({ mode: 'open' });
+  // GitHub is a fake only when the test gives one
+  if (repoSetup) builder.overrideProvider(REPO_SETUP).useValue(repoSetup);
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication();
   app.useLogger(new ConsoleLogger({ logLevels: [] }));
   configureApp(app, {});

@@ -32,7 +32,12 @@ export interface Ownership {
 
 // ---- GET /audits/:id/evidence ----
 
-export type EvidenceKind = 'table' | 'site-bundle' | 'site-headers' | string;
+export type EvidenceKind =
+  | 'table'
+  | 'site-bundle'
+  | 'site-headers'
+  | 'repo-file'
+  | string;
 
 export interface EvidenceItem {
   id: string;
@@ -47,6 +52,8 @@ export interface EvidenceItem {
   /** Missing means "table" (R79). */
   kind?: EvidenceKind;
   subject?: string;
+  /** For a repository file: the 1-based line. Never the text of the line. */
+  line?: number;
 }
 
 export interface CoveragePartial {
@@ -134,6 +141,8 @@ export interface ClientReport {
     tables?: { leaked: number; blocked: number; inconclusive: number } | null;
     /** null: no site check ran. */
     site?: { siteLeaked: number; headersMissing: number } | null;
+    /** Only for a run with a repository. null: the repo scan did not finish. */
+    repo?: { leaked: number } | null;
   };
   /** Ids of the first three roadmap items. */
   topActions?: string[];

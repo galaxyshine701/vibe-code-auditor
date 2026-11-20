@@ -3,8 +3,8 @@
 import type { ConnectCheck, ConnectFields, GroupCheck } from '@/lib/form';
 import { SecretInput } from './secret-input';
 
-// The two optional groups of the Connect form (R76): the website, and the
-// Supabase project. Each says in a small chip where it stands: not used, still
+// The three optional groups of the Connect form (R76): the website, the
+// Supabase project, and a public GitHub repo. Each says in a small chip where it stands: not used, still
 // needs something (and what), or ready. The chip is text as well as colour.
 function GroupChip({ group }: { group: GroupCheck }) {
   if (group.state === 'complete') {
@@ -144,14 +144,61 @@ export function ConnectGroups({
         </label>
       </fieldset>
 
+      <fieldset
+        className="source-group"
+        data-state={check.repo.state}
+        aria-describedby="repo-hint"
+      >
+        <legend className="source-legend">
+          <span className="source-title">Public GitHub repo</span>
+          <GroupChip group={check.repo} />
+        </legend>
+        <p className="muted small" id="repo-hint">
+          Reads the text files of a public repository and looks for a Supabase
+          secret key left in the code. Only the default branch, as it is now.
+          The old commits are not read.
+        </p>
+        <label className="field">
+          <span>Repository address</span>
+          <input
+            id="repo-url"
+            type="url"
+            value={fields.repoUrl}
+            onChange={(event) => onChange({ repoUrl: event.target.value })}
+            placeholder="https://github.com/owner/repo"
+            autoComplete="off"
+            spellCheck={false}
+            inputMode="url"
+          />
+          <small>
+            https://github.com/&lt;owner&gt;/&lt;repo&gt;. A private repository
+            can not be read.
+          </small>
+        </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={fields.confirmRepoAccess}
+            onChange={(event) =>
+              onChange({ confirmRepoAccess: event.target.checked })
+            }
+          />
+          <span>This repository is public and I may scan its files.</span>
+        </label>
+      </fieldset>
+
       {check.website.state === 'partial' ||
-      check.supabase.state === 'partial' ? (
+      check.supabase.state === 'partial' ||
+      check.repo.state === 'partial' ? (
         <p className="source-note" role="status">
           {check.website.state === 'partial'
             ? `Website still needs: ${check.website.missing.join(', ')}. `
             : ''}
           {check.supabase.state === 'partial'
-            ? `Supabase still needs: ${check.supabase.missing.join(', ')}.`
+            ? `Supabase still needs: ${check.supabase.missing.join(', ')}. `
+            : ''}
+          {check.repo.state === 'partial'
+            ? `Repository still needs: ${check.repo.missing.join(', ')}.`
             : ''}
         </p>
       ) : null}

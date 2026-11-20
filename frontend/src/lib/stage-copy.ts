@@ -27,6 +27,8 @@ export const COPY = {
   summaryHeading: { en: 'Summary', ur: 'Khulasa' },
   summaryTables: { en: 'Tables', ur: 'Tables' },
   summarySite: { en: 'Website', ur: 'Website' },
+  summaryRepo: { en: 'Repository', ur: 'Repository' },
+  repoKeys: { en: 'Secrets in repo', ur: 'Repo mein secrets' },
   leaked: { en: 'Leaked', ur: 'Leak hue' },
   blocked: { en: 'Blocked', ur: 'Band' },
   inconclusive: { en: 'Inconclusive', ur: 'Faisla nahi' },
@@ -86,6 +88,11 @@ export const COPY = {
   kindTable: { en: 'Tables', ur: 'Tables' },
   kindHeaders: { en: 'Site headers', ur: 'Site ke headers' },
   kindBundle: { en: 'Scripts of the site', ur: 'Site ki scripts' },
+  kindRepo: { en: 'Repository files', ur: 'Repository ki files' },
+  repoKeyHidden: {
+    en: 'The key is hidden. Only its place is shown.',
+    ur: 'Key chhupi hui hai. Sirf uski jagah dikhai gayi hai.',
+  },
   proofProven: { en: 'Proven', ur: 'Sabit' },
   proofUnverified: { en: 'Could not tell', ur: 'Pata nahi chal saka' },
   headerThere: { en: 'The header is there', ur: 'Header maujood hai' },
@@ -129,7 +136,12 @@ export function t(lang: Lang, key: CopyKey): string {
 const KIND_LABELS: Record<string, Pair> = {
   'fix-finding': { en: 'Fix a table', ur: 'Table theek karein' },
   'fix-site-secret': { en: 'Remove a secret key', ur: 'Secret key hatayein' },
+  'fix-repo-secret': {
+    en: 'Remove a secret key from the repo',
+    ur: 'Repo se secret key hatayein',
+  },
   'improve-header': { en: 'Improve a header', ur: 'Header behtar karein' },
+  'improve-repo': { en: 'Improve the repo', ur: 'Repo behtar karein' },
   confirm: { en: 'Confirm', ur: 'Tasdeeq karein' },
   cleanup: { en: 'Clean up', ur: 'Safai karein' },
   'finish-check': { en: 'Finish a check', ur: 'Check poora karein' },

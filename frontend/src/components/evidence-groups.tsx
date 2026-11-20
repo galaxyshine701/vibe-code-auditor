@@ -7,7 +7,7 @@ import type { Verdict } from '@/lib/types';
 import { VerdictBadge } from './verdict';
 
 // The evidence (R79), grouped by kind: Tables, Site headers, Scripts of the
-// site. A missing kind is a table. For a site item `findingId` and `table` are
+// site, Repository files (path:line, the key itself is never shown). A missing kind is a table. For a site item `findingId` and `table` are
 // null: the subject says what it is about (a header, or a script as host/path),
 // and a subject the UI does not know is shown as given. The verdict, the proof
 // and the summary are the API's; the colours and the icon of the verdict are the
@@ -17,6 +17,7 @@ const KIND_TITLE: Record<string, CopyKey> = {
   table: 'kindTable',
   'site-headers': 'kindHeaders',
   'site-bundle': 'kindBundle',
+  'repo-file': 'kindRepo',
 };
 
 const VERDICTS: readonly string[] = ['LEAKED', 'BLOCKED', 'INCONCLUSIVE'];
@@ -33,6 +34,15 @@ function Subject({ item, lang }: { item: EvidenceItem; lang: Lang }) {
   const kind = kindOf(item);
   if (kind === 'table') {
     return <code className="evidence-subject">{item.table ?? item.subject ?? item.check}</code>;
+  }
+  if (kind === 'repo-file') {
+    // a path and a line, as the API gave them; never the text of the line
+    return (
+      <code className="evidence-subject">
+        {item.subject ?? item.check}
+        {typeof item.line === 'number' ? `:${item.line}` : ''}
+      </code>
+    );
   }
   return (
     <code className="evidence-subject">
@@ -96,6 +106,9 @@ export function EvidenceGroups({
                           ? t(lang, 'headerThere')
                           : t(lang, 'headerWeak')}
                       </p>
+                    ) : null}
+                    {kind === 'repo-file' ? (
+                      <p className="evidence-meaning">{t(lang, 'repoKeyHidden')}</p>
                     ) : null}
                     {item.summary ? (
                       <p className="evidence-summary">{pick(item.summary, lang)}</p>

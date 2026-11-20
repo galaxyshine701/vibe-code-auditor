@@ -5,6 +5,7 @@
 //   ?mock=supabase-only   an audit of a Supabase project, with the stages
 //   ?mock=url-only        an audit of a website
 //   ?mock=both            website and Supabase
+//   ?mock=repo-only       a public GitHub repository, with a key in one file
 //   ?mock=timeout         a run that ran out of time (a failed row, TIMEOUT)
 // Without it the old mock of R1 to R70 is used (the answers of a backend with
 // LOCK_C_AGENTS off). The name is kept in the tab (sessionStorage), and the
@@ -17,6 +18,11 @@ import bothClient from './mock-bundles/both/client-report.json';
 import bothEvidence from './mock-bundles/both/evidence.json';
 import bothFindings from './mock-bundles/both/findings.json';
 import bothRoadmap from './mock-bundles/both/roadmap.json';
+import repoAudit from './mock-bundles/repo-only/audit.json';
+import repoClient from './mock-bundles/repo-only/client-report.json';
+import repoEvidence from './mock-bundles/repo-only/evidence.json';
+import repoFindings from './mock-bundles/repo-only/findings.json';
+import repoRoadmap from './mock-bundles/repo-only/roadmap.json';
 import supabaseAudit from './mock-bundles/supabase-only/audit.json';
 import supabaseClient from './mock-bundles/supabase-only/client-report.json';
 import supabaseEvidence from './mock-bundles/supabase-only/evidence.json';
@@ -45,6 +51,7 @@ export const BUNDLE_NAMES = [
   'supabase-only',
   'url-only',
   'both',
+  'repo-only',
   'timeout',
 ] as const;
 export type BundleName = (typeof BUNDLE_NAMES)[number];
@@ -80,6 +87,13 @@ const FILES = {
     roadmap: urlRoadmap,
     clientReport: urlClient,
     findings: urlFindings,
+  },
+  'repo-only': {
+    audit: repoAudit,
+    evidence: repoEvidence,
+    roadmap: repoRoadmap,
+    clientReport: repoClient,
+    findings: repoFindings,
   },
   both: {
     audit: bothAudit,

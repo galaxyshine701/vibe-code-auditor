@@ -1,10 +1,12 @@
 // The rules of the Connect form (docs/frontend-brief.md R76). Pure functions:
 // the page calls them, and the tests load them.
 //
-// Two optional groups, at least one complete:
+// Three optional groups, at least one complete:
 //  - Website: websiteUrl + the box "I may test this site" (confirmSiteAccess);
 //  - Supabase: projectUrl + publishable key + secret key, all three together,
-//    + the TEST project box (confirmTestProject).
+//    + the TEST project box (confirmTestProject);
+//  - Public GitHub repo: repoUrl + the box "This repository is public and I may
+//    scan its files" (confirmRepoAccess).
 // A half-filled group blocks the start (the backend would answer 400) and the
 // note names what is missing. The UI never sends a half group.
 import type { StartAuditInput } from './types';
@@ -17,6 +19,8 @@ export interface ConnectFields {
   anonKey: string;
   serviceKey: string;
   confirmTestProject: boolean;
+  repoUrl: string;
+  confirmRepoAccess: boolean;
 }
 
 export const EMPTY_FIELDS: ConnectFields = {
@@ -27,6 +31,8 @@ export const EMPTY_FIELDS: ConnectFields = {
   anonKey: '',
   serviceKey: '',
   confirmTestProject: false,
+  repoUrl: '',
+  confirmRepoAccess: false,
 };
 
 /** empty: nothing in it. partial: something is missing. complete: all there. */
@@ -41,6 +47,7 @@ export interface GroupCheck {
 export interface ConnectCheck {
   website: GroupCheck;
   supabase: GroupCheck;
+  repo: GroupCheck;
   /** Start is possible (the access code is not part of this). */
   canStart: boolean;
 }
@@ -69,10 +76,14 @@ export function checkConnect(fields: ConnectFields): ConnectCheck {
     ['Secret key', filled(fields.serviceKey)],
     ['the TEST project box', fields.confirmTestProject],
   ]);
-  const oneComplete =
-    website.state === 'complete' || supabase.state === 'complete';
-  const nonePartial = website.state !== 'partial' && supabase.state !== 'partial';
-  return { website, supabase, canStart: oneComplete && nonePartial };
+  const repo = groupOf([
+    ['Repository address', filled(fields.repoUrl)],
+    ['the box "This repository is public and I may scan its files"', fields.confirmRepoAccess],
+  ]);
+  const groups = [website, supabase, repo];
+  const oneComplete = groups.some((g) => g.state === 'complete');
+  const nonePartial = groups.every((g) => g.state !== 'partial');
+  return { website, supabase, repo, canStart: oneComplete && nonePartial };
 }
 
 /**
@@ -87,9 +98,12 @@ export function startNote(check: ConnectCheck): string {
   if (check.supabase.state === 'partial') {
     notes.push(`Supabase: ${check.supabase.missing.join(', ')}`);
   }
+  if (check.repo.state === 'partial') {
+    notes.push(`Repository: ${check.repo.missing.join(', ')}`);
+  }
   if (notes.length > 0) return `Finish or clear a group: ${notes.join('. ')}.`;
   if (!check.canStart) {
-    return 'Complete the website group, the Supabase group, or both.';
+    return 'Complete the website group, the Supabase group, the repository group, or more than one.';
   }
   return '';
 }
@@ -105,8 +119,10 @@ export function startHintOf(check: ConnectCheck, hasAccessCode: boolean): string
 /**
  * The body of POST /audits (R76). Only a complete group is sent: a website
  * with `confirmSiteAccess: true`, a Supabase project with `confirmTestProject:
- * true`. A website-only request has no `confirmTestProject`. The keys are sent
- * as typed; they are never trimmed or logged.
+ * true`, a repository with `confirmRepoAccess: true`. A request without a
+ * repository is exactly as before (no `repoUrl`, no `confirmRepoAccess`). A
+ * website-only request has no `confirmTestProject`. The keys are sent as typed;
+ * they are never trimmed or logged.
  */
 export function buildStartBody(fields: ConnectFields): StartAuditInput {
   const check = checkConnect(fields);
@@ -121,6 +137,10 @@ export function buildStartBody(fields: ConnectFields): StartAuditInput {
     body.anonKey = fields.anonKey;
     body.serviceKey = fields.serviceKey;
     body.confirmTestProject = true;
+  }
+  if (check.repo.state === 'complete') {
+    body.repoUrl = fields.repoUrl.trim();
+    body.confirmRepoAccess = true;
   }
   return body;
 }

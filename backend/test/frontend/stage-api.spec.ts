@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // The frontend has no test runner of its own, so the files are loaded by path.
 const FRONTEND = join(__dirname, '..', '..', '..', 'frontend');
 const DOCS = join(__dirname, '..', '..', '..', 'docs', 'frontend-mock');
-const BUNDLES = ['supabase-only', 'url-only', 'both'];
+const BUNDLES = ['supabase-only', 'url-only', 'both', 'repo-only'];
 const FILES = ['audit', 'evidence', 'roadmap', 'client-report', 'findings'];
 
 interface Audit {

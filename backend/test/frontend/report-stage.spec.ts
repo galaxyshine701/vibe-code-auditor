@@ -309,7 +309,7 @@ describe('the empty and special states (R83), Re-test (R74) and the Re-test resu
 
   it('a website only audit says no table was checked, not "No findings"', () => {
     expect(page).toContain(
-      'const noTables = audit ? websiteOnly(audit) : false;',
+      'const noTables = audit ? noTableCheck(audit) : false;',
     );
     expect(page).toContain('{noTables ? (');
     expect(page.indexOf('<NoTables')).toBeLessThan(

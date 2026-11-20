@@ -11,17 +11,24 @@ import type { AuditSummary } from '@/lib/types';
 // audit are used only when there is no client report (a 404: it is hidden, R72).
 type TableCounts = { leaked: number; blocked: number; inconclusive: number };
 type SiteCounts = { siteLeaked: number; headersMissing?: number };
+type RepoCounts = { leaked: number };
 
 function countsFrom(
   report: ClientReport | null,
   summary: AuditSummary | undefined,
   hasWebsite: boolean,
   hasSupabase: boolean,
-): { tables: TableCounts | null; site: SiteCounts | null } {
+  hasRepo: boolean,
+): {
+  tables: TableCounts | null;
+  site: SiteCounts | null;
+  repo: RepoCounts | null;
+} {
   if (report?.findings) {
     return {
       tables: report.findings.tables ?? null,
       site: report.findings.site ?? null,
+      repo: report.findings.repo ?? null,
     };
   }
   return {
@@ -35,6 +42,7 @@ function countsFrom(
         : null,
     site:
       summary && hasWebsite ? { siteLeaked: summary.siteLeaked ?? 0 } : null,
+    repo: summary && hasRepo ? { leaked: summary.repoLeaked ?? 0 } : null,
   };
 }
 
@@ -66,6 +74,7 @@ export function ClientSummary({
   summary,
   hasWebsite,
   hasSupabase,
+  hasRepo = false,
   lang,
 }: {
   report: ClientReport | null;
@@ -73,13 +82,21 @@ export function ClientSummary({
   summary: AuditSummary | undefined;
   hasWebsite: boolean;
   hasSupabase: boolean;
+  hasRepo?: boolean;
   lang: Lang;
 }) {
-  const { tables, site } = countsFrom(report, summary, hasWebsite, hasSupabase);
+  const { tables, site, repo } = countsFrom(
+    report,
+    summary,
+    hasWebsite,
+    hasSupabase,
+    hasRepo,
+  );
   const first = topActionItems(report, roadmapItems);
   // a group is shown when the audit asked for it, or the report has a place for it
   const showTables = hasSupabase || report?.findings?.tables !== undefined;
   const showSite = hasWebsite || report?.findings?.site !== undefined;
+  const showRepo = hasRepo || report?.findings?.repo !== undefined;
 
   return (
     <section className="card client-summary" aria-labelledby="summary-heading">
@@ -123,6 +140,23 @@ export function ClientSummary({
                     index={4}
                   />
                 ) : null}
+              </div>
+            ) : (
+              <p className="muted small not-checked">{t(lang, 'notChecked')}</p>
+            )}
+          </div>
+        ) : null}
+        {showRepo ? (
+          <div className="summary-group">
+            <h3>{t(lang, 'summaryRepo')}</h3>
+            {repo ? (
+              <div className="stat-row">
+                <Tile
+                  tone={repo.leaked > 0 ? 'leaked' : 'blocked'}
+                  value={repo.leaked}
+                  label={t(lang, 'repoKeys')}
+                  index={5}
+                />
               </div>
             ) : (
               <p className="muted small not-checked">{t(lang, 'notChecked')}</p>

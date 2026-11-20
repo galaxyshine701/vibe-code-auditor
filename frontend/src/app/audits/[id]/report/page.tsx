@@ -46,7 +46,7 @@ import {
   invitesWebsite,
   leakCount,
   pick,
-  websiteOnly,
+  noTableCheck,
 } from '@/lib/stage';
 import { t } from '@/lib/stage-copy';
 import type { StageBundle } from '@/lib/stage-types';
@@ -438,7 +438,7 @@ export default function ReportPage() {
   // R74, R83: an audit of a website only has no table: no Re-test, no re-test
   // result, and "No findings" is not its result
   const retestAllowed = audit ? canRetest(audit) : true;
-  const noTables = audit ? websiteOnly(audit) : false;
+  const noTables = audit ? noTableCheck(audit) : false;
   const headline = audit ? headlineOf(audit, stage?.clientReport ?? null) : null;
   const buckets = stages
     ? bucketsOf(stage?.clientReport, stage?.evidence?.coverage, audit?.plan)
@@ -461,7 +461,11 @@ export default function ReportPage() {
               {targetLines(audit.target).map((line) => (
                 <li key={line.kind}>
                   <span className="target-kind">
-                    {line.kind === 'website' ? 'Website' : 'Supabase'}
+                    {line.kind === 'website'
+                      ? 'Website'
+                      : line.kind === 'repo'
+                        ? 'GitHub repo'
+                        : 'Supabase'}
                   </span>
                   <span className="muted break">{line.url}</span>
                 </li>
@@ -490,6 +494,7 @@ export default function ReportPage() {
             summary={audit?.summary}
             hasWebsite={Boolean(audit?.target.websiteUrl)}
             hasSupabase={Boolean(audit?.target.projectUrl)}
+            hasRepo={Boolean(audit?.target.repoUrl)}
             lang={language}
           />
           <ScopeBuckets buckets={buckets} lang={language} />

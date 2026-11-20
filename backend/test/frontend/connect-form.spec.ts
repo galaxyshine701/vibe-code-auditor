@@ -186,7 +186,7 @@ describe('the notes name fields, never values', () => {
   it('the hint under the start button: access code first, then the groups', () => {
     const empty = form.checkConnect(fields());
     expect(form.startHintOf(empty, false)).toBe(
-      'To start: enter the access code. Complete the website group, the Supabase group, or both.',
+      'To start: enter the access code. Complete the website group, the Supabase group, the repository group, or more than one.',
     );
     const ready = form.checkConnect(fields(WEBSITE));
     expect(form.startHintOf(ready, true)).toBe('');

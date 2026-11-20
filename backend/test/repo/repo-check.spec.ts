@@ -204,7 +204,7 @@ describe('the repo inspector agent', () => {
     await createRepoInspectorAgent({
       transport: zipTransport({ name: '../evil.ts', data: 'x' }),
     }).run(context, () => {}, control());
-    expect(context.siteResults?.[REPO_CHECK_ID]?.reason?.en).toMatch(/safety limits/);
+    expect(context.siteResults?.[REPO_CHECK_ID]?.reason?.en).toMatch(/limits of the scan/);
   });
 
   it('a stopped run does not start the download', async () => {

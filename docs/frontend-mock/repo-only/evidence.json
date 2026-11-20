@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "items": [
+    {
+      "id": "ev_site_repo-secrets_1",
+      "check": "repo-secrets",
+      "findingId": null,
+      "table": null,
+      "subject": "src/lib/supabase.ts",
+      "line": 3,
+      "kind": "repo-file",
+      "verdict": "LEAKED",
+      "proof": "PROVEN",
+      "summary": {
+        "en": "A Supabase secret key (sb_secret_...) is in this file of the repository. Anyone who opens the repository can read it, and old commits keep it. Rotate the key and remove it from the file.",
+        "ur": "Repository ki is file mein Supabase ki secret key (sb_secret_...) maujood hai. Jo bhi repository kholta hai use parh sakta hai, aur purane commits mein bhi rehti hai. Key rotate karein aur file se hatayein."
+      }
+    }
+  ],
+  "coverage": {
+    "checked": [
+      "repo-secrets"
+    ],
+    "partial": [],
+    "skipped": [
+      {
+        "id": "data-access-prover",
+        "reason": {
+          "en": "Not provided: no Supabase details were given, so \"Data access (can another user or a visitor reach a row?)\" was not checked.",
+          "ur": "Diya nahi gaya: Supabase ki details nahi di gayin, isliye \"Data access (kya doosra user ya visitor kisi row tak pahunch sakta hai?)\" check nahi hua."
+        }
+      },
+      {
+        "id": "tls-headers",
+        "reason": {
+          "en": "Not provided: no website address was given, so \"Certificate and security headers of the site\" was not checked.",
+          "ur": "Diya nahi gaya: website ka address nahi diya gaya, isliye \"Site ka certificate aur security headers\" check nahi hua."
+        }
+      },
+      {
+        "id": "bundle-secrets",
+        "reason": {
+          "en": "Not provided: no website address was given, so \"Secret keys inside the scripts of the site\" was not checked.",
+          "ur": "Diya nahi gaya: website ka address nahi diya gaya, isliye \"Site ki scripts ke andar chhupi hui secret keys\" check nahi hua."
+        }
+      },
+      {
+        "id": "active-checks",
+        "reason": {
+          "en": "Not implemented yet. Active checks also need proven ownership of the site, and ownership is not checked yet.",
+          "ur": "Abhi bana nahi. Active checks ke liye site ki malkiyat sabit karna bhi zaroori hai, aur malkiyat abhi check nahi hoti."
+        }
+      }
+    ],
+    "outOfScope": [],
+    "failedToRun": [],
+    "nothingToTest": [],
+    "limits": [
+      {
+        "en": "Only table data is tested: read, update and delete as another signed-in user, and read as a visitor. Tables without an owner column are reported as inconclusive.",
+        "ur": "Sirf table ka data test hota hai: doosre login user ki tarah parhna, badalna, delete karna, aur visitor ki tarah parhna. Jis table mein owner column na ho wo inconclusive aata hai."
+      },
+      {
+        "en": "Only the front page is read. Cookie settings, TLS versions and other pages are not checked.",
+        "ur": "Sirf pehla page parha jata hai. Cookie settings, TLS versions aur doosre pages check nahi hote."
+      },
+      {
+        "en": "The bundle scan reads at most 30 script files of the same origin, each at most 2 MB after decompression and 15 MB in total. Scripts it could not read for these reasons are listed as not read.",
+        "ur": "Bundle scan zyada se zyada 30 same-origin script files parhta hai, har file decompress ke baad 2 MB tak aur kul 15 MB. In wajah se jo scripts na parhi ja sakin unka naam \"not read\" mein aata hai."
+      },
+      {
+        "en": "Scripts from other origins are not scanned.",
+        "ur": "Doosre origin ki scripts scan nahi hotin."
+      },
+      {
+        "en": "A key that is found is reported as exposed. Whether it still works is not tested.",
+        "ur": "Jo key milti hai use \"exposed\" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota."
+      },
+      {
+        "en": "No active check is built yet.",
+        "ur": "Abhi koi active check bana nahi."
+      },
+      {
+        "en": "Only a public GitHub repository is read, its default branch, as it is now. The history of old commits is not read.",
+        "ur": "Sirf public GitHub repository parhi jati hai, uski default branch, jaisi abhi hai. Purane commits ki history nahi parhi jati."
+      },
+      {
+        "en": "Only text files are read (at most 1 MB each; the zip at most 15 MB, 40 MB unpacked, 3000 entries). Folders such as node_modules and dist are skipped, and so are files it could not read (they are listed as not read).",
+        "ur": "Sirf text files parhi jati hain (har file 1 MB tak; zip 15 MB tak, unpack hone par 40 MB, 3000 entries). node_modules aur dist jaise folders chhod diye jate hain, aur jo files parhi na ja sakin unka naam \"not read\" mein aata hai."
+      }
+    ]
+  }
+}

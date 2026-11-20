@@ -18,6 +18,10 @@ const CHECK_LABELS: Record<string, Record<Lang, string>> = {
     en: "Secret keys in the site's scripts",
     ur: 'Site ki scripts mein secret keys',
   },
+  'repo-secrets': {
+    en: 'Repo scan',
+    ur: 'Repo ka scan',
+  },
   'active-checks': {
     en: 'Active checks (not built yet)',
     ur: 'Active checks (abhi bane nahi)',

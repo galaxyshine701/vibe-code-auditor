@@ -18,7 +18,7 @@ import {
   RequestCancelledError,
 } from '@/lib/errors';
 import { hasReasons, rowView, targetLines } from '@/lib/progress-rows';
-import { headlineOf, leakCount, pick, websiteOnly } from '@/lib/stage';
+import { headlineOf, leakCount, noTableCheck, pick } from '@/lib/stage';
 import type { AuditStatus, AuditStatusResponse } from '@/lib/types';
 import { useLang } from '@/lib/use-lang';
 import { useApiError } from '@/lib/use-api-error';
@@ -146,7 +146,11 @@ export default function ProgressPage() {
               {targetLines(audit.target).map((line) => (
                 <li key={line.kind}>
                   <span className="target-kind">
-                    {line.kind === 'website' ? 'Website' : 'Supabase'}
+                    {line.kind === 'website'
+                      ? 'Website'
+                      : line.kind === 'repo'
+                        ? 'GitHub repo'
+                        : 'Supabase'}
                   </span>
                   <span className="muted break">{line.url}</span>
                 </li>
@@ -261,32 +265,59 @@ export default function ProgressPage() {
               </p>
             ) : null}
 
-            {status === 'completed' && websiteOnly(audit) ? (
+            {status === 'completed' && noTableCheck(audit) ? (
               <div className="summary-grid summary-grid-site">
-                <div
-                  className={`summary-item ${
-                    (audit.summary.siteLeaked ?? 0) > 0
-                      ? 'summary-leaked'
-                      : 'summary-blocked'
-                  }`}
-                >
-                  <span>{audit.summary.siteLeaked ?? 0}</span>
-                  <strong>Secret keys in scripts</strong>
-                </div>
+                {audit.target.websiteUrl ? (
+                  <div
+                    className={`summary-item ${
+                      (audit.summary.siteLeaked ?? 0) > 0
+                        ? 'summary-leaked'
+                        : 'summary-blocked'
+                    }`}
+                  >
+                    <span>{audit.summary.siteLeaked ?? 0}</span>
+                    <strong>Secret keys in scripts</strong>
+                  </div>
+                ) : null}
+                {audit.target.repoUrl ? (
+                  <div
+                    className={`summary-item ${
+                      (audit.summary.repoLeaked ?? 0) > 0
+                        ? 'summary-leaked'
+                        : 'summary-blocked'
+                    }`}
+                  >
+                    <span>{audit.summary.repoLeaked ?? 0}</span>
+                    <strong>Secrets in repo</strong>
+                  </div>
+                ) : null}
                 <p className="muted small summary-site-note">
                   No Supabase details were given, so no table was checked.
                 </p>
               </div>
             ) : null}
 
-            {status === 'completed' && !websiteOnly(audit) ? (
+            {status === 'completed' && !noTableCheck(audit) ? (
               <div
                 className={
-                  audit.summary.siteLeaked === undefined
+                  audit.summary.siteLeaked === undefined &&
+                  audit.summary.repoLeaked === undefined
                     ? 'summary-grid'
                     : 'summary-grid summary-grid-four'
                 }
               >
+                {audit.summary.repoLeaked !== undefined ? (
+                  <div
+                    className={`summary-item ${
+                      audit.summary.repoLeaked > 0
+                        ? 'summary-leaked'
+                        : 'summary-blocked'
+                    }`}
+                  >
+                    <span>{audit.summary.repoLeaked}</span>
+                    <strong>Secrets in repo</strong>
+                  </div>
+                ) : null}
                 {audit.summary.siteLeaked !== undefined ? (
                   <div
                     className={`summary-item ${

@@ -70,14 +70,15 @@ export function hasReasons(modules: AuditModule[] | undefined): boolean {
 }
 
 export interface TargetLine {
-  kind: 'website' | 'supabase';
+  kind: 'website' | 'supabase' | 'repo';
   url: string;
 }
 
-/** What the audit looks at: a website, a Supabase project, or both. Missing = not shown. */
+/** What the audit looks at: a website, a Supabase project, a repository. Missing = not shown. */
 export function targetLines(target: Partial<AuditTarget> | undefined): TargetLine[] {
   const lines: TargetLine[] = [];
   if (target?.websiteUrl) lines.push({ kind: 'website', url: target.websiteUrl });
   if (target?.projectUrl) lines.push({ kind: 'supabase', url: target.projectUrl });
+  if (target?.repoUrl) lines.push({ kind: 'repo', url: target.repoUrl });
   return lines;
 }

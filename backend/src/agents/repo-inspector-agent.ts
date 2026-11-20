@@ -40,8 +40,8 @@ const FAILURE: Record<RepoNotReadReason, Text> = {
     ur: 'Repository ki size had se zyada hai, isliye wo parhi nahi gayi.',
   },
   'archive-refused': {
-    en: 'The repository archive was refused by the safety limits (too many files, too much data, or an unsafe path), so it was not read.',
-    ur: 'Repository ka archive safety limits ne radd kar diya (bahut zyada files, bahut zyada data, ya ghair mehfooz path), isliye wo parhi nahi gayi.',
+    en: 'The repository archive was refused by the limits of the scan (too many files, too much data, or a path that is not allowed), so it was not read.',
+    ur: 'Repository ka archive scan ki hudood ne radd kar diya (bahut zyada files, bahut zyada data, ya aisa path jo allowed nahi), isliye wo parhi nahi gayi.',
   },
   'could-not-fetch': {
     en: 'The repository could not be fetched from GitHub in time, so it was not read.',
