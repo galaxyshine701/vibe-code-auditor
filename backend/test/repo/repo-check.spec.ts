@@ -50,10 +50,10 @@ describe('the plan: the repo check exists only when a repository was given', () 
     ).toEqual(before);
   });
 
-  it('a run with a repo gets one more check, and it is never required', () => {
+  it('a run with a repo gets one more check, and it is required (like a site check that was given)', () => {
     const plan = planChecks(CHECKS, { website: false, supabase: true, repo: true });
     expect(ids(plan)).toEqual([...CHECKS.map((c) => c.id), REPO_CHECK_ID]);
-    expect(plan.find((c) => c.id === REPO_CHECK_ID)?.required).toBe(false);
+    expect(plan.find((c) => c.id === REPO_CHECK_ID)?.required).toBe(true);
     expect(checksFor(CHECKS, undefined)).toBe(CHECKS);
   });
 });
@@ -156,7 +156,7 @@ describe('the repo inspector agent', () => {
       status: 'completed',
     });
     expect(context.siteEvidence).toMatchObject([
-      { check: REPO_CHECK_ID, kind: 'repo-file', verdict: 'LEAKED', proof: 'PROVEN', subject: 'src/client.ts' },
+      { check: REPO_CHECK_ID, kind: 'repo-file', verdict: 'LEAKED', proof: 'PROVEN', subject: 'src/client.ts', line: 1 },
     ]);
     expect(JSON.stringify(context)).not.toContain(SECRET);
   });
@@ -288,7 +288,7 @@ describe('roadmap and client report for a key in the repository', () => {
       provided: { website: false, supabase: false, repo: true },
     });
     expect(roadmap.items[0]).toMatchObject({
-      kind: 'fix-site-secret',
+      kind: 'fix-repo-secret',
       severity: 'critical',
       refs: { checkId: REPO_CHECK_ID, evidenceIds: [leak.id] },
     });

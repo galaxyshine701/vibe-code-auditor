@@ -42,17 +42,17 @@ describe('parseAuditRequest: repoUrl', () => {
       `${REPO_URL}.git`,
       'https://github.com/Some-One/my.app_2',
     ]) {
-      const request = parse({ repoUrl: url });
+      const request = parse({ repoUrl: url, confirmRepoAccess: true });
       expect(request.repo?.url).toMatch(/^https:\/\/github\.com\/[^/]+\/[^/]+$/);
       expect(request.websiteUrl).toBeNull();
       expect(request.supabase).toBeNull();
     }
-    expect(parse({ repoUrl: `${REPO_URL}.git` }).repo).toEqual({
+    expect(parse({ repoUrl: `${REPO_URL}.git`, confirmRepoAccess: true }).repo).toEqual({
       owner: 'someone',
       repo: 'app',
       url: REPO_URL,
     });
-    expect(parse({ repoUrl: REPO_URL }).label).toBe('someone/app');
+    expect(parse({ repoUrl: REPO_URL, confirmRepoAccess: true }).label).toBe('someone/app');
   });
 
   it('refuses anything that is not a plain public github.com repository', () => {
@@ -74,8 +74,14 @@ describe('parseAuditRequest: repoUrl', () => {
       42,
       null,
     ]) {
-      expect(fails({ repoUrl: bad })).toMatch(/^repoUrl must look like/);
+      expect(fails({ repoUrl: bad, confirmRepoAccess: true })).toMatch(/^repoUrl must look like/);
     }
+  });
+
+  it('a repoUrl needs confirmRepoAccess: true (the caller says it is public and theirs to scan)', () => {
+    expect(fails({ repoUrl: REPO_URL })).toMatch(/confirmRepoAccess/);
+    expect(fails({ repoUrl: REPO_URL, confirmRepoAccess: 'yes' })).toMatch(/confirmRepoAccess/);
+    expect(fails({ repoUrl: REPO_URL, confirmRepoAccess: false })).toMatch(/confirmRepoAccess/);
   });
 
   it('the message never contains the value it refused', () => {
@@ -104,6 +110,7 @@ describe('parseAuditRequest: repoUrl', () => {
         websiteUrl: 'https://www.example.com',
         confirmSiteAccess: true,
         repoUrl: REPO_URL,
+        confirmRepoAccess: true,
       }).label,
     ).toBe('www.example.com');
   });
@@ -165,7 +172,7 @@ describe('flag on: an audit with Supabase details and a repository', () => {
     const nest = await build(
       zipOf({ name: 'o-r-1/src/a.ts', data: 'export const a = 1;' }),
     );
-    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL });
+    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true });
     expect(res.status).toBe(202);
     const done = await waitUntilDone(nest, res.body.id);
     expect(done.body.target.repoUrl).toBe(REPO_URL);
@@ -183,7 +190,7 @@ describe('flag on: an audit with Supabase details and a repository', () => {
     const nest = await build(
       zipOf({ name: 'o-r-1/src/client.ts', data: `const k = "${SECRET}"` }),
     );
-    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL });
+    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true });
     const done = await waitUntilDone(nest, res.body.id);
     expect(done.body.summary.repoLeaked).toBe(1);
     expect(done.body.gate.decision).toBe('not_ready');
@@ -211,7 +218,7 @@ describe('flag on: an audit with Supabase details and a repository', () => {
     ['not found', new RepoFetchError('NOT_FOUND', 'x'), /not found, or it is private/],
   ])('%s: the check failed to run, and the gate banner says "Repo scan did not run."', async (_n, error, text) => {
     const nest = await build(failing(error));
-    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL });
+    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true });
     const done = await waitUntilDone(nest, res.body.id);
     // the run itself completes: the repo check is optional
     expect(done.body.status).toBe('completed');
@@ -230,7 +237,7 @@ describe('flag on: an audit with Supabase details and a repository', () => {
 
   it('the tested project is still checked when the repo fails (the Prover result stands)', async () => {
     const nest = await build(failing(new RepoFetchError('FAILED', 'x')));
-    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL });
+    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true });
     const done = await waitUntilDone(nest, res.body.id);
     expect(done.body.summary.blocked).toBe(1);
   });
@@ -241,7 +248,7 @@ describe('flag on: an audit with Supabase details and a repository', () => {
       ON,
       [TOKEN],
     );
-    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL });
+    const res = await post(nest, { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true });
     const done = await waitUntilDone(nest, res.body.id);
     const everything = JSON.stringify([
       done.body,
@@ -254,14 +261,33 @@ describe('flag on: an audit with Supabase details and a repository', () => {
 });
 
 describe('a repository alone (no Supabase, no website)', () => {
-  it('is accepted, has no Prover, and is never "ready" (no required check finished)', async () => {
+  it('is accepted, has no Prover, and a clean repo is ready by these checks (the repo check is required, like a site check)', async () => {
     const nest = await build(zipOf({ name: 'o-r-1/a.ts', data: 'x' }));
-    const res = await post(nest, { repoUrl: REPO_URL });
+    const res = await post(nest, { repoUrl: REPO_URL, confirmRepoAccess: true });
     expect(res.status).toBe(202);
     const done = await waitUntilDone(nest, res.body.id);
     expect(done.body.status).toBe('completed');
     expect(done.body.target).toEqual({ label: 'someone/app', repoUrl: REPO_URL });
-    expect(done.body.gate.decision).toBe('not_ready');
+    expect(done.body.gate).toEqual({ decision: 'ready_by_these_checks', reasons: [] });
+  });
+
+  it('a repo alone that has a key is not ready; one that could not be read is not ready and says so', async () => {
+    const leaked = await build(
+      zipOf({ name: 'o-r-1/c.ts', data: `const k = "${SECRET}"` }),
+    );
+    const a = await post(leaked, { repoUrl: REPO_URL, confirmRepoAccess: true });
+    const aDone = await waitUntilDone(leaked, a.body.id);
+    expect(aDone.body.gate.decision).toBe('not_ready');
+    expect((aDone.body.gate.reasons as { en: string }[])[0].en).toMatch(/A leak was found/);
+    await leaked.close();
+
+    const failed = await build(failing(new RepoFetchError('RATE_LIMITED', 'x')));
+    const b = await post(failed, { repoUrl: REPO_URL, confirmRepoAccess: true });
+    const bDone = await waitUntilDone(failed, b.body.id);
+    expect(bDone.body.gate.decision).toBe('not_ready');
+    expect((bDone.body.gate.reasons as { en: string }[]).map((r) => r.en)).toContain(
+      'Repo scan did not run.',
+    );
   });
 });
 
@@ -271,9 +297,9 @@ describe('flag off: nothing changes', () => {
       calls: { count: number };
     };
     const nest = await build(transport, AGENTS_OFF);
-    const res = await post(nest, { repoUrl: REPO_URL });
+    const res = await post(nest, { repoUrl: REPO_URL, confirmRepoAccess: true });
     expect(res.status).toBe(400);
-    const ok = await post(nest, { ...validBody(), repoUrl: REPO_URL });
+    const ok = await post(nest, { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true });
     expect(ok.status).toBe(202);
     const done = await waitUntilDone(nest, ok.body.id);
     expect(transport.calls.count).toBe(0);

@@ -128,6 +128,7 @@ export function createRepoInspectorAgent(
         findingId: null,
         table: null,
         subject: hit.path,
+        line: hit.line,
         kind: 'repo-file' as const,
         verdict: 'LEAKED' as const,
         proof: 'PROVEN' as const,

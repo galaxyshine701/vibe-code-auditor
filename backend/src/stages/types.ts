@@ -81,6 +81,8 @@ export interface EvidenceItem {
   table: string | null;
   /** What it is about when it is not a table: a script or a header of the site. */
   subject?: string;
+  /** For a file of a repository: the 1-based line. Never the text of the line. */
+  line?: number;
   kind?: EvidenceKind;
   verdict: 'LEAKED' | 'BLOCKED' | 'INCONCLUSIVE';
   /** PROVEN = seen directly by the check. UNVERIFIED = the check could not tell. */
@@ -130,7 +132,9 @@ export interface Ownership {
 export type RoadmapKind =
   | 'fix-finding'
   | 'fix-site-secret'
+  | 'fix-repo-secret'
   | 'improve-header'
+  | 'improve-repo'
   | 'confirm'
   | 'cleanup'
   | 'finish-check'

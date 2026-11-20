@@ -1,4 +1,4 @@
-import { scanForKeys, type KeyKind } from '../stages/site-rules.js';
+import { scanForKeyHits, type KeyKind } from '../stages/site-rules.js';
 import { REPO_SCAN_LIMITS, type RepoScanLimits } from './repo-limits.js';
 import { readZip, stripRootFolder, ZipError } from './zip-reader.js';
 
@@ -44,6 +44,8 @@ export class RepoFetchError extends Error {
 export interface RepoHit {
   path: string;
   kind: KeyKind;
+  /** the 1-based line of the first key of this kind in the file */
+  line: number;
 }
 
 export type RepoNotReadReason =
@@ -147,8 +149,8 @@ export async function scanRepo(
     }
     filesScanned += 1;
     paths.push(path);
-    for (const kind of scanForKeys(file.data.toString('utf8'))) {
-      hits.push({ path, kind });
+    for (const hit of scanForKeyHits(file.data.toString('utf8'))) {
+      hits.push({ path, kind: hit.kind, line: hit.line });
     }
   }
   return { completed: true, hits, filesScanned, notRead, paths };

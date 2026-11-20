@@ -251,6 +251,11 @@ export function parseAuditRequest(
     }
   }
   const repo = has('repoUrl') ? parseRepoUrl(b.repoUrl) : null;
+  if (repo && b.confirmRepoAccess !== true) {
+    throw invalid(
+      'Confirm the repository is public and you may scan its files: set confirmRepoAccess to true.',
+    );
+  }
 
   const given = SUPABASE_GROUP.filter((field) => b[field] !== undefined);
   let supabase: AuditRequest['supabase'] = null;

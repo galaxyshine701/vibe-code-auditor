@@ -47,8 +47,8 @@ describe('scanRepo', () => {
     );
     expect(outcome.completed).toBe(true);
     expect(outcome.hits).toEqual([
-      { path: 'src/client.ts', kind: 'secret-key' },
-      { path: '.env', kind: 'service-role-jwt' },
+      { path: 'src/client.ts', kind: 'secret-key', line: 1 },
+      { path: '.env', kind: 'service-role-jwt', line: 1 },
     ]);
     expect(outcome.filesScanned).toBe(3);
     // the key itself is nowhere in the outcome

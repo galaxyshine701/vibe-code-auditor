@@ -126,8 +126,9 @@ export const CHECKS: CheckDefinition[] = [
 
 /**
  * Repo Scan Lite. It is NOT in CHECKS: a run without a repository has exactly
- * the checks it always had. `checksFor` adds it when a repository was given.
- * It is optional (never required): the gate says so itself when it did not run.
+ * the checks it always had. `checksFor` adds it when a repository was given,
+ * and then it is REQUIRED, like a website check whose address was given: a run
+ * that was given a repository is not ready until the repository was read.
  */
 export const REPO_CHECK_ID = 'repo-secrets';
 
@@ -138,7 +139,7 @@ export const REPO_CHECK: CheckDefinition = {
     ur: 'GitHub repository ke code ke andar chhupi hui secret keys',
   },
   mode: 'passive',
-  required: false,
+  required: true,
   needs: 'repo',
   limits: [
     {

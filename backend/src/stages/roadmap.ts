@@ -35,10 +35,12 @@ export const ROADMAP_UNAVAILABLE: Roadmap = {
 /** The order of kinds when severity and "required" are the same. */
 export const KIND_RANK: readonly RoadmapKind[] = [
   'fix-site-secret',
+  'fix-repo-secret',
   'fix-finding',
   'cleanup',
   'finish-check',
   'improve-header',
+  'improve-repo',
   'confirm',
   'provide-input',
   'retest',
@@ -373,7 +375,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
     if (item.kind !== 'repo-file' || item.verdict !== 'LEAKED') continue;
     const subject = item.subject ?? 'a file';
     drafts.push({
-      kind: 'fix-site-secret',
+      kind: 'fix-repo-secret',
       severity: 'critical',
       fromRequiredCheck: required(plan, REPO),
       title: {
