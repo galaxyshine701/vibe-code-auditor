@@ -1,6 +1,7 @@
 import {
   BUNDLE_SCAN_LIMITS,
   CHECKS,
+  checksFor,
   isProvided,
   type BundleScanLimits,
   type CheckDefinition,
@@ -17,7 +18,7 @@ export function planChecks(
   definitions: readonly CheckDefinition[] = CHECKS,
   provided?: Provided,
 ): PlannedCheck[] {
-  return definitions.map((definition) => ({
+  return checksFor(definitions, provided).map((definition) => ({
     id: definition.id,
     title: definition.title,
     mode: definition.mode,

@@ -1,6 +1,10 @@
 import { buildCoverage, buildEvidence } from '../stages/evidence.js';
 import { collectResults } from '../stages/inspectors.js';
-import { CHECKS, type CheckDefinition } from '../stages/planner-config.js';
+import {
+  CHECKS,
+  checksFor,
+  type CheckDefinition,
+} from '../stages/planner-config.js';
 import { buildStageInput } from '../stages/stage-input.js';
 import type { Agent } from './agent.js';
 import type { RunContext } from './run-context.js';
@@ -41,13 +45,14 @@ export function createEvidenceAgent(
         context,
         control?.failure() ?? null,
       ));
-      const results = collectResults(definitions, input);
+      const checks = checksFor(definitions, context.provided);
+      const results = collectResults(checks, input);
       // what the Prover found (about tables), then what the website inspectors found
       context.evidence = mapTexts(
         [...buildEvidence(input.findings), ...(context.siteEvidence ?? [])],
         redact,
       );
-      context.coverage = mapTexts(buildCoverage(definitions, results), redact);
+      context.coverage = mapTexts(buildCoverage(checks, results), redact);
       return Promise.resolve();
     },
   };

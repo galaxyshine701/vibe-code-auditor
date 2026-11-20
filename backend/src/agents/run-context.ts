@@ -43,6 +43,8 @@ export interface RunContext {
    * same ones the audit record gets (a time limit says so, in a fixed sentence).
    */
   describeFailure?: (error: unknown) => FailureInfo;
+  /** The public GitHub repository to read, when one was given (Repo Scan). */
+  repoRef?: { owner: string; repo: string };
   /** The address of the website to look at, when one was given. */
   websiteUrl?: string;
   /**

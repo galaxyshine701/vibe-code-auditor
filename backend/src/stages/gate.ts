@@ -1,3 +1,4 @@
+import { REPO_CHECK_ID } from './planner-config.js';
 import type {
   Coverage,
   EvidenceItem,
@@ -68,6 +69,27 @@ export function evaluateGate(input: GateInput): Gate {
         ur: `Zaroori check "${check.title.ur}" skip hua.`,
       });
     }
+  }
+
+  // The repo scan is optional, so the loop above does not hold it. But a run
+  // that was GIVEN a repository must not say "no leak found" as if the code had
+  // been read when it was not. Only a run with the repo check in its plan gets
+  // this; every other run is unchanged.
+  if (
+    plan.some((c) => c.id === REPO_CHECK_ID) &&
+    !coverage.checked.includes(REPO_CHECK_ID)
+  ) {
+    reasons.push(
+      coverage.partial.some((c) => c.id === REPO_CHECK_ID)
+        ? {
+            en: 'Repo scan was only partly done: some files of the repository were not read.',
+            ur: 'Repo scan sirf adhoora hua: repository ki kuch files parhi nahi gayin.',
+          }
+        : {
+            en: 'Repo scan did not run.',
+            ur: 'Repo scan chala nahi.',
+          },
+    );
   }
 
   if (evidence.some((e) => e.verdict === 'LEAKED')) {

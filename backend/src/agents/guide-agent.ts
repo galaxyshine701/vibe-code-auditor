@@ -2,6 +2,7 @@ import { buildClientReport } from '../stages/client-report.js';
 import { evaluateGate } from '../stages/gate.js';
 import {
   CHECKS,
+  checksFor,
   isProvided,
   type CheckDefinition,
 } from '../stages/planner-config.js';
@@ -41,7 +42,7 @@ export function createGuideAgent(
     critical: false,
     alwaysRun: true,
     run(context, _setProgress, control) {
-      const plan = context.plan ?? planChecks(definitions);
+      const plan = context.plan ?? planChecks(checksFor(definitions, context.provided));
       const input = (context.stageInput ??= buildStageInput(
         context,
         control?.failure() ?? null,
@@ -57,7 +58,7 @@ export function createGuideAgent(
         coverage,
         evidence,
         cleanup: input.cleanup,
-        notProvided: definitions
+        notProvided: checksFor(definitions, context.provided)
           .filter((d) => !isProvided(d, context.provided))
           .map((d) => ({ id: d.id, title: d.title })),
       });
