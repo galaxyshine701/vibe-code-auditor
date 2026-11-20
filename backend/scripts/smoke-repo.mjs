@@ -6,6 +6,12 @@
 //   node smoke-repo.mjs                      (default: octocat/Hello-World)
 //   node smoke-repo.mjs owner/repo
 //
+// FOR LATER: run this once on Railway after the deploy (railway ssh, paste the
+// file as base64: echo <b64> | base64 -d > /tmp/smoke.mjs && node /tmp/smoke.mjs
+// octocat/Hello-World) to see the rate limits GitHub gives Railway's IP. Set
+// GITHUB_TOKEN in the shell first to also get the rest-token mode. The app does
+// not need this to work: it is a measurement, not a step.
+//
 // Three modes, 5 downloads in a row each:
 //   archive    https://github.com/{o}/{r}/archive/refs/heads/{default}.zip
 //              (a plain web URL: a token is NEVER sent here)
