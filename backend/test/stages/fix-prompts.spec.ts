@@ -219,6 +219,23 @@ describe('the roadmap carries a prompt on the five kinds, and only there', () =>
     expect(item.title.en).toContain('"a script"');
   });
 
+  it('the title of a repo secret never holds a key from the file path', () => {
+    const f2 = makeFixture({
+      provided: { website: false, supabase: true, repo: true },
+      siteEvidence: [repoItem(`src/${FAKE_SECRET}.ts`), repoItem('src/ok.ts')].map(
+        (e, i) => ({ ...e, id: `ev_repo_${i}` }),
+      ),
+    });
+    const titles = buildRoadmap(inputOf(f2)).items.filter(
+      (i) => i.kind === 'fix-repo-secret',
+    );
+    expect(titles).toHaveLength(2);
+    const text = titles.map((i) => `${i.title.en}\n${i.title.ur}`).join('\n');
+    expect(text).not.toContain(FAKE_SECRET);
+    expect(text).toContain('"a file"');
+    expect(text).toContain('"src/ok.ts"');
+  });
+
   it('all fixtures: same input, same roadmap, no key shape', () => {
     for (const make of Object.values(ALL_FIXTURES)) {
       const a = buildRoadmap(inputOf(make()));

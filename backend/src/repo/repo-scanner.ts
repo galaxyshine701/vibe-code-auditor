@@ -76,6 +76,8 @@ export interface RepoScanOutcome {
   hits: RepoHit[];
   /** public variable names that say SECRET or SERVICE_ROLE (rule 2) */
   nameHits: RepoNameHit[];
+  /** true when more files had such a name than MAX_NAME_HITS: the list is cut */
+  nameHitsCut: boolean;
   /** files that were looked at */
   filesScanned: number;
   /** files that were NOT read, and why */
@@ -138,6 +140,7 @@ export async function scanRepo(
     failure,
     hits: [],
     nameHits: [],
+    nameHitsCut: false,
     filesScanned: 0,
     notRead: [],
     paths: [],
@@ -174,6 +177,7 @@ export async function scanRepo(
 
   const hits: RepoHit[] = [];
   const nameHits: RepoNameHit[] = [];
+  let nameHitsCut = false;
   const notRead: RepoScanOutcome['notRead'] = contents.skipped.map((s) => ({
     path: stripRootFolder(s.path),
     reason: s.reason,
@@ -192,10 +196,13 @@ export async function scanRepo(
     for (const hit of scanForKeyHits(text)) {
       hits.push({ path, kind: hit.kind, line: hit.line });
     }
-    if (!DOCUMENT_FILE.test(path) && nameHits.length < MAX_NAME_HITS) {
+    if (!DOCUMENT_FILE.test(path)) {
       const line = findPublicSecretName(text);
-      if (line !== null) nameHits.push({ path, line });
+      if (line !== null) {
+        if (nameHits.length < MAX_NAME_HITS) nameHits.push({ path, line });
+        else nameHitsCut = true;
+      }
     }
   }
-  return { completed: true, hits, nameHits, filesScanned, notRead, paths };
+  return { completed: true, hits, nameHits, nameHitsCut, filesScanned, notRead, paths };
 }

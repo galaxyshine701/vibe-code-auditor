@@ -4,6 +4,7 @@ import type { EvidenceItem, Text } from '../stages/types.js';
 import { createGithubTransport } from '../repo/github-transport.js';
 import { REPO_SCAN_LIMITS } from '../repo/repo-limits.js';
 import {
+  MAX_NAME_HITS,
   scanRepo,
   type RepoNotReadReason,
   type RepoTransport,
@@ -28,6 +29,12 @@ const WHAT_FOUND: Record<KeyKind, Text> = {
 const WHAT_NAME: Text = {
   en: 'A variable in this file starts with NEXT_PUBLIC_ or VITE_ and has SECRET or SERVICE_ROLE in its name. A browser build publishes such variables to every visitor. The value was not checked: this is a warning sign, not a proven leak.',
   ur: 'Is file ki ek variable NEXT_PUBLIC_ ya VITE_ se shuru hoti hai aur uske naam mein SECRET ya SERVICE_ROLE hai. Browser build aisi variables har visitor ko publish kar deta hai. Value check nahi hui: ye khatre ki nishani hai, sabit shuda leak nahi.',
+};
+
+/** Said in the limits when more files had such a name than the list holds. */
+const NAME_LIST_CUT: Text = {
+  en: `The list of variable names that say SECRET or SERVICE_ROLE is not complete: only the first ${MAX_NAME_HITS} files are listed.`,
+  ur: `SECRET ya SERVICE_ROLE kehne wali variable ke naamon ki list mukammal nahi: sirf pehli ${MAX_NAME_HITS} files likhi gayi hain.`,
 };
 
 /** One fixed sentence for each reason the repository could not be read. */
@@ -157,9 +164,13 @@ export function createRepoInspectorAgent(
 
       // A binary file is not a miss. A big file or a link is.
       const missed = outcome.notRead.filter((n) => NOT_READ[n.reason]);
+      const cut = outcome.nameHitsCut
+        ? { limitNotes: [NAME_LIST_CUT] }
+        : {};
       results[REPO_INSPECTOR_ID] =
         missed.length > 0
           ? {
+              ...cut,
               id: REPO_INSPECTOR_ID,
               status: 'partial',
               reason: {
@@ -171,7 +182,7 @@ export function createRepoInspectorAgent(
                 reason: NOT_READ[n.reason]!,
               })),
             }
-          : { id: REPO_INSPECTOR_ID, status: 'completed' };
+          : { id: REPO_INSPECTOR_ID, status: 'completed', ...cut };
       setProgress(100);
     },
   };

@@ -42,6 +42,11 @@ export interface CheckResult {
    * goes into the coverage. This is not a failure and not a skip.
    */
   nothingToTest?: Text;
+  /**
+   * Extra lines for the coverage limits, from this run only (for example "the
+   * list is cut"). Not a failure and not "partial": the gate does not read it.
+   */
+  limitNotes?: Text[];
   /** For partial: what was not read (a name and a reason each). */
   notRead?: { name: string; reason: Text }[];
   /**

@@ -97,6 +97,16 @@ describe('scanRepo: public secret names', () => {
     }));
     const outcome = await scanRepo(zip(...entries), REPO);
     expect(outcome.nameHits).toHaveLength(MAX_NAME_HITS);
+    expect(outcome.nameHitsCut).toBe(true);
+  });
+  it('exactly MAX_NAME_HITS files is not a cut', async () => {
+    const entries = Array.from({ length: MAX_NAME_HITS }, (_, i) => ({
+      name: `o-r-1/f${i}.env`,
+      data: 'VITE_A_SECRET=1',
+    }));
+    const outcome = await scanRepo(zip(...entries), REPO);
+    expect(outcome.nameHits).toHaveLength(MAX_NAME_HITS);
+    expect(outcome.nameHitsCut).toBe(false);
   });
 });
 
@@ -146,6 +156,64 @@ describe('the repo inspector agent: name evidence', () => {
     expect(items.map((i) => i.kind)).toEqual(['repo-file', 'repo-env-name']);
     expect(new Set(items.map((i) => i.id)).size).toBe(2);
     expect(JSON.stringify(context)).not.toContain(SECRET);
+  });
+});
+
+describe('a cut list is said in the report limits, and does not hold the gate', () => {
+  const provided = { website: false, supabase: false, repo: true };
+  const plan = planChecks(CHECKS, provided);
+  const checks = checksFor(CHECKS, provided);
+  const run = async (count: number) => {
+    const context: RunContext = {
+      repoRef: REPO,
+      siteResults: {},
+      provided,
+    };
+    const entries = Array.from({ length: count }, (_, i) => ({
+      name: `o-r-1/f${i}.env`,
+      data: 'VITE_A_SECRET=1',
+    }));
+    await createRepoInspectorAgent({ transport: zip(...entries) }).run(
+      context,
+      () => {},
+      control(),
+    );
+    const coverage = buildCoverage(
+      checks,
+      collectResults(checks, {
+        findings: [],
+        cleanup: null,
+        dataAccess: { status: 'notProvided' },
+        provided,
+        siteResults: context.siteResults,
+      }),
+    );
+    return { context, coverage };
+  };
+
+  it('more than the cap: the check is completed and the limits say the list is not complete', async () => {
+    const { context, coverage } = await run(MAX_NAME_HITS + 1);
+    expect(context.siteEvidence).toHaveLength(MAX_NAME_HITS);
+    expect(coverage.checked).toContain(REPO_CHECK_ID);
+    const limits = coverage.limits.map((l) => l.en).join('\n');
+    expect(limits).toContain('is not complete');
+    expect(limits).toContain(`first ${MAX_NAME_HITS} files`);
+    expect(coverage.limits.map((l) => l.ur).join('\n')).toContain('mukammal nahi');
+    const gate = evaluateGate({ plan, coverage, evidence: context.siteEvidence ?? [], cleanup: null });
+    expect(gate.decision).toBe('ready_by_these_checks');
+  });
+
+  it('at or under the cap: no such line', async () => {
+    const { coverage } = await run(MAX_NAME_HITS);
+    expect(coverage.limits.map((l) => l.en).join('\n')).not.toContain('is not complete');
+  });
+
+  it('the fixed limits say only UPPERCASE names are checked and .md/.txt are skipped', async () => {
+    const { coverage } = await run(1);
+    const line = coverage.limits.map((l) => l.en).find((l) => l.includes('UPPERCASE'));
+    expect(line).toBeDefined();
+    expect(line).toContain('.md and .txt files are skipped');
+    expect(coverage.limits.map((l) => l.ur).join('\n')).toContain('UPPERCASE');
   });
 });
 

@@ -388,7 +388,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   // of the repository too, so removing the file is not enough: rotate it.
   for (const item of evidence) {
     if (item.kind !== 'repo-file' || item.verdict !== 'LEAKED') continue;
-    const subject = item.subject ?? 'a file';
+    const subject = plain(item.subject, 'a file');
     drafts.push({
       kind: 'fix-repo-secret',
       severity: 'critical',
