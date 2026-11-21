@@ -928,3 +928,71 @@ describe('the checks of the whole text still run on the composed text', () => {
     ).toBeDefined();
   });
 });
+
+describe('"User b" is repaired to "User B", and nothing else is', () => {
+  const kept = (sentence: string, verdict: Finding['verdict'] = 'LEAKED') =>
+    parseChunk(JSON.stringify({ items: [{ id: 'f1', sentence }] }), [
+      finding('f1', 'bookings', verdict),
+    ]).accepted.get('f1');
+
+  it('writes User B for User b, in every place it appears', () => {
+    expect(
+      kept('User b was able to read the row, and User b was able to delete it'),
+    ).toBe(
+      'User B was able to read the row, and User B was able to delete it. The table is LEAKED.',
+    );
+  });
+
+  it('leaves a correct "User B" as it is', () => {
+    expect(kept('User B was able to read the row')).toBe(
+      'User B was able to read the row. The table is LEAKED.',
+    );
+  });
+
+  it('does not touch any other lower-case letter or word', () => {
+    // "user b" in small letters at the start, or another actor, is left alone
+    expect(kept('The user b was able to read the row')).toBe(
+      'The user b was able to read the row. The table is LEAKED.',
+    );
+    expect(
+      kept('The visitor was blocked from reading the row', 'BLOCKED'),
+    ).toBe(
+      'The visitor was blocked from reading the row. The table is BLOCKED.',
+    );
+  });
+
+  it('a wrong word is still refused, the repair does not make it pass', () => {
+    expect(kept('User b was able to read the roww')).toBeUndefined();
+  });
+});
+
+describe('the -ing forms after "blocked from"', () => {
+  const kept = (sentence: string) =>
+    parseChunk(JSON.stringify({ items: [{ id: 'f1', sentence }] }), [
+      finding('f1', 'bookings', 'BLOCKED'),
+    ]).accepted.get('f1');
+
+  it('accepts reading, deleting, updating, changing, accessing, seeing and returning', () => {
+    for (const form of [
+      'reading',
+      'deleting',
+      'updating',
+      'changing',
+      'accessing',
+      'seeing',
+      'returning',
+    ]) {
+      expect(
+        kept(`The visitor was blocked from ${form} the row`),
+        form,
+      ).toBeDefined();
+    }
+  });
+
+  it('the prompt shows the -ing example and tells the model to write User B', () => {
+    const prompt = buildPrompt([finding('f1', 'bookings')]).system;
+    expect(prompt).toContain('blocked from reading and deleting');
+    expect(prompt).toContain('never "blocked from read and delete"');
+    expect(prompt).toContain('"User B" with a capital B');
+  });
+});

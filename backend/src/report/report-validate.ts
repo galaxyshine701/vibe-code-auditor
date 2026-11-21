@@ -183,7 +183,10 @@ export function composeExplanation(
   sentence: string,
   finding: Pick<Finding, 'verdict'>,
 ): string | null {
-  const body = sentence.replace(/[.!?\s]+$/, '');
+  const body = sentence
+    .replace(/[.!?\s]+$/, '')
+    // the one cosmetic repair: the actor is called "User B", never "User b"
+    .replace(/\bUser b\b/g, 'User B');
   if (body === '' || /[.!?]/.test(body)) return null;
   return `${body}. The table is ${finding.verdict}.`;
 }

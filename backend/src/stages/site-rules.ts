@@ -203,6 +203,47 @@ export function scanForKeys(text: string): KeyKind[] {
   return [...kinds];
 }
 
+/**
+ * Where the first key of each kind is in this text: the kind and the 1-based
+ * line. Never the key itself. Same rules as scanForKeys.
+ */
+export function scanForKeyHits(
+  text: string,
+): { kind: KeyKind; line: number }[] {
+  const lineOf = (index: number) => {
+    let line = 1;
+    for (let i = text.indexOf('\n'); i !== -1 && i < index; i = text.indexOf('\n', i + 1)) {
+      line += 1;
+    }
+    return line;
+  };
+  const hits: { kind: KeyKind; line: number }[] = [];
+  const secret = /sb_secret_[A-Za-z0-9_-]{16,}/.exec(text);
+  if (secret) hits.push({ kind: 'secret-key', line: lineOf(secret.index) });
+  let checked = 0;
+  for (const match of text.matchAll(
+    /eyJ[A-Za-z0-9_-]{8,}\.(eyJ[A-Za-z0-9_-]{8,})\.[A-Za-z0-9_-]{8,}/g,
+  )) {
+    if (++checked > MAX_JWT_CHECKS) break;
+    try {
+      const payload: unknown = JSON.parse(
+        Buffer.from(match[1], 'base64url').toString('utf8'),
+      );
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        (payload as { role?: unknown }).role === 'service_role'
+      ) {
+        hits.push({ kind: 'service-role-jwt', line: lineOf(match.index) });
+        break;
+      }
+    } catch {
+      // not a JWT after all
+    }
+  }
+  return hits;
+}
+
 /** How a script is named in a result: host and path, never the query or the hash. */
 export function scriptName(address: string): string {
   try {

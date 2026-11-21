@@ -38,7 +38,7 @@ export interface StageInput {
 }
 
 /** The checks whose result comes from the website inspectors. */
-const SITE_CHECKS = new Set(['tls-headers', 'bundle-secrets']);
+const SITE_CHECKS = new Set(['tls-headers', 'bundle-secrets', 'repo-secrets']);
 
 const SITE_NO_RESULT: Text = {
   en: 'This check was planned but did not report a result.',

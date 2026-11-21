@@ -31,6 +31,7 @@ export const CLIENT_REPORT_DISCLAIMER: Text = {
 
 const DATA_ACCESS = 'data-access-prover';
 const SITE_CHECKS = ['tls-headers', 'bundle-secrets'];
+const REPO_CHECK = 'repo-secrets';
 
 export interface ClientReportInput {
   plan: readonly PlannedCheck[];
@@ -51,10 +52,11 @@ function headlineOf(
   tables: { leaked: number } | null,
   site: { siteLeaked: number } | null,
   anyDone: boolean,
+  repoLeaks = 0,
 ): Text {
   const tableLeaks = tables?.leaked ?? 0;
   const keyLeaks = site?.siteLeaked ?? 0;
-  if (tableLeaks > 0 || keyLeaks > 0) {
+  if (tableLeaks > 0 || keyLeaks > 0 || repoLeaks > 0) {
     const en: string[] = [];
     const ur: string[] = [];
     if (tableLeaks > 0) {
@@ -66,6 +68,12 @@ function headlineOf(
         `${keyLeaks} secret key${keyLeaks === 1 ? '' : 's'} in the scripts of the site`,
       );
       ur.push(`site ki scripts mein ${keyLeaks} secret key`);
+    }
+    if (repoLeaks > 0) {
+      en.push(
+        `${repoLeaks} secret key${repoLeaks === 1 ? '' : 's'} in the files of the GitHub repository`,
+      );
+      ur.push(`GitHub repository ki files mein ${repoLeaks} secret key`);
     }
     return {
       en: `Leak found by these checks: ${en.join(' and ')}.`,
@@ -151,6 +159,19 @@ export function buildClientReport(input: ClientReportInput): ClientReport {
       }
     : null;
 
+  // Only a run that has the repo check: the field is missing for every other run.
+  const hasRepo = plan.some((c) => c.id === REPO_CHECK);
+  const repoRan =
+    coverage.checked.includes(REPO_CHECK) ||
+    coverage.partial.some((c) => c.id === REPO_CHECK);
+  const repo = repoRan
+    ? {
+        leaked: evidence.filter(
+          (e) => e.kind === 'repo-file' && e.verdict === 'LEAKED',
+        ).length,
+      }
+    : null;
+
   return {
     schemaVersion: 1,
     headline: headlineOf(
@@ -158,11 +179,12 @@ export function buildClientReport(input: ClientReportInput): ClientReport {
       tables,
       site,
       coverage.checked.length > 0 || coverage.partial.length > 0,
+      repo?.leaked ?? 0,
     ),
     decision: gate.decision,
     reasons: gate.reasons,
     scope,
-    findings: { tables, site },
+    findings: { tables, site, ...(hasRepo ? { repo } : {}) },
     topActions: (roadmap?.items ?? []).slice(0, 3).map((item) => item.id),
     limits: roadmap
       ? [...coverage.limits]

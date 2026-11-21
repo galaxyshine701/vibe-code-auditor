@@ -4,6 +4,15 @@ import { useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light';
 
+// The colour of the browser bar, the same as the page (--bg of each theme).
+const BAR_COLOR: Record<Theme, string> = { dark: '#0f1114', light: '#efefec' };
+
+function setBarColor(theme: Theme) {
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', BAR_COLOR[theme]);
+}
+
 function SunIcon() {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
@@ -38,13 +47,16 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const current = document.documentElement.dataset.theme;
-    setTheme(current === 'light' ? 'light' : 'dark');
+    const known: Theme = current === 'light' ? 'light' : 'dark';
+    setTheme(known);
+    setBarColor(known);
   }, []);
 
   function toggle() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     document.documentElement.dataset.theme = next;
+    setBarColor(next);
     try {
       localStorage.setItem('vca-theme', next);
     } catch {

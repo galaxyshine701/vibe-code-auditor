@@ -35,10 +35,12 @@ export const ROADMAP_UNAVAILABLE: Roadmap = {
 /** The order of kinds when severity and "required" are the same. */
 export const KIND_RANK: readonly RoadmapKind[] = [
   'fix-site-secret',
+  'fix-repo-secret',
   'fix-finding',
   'cleanup',
   'finish-check',
   'improve-header',
+  'improve-repo',
   'confirm',
   'provide-input',
   'retest',
@@ -70,6 +72,7 @@ type Draft = Omit<RoadmapItem, 'id'>;
 const DATA_ACCESS = 'data-access-prover';
 const HEADERS = 'tls-headers';
 const BUNDLE = 'bundle-secrets';
+const REPO = 'repo-secrets';
 
 const isTable = (e: EvidenceItem) =>
   e.check === DATA_ACCESS && (e.kind === undefined || e.kind === 'table');
@@ -363,6 +366,41 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
         },
       ],
       refs: { checkId: BUNDLE, evidenceIds: [item.id] },
+    });
+  }
+
+  // A secret key in a file of the GitHub repository. The key is in the history
+  // of the repository too, so removing the file is not enough: rotate it.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-file' || item.verdict !== 'LEAKED') continue;
+    const subject = item.subject ?? 'a file';
+    drafts.push({
+      kind: 'fix-repo-secret',
+      severity: 'critical',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Remove the secret key from the file "${subject}" and rotate it`,
+        ur: `File "${subject}" se secret key hatayein aur use rotate karein`,
+      },
+      why: {
+        en: 'A Supabase secret key was found in a file of the public repository. Anyone can read it there, and the old commits keep it even after the file is changed.',
+        ur: 'Ek Supabase secret key public repository ki file mein mili. Wahan jo bhi chahe parh sakta hai, aur file badalne ke baad bhi purane commits mein rehti hai.',
+      },
+      steps: [
+        {
+          en: 'Rotate the key now: in Supabase go to API keys, create a new secret key and delete the old one.',
+          ur: 'Key abhi rotate karein: Supabase -> API keys mein nayi secret key banayein aur purani delete karein.',
+        },
+        {
+          en: 'Take the key out of the file, keep it only in an env file that is not committed, and add that file to .gitignore.',
+          ur: 'Key ko file se nikalein, use sirf aisi env file mein rakhein jo commit nahi hoti, aur us file ko .gitignore mein daalein.',
+        },
+        {
+          en: 'Run the audit again to check that the key is gone from the files.',
+          ur: 'Audit dobara chalayein aur dekhein ke key ab files mein nahi hai.',
+        },
+      ],
+      refs: { checkId: REPO, evidenceIds: [item.id] },
     });
   }
 

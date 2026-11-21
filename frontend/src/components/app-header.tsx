@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { MouseEvent } from 'react';
+import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
 import { USE_MOCK } from '@/lib/config';
 import { ThemeToggle } from './theme-toggle';
 
@@ -23,13 +24,13 @@ export function AppHeader() {
         <Link
           href="/"
           className="brand"
-          aria-label="Vibe Code Auditor home"
+          aria-label={`${PROJECT_NAME} home`}
           onClick={replayHero}
         >
           <span className="brand-dot" aria-hidden="true" />
           <span className="brand-text">
-            <span className="brand-name">Vibe Code Auditor</span>
-            <span className="brand-sub">Supabase access checks</span>
+            <span className="brand-name">{PROJECT_NAME}</span>
+            <span className="brand-sub">{PROJECT_TAGLINE}</span>
           </span>
         </Link>
         <div className="header-actions">

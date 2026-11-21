@@ -1,0 +1,134 @@
+{
+  "id": "aud_001",
+  "status": "completed",
+  "createdAt": "2026-11-15T10:00:00Z",
+  "target": {
+    "label": "Example shop",
+    "websiteUrl": "https://www.example-shop.com"
+  },
+  "summary": {
+    "leaked": 0,
+    "blocked": 0,
+    "inconclusive": 0,
+    "siteLeaked": 1
+  },
+  "modules": [
+    {
+      "id": "data-access-prover",
+      "name": "Data Access Prover",
+      "status": "skipped",
+      "progress": 0,
+      "reason": {
+        "en": "Not provided: no Supabase details were given, so \"Data access (can another user or a visitor reach a row?)\" was not checked.",
+        "ur": "Diya nahi gaya: Supabase ki details nahi di gayin, isliye \"Data access (kya doosra user ya visitor kisi row tak pahunch sakta hai?)\" check nahi hua."
+      }
+    },
+    {
+      "id": "planner",
+      "name": "Planner",
+      "status": "completed",
+      "progress": 100
+    },
+    {
+      "id": "ownership",
+      "name": "Ownership",
+      "status": "skipped",
+      "progress": 0,
+      "reason": {
+        "en": "Ownership of the site is not checked yet.",
+        "ur": "Site ki malkiyat abhi check nahi hoti."
+      }
+    },
+    {
+      "id": "tls-headers",
+      "name": "Site headers",
+      "status": "completed",
+      "progress": 100
+    },
+    {
+      "id": "bundle-secrets",
+      "name": "Bundle scan",
+      "status": "completed",
+      "progress": 100
+    },
+    {
+      "id": "evidence",
+      "name": "Evidence",
+      "status": "completed",
+      "progress": 100
+    },
+    {
+      "id": "roadmap",
+      "name": "Roadmap",
+      "status": "completed",
+      "progress": 100
+    },
+    {
+      "id": "guide",
+      "name": "Guide",
+      "status": "completed",
+      "progress": 100
+    }
+  ],
+  "cleanup": null,
+  "lastRetest": null,
+  "schemaVersion": 2,
+  "ownership": {
+    "status": "skipped",
+    "reason": {
+      "en": "Ownership of the site is not checked yet.",
+      "ur": "Site ki malkiyat abhi check nahi hoti."
+    }
+  },
+  "plan": [
+    {
+      "id": "data-access-prover",
+      "title": {
+        "en": "Data access (can another user or a visitor reach a row?)",
+        "ur": "Data access (kya doosra user ya visitor kisi row tak pahunch sakta hai?)"
+      },
+      "mode": "keyed",
+      "required": false
+    },
+    {
+      "id": "tls-headers",
+      "title": {
+        "en": "Certificate and security headers of the site",
+        "ur": "Site ka certificate aur security headers"
+      },
+      "mode": "passive",
+      "required": true
+    },
+    {
+      "id": "bundle-secrets",
+      "title": {
+        "en": "Secret keys inside the scripts of the site",
+        "ur": "Site ki scripts ke andar chhupi hui secret keys"
+      },
+      "mode": "passive",
+      "required": true
+    },
+    {
+      "id": "active-checks",
+      "title": {
+        "en": "Active checks (probes sent to the site)",
+        "ur": "Active checks (site par bheje gaye probes)"
+      },
+      "mode": "active",
+      "required": false
+    }
+  ],
+  "gate": {
+    "decision": "not_ready",
+    "reasons": [
+      {
+        "en": "A leak was found and is still there. Fix it, then run a re-test.",
+        "ur": "Ek leak mila aur abhi maujood hai. Isse theek karein, phir re-test chalayein."
+      },
+      {
+        "en": "Not checked, because it was not provided: \"Data access (can another user or a visitor reach a row?)\".",
+        "ur": "Check nahi hua, kyunke diya nahi gaya: \"Data access (kya doosra user ya visitor kisi row tak pahunch sakta hai?)\"."
+      }
+    ]
+  }
+}

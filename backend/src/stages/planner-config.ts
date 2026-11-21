@@ -32,7 +32,7 @@ export interface CheckDefinition {
    * given is planned as not required and shown as skipped ("not provided").
    * Missing = no input needed.
    */
-  needs?: 'website' | 'supabase';
+  needs?: 'website' | 'supabase' | 'repo';
   /** What this check can not tell. Shown in the coverage. */
   limits: Text[];
 }
@@ -124,12 +124,59 @@ export const CHECKS: CheckDefinition[] = [
   },
 ];
 
+/**
+ * Repo Scan Lite. It is NOT in CHECKS: a run without a repository has exactly
+ * the checks it always had. `checksFor` adds it when a repository was given,
+ * and then it is REQUIRED, like a website check whose address was given: a run
+ * that was given a repository is not ready until the repository was read.
+ */
+export const REPO_CHECK_ID = 'repo-secrets';
+
+export const REPO_CHECK: CheckDefinition = {
+  id: REPO_CHECK_ID,
+  title: {
+    en: 'Secret keys inside the code of the GitHub repository',
+    ur: 'GitHub repository ke code ke andar chhupi hui secret keys',
+  },
+  mode: 'passive',
+  required: true,
+  needs: 'repo',
+  limits: [
+    {
+      en: 'Only a public GitHub repository is read, its default branch, as it is now. The history of old commits is not read.',
+      ur: 'Sirf public GitHub repository parhi jati hai, uski default branch, jaisi abhi hai. Purane commits ki history nahi parhi jati.',
+    },
+    {
+      en: 'Only text files are read (at most 1 MB each; the zip at most 15 MB, 40 MB unpacked, 3000 entries). Folders such as node_modules and dist are skipped, and so are files it could not read (they are listed as not read).',
+      ur: 'Sirf text files parhi jati hain (har file 1 MB tak; zip 15 MB tak, unpack hone par 40 MB, 3000 entries). node_modules aur dist jaise folders chhod diye jate hain, aur jo files parhi na ja sakin unka naam "not read" mein aata hai.',
+    },
+    {
+      en: 'A key that is found is reported as exposed. Whether it still works is not tested.',
+      ur: 'Jo key milti hai use "exposed" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota.',
+    },
+  ],
+};
+
+/** The checks of a run: the fixed list, plus the repo check when a repository was given. */
+export function checksFor(
+  definitions: readonly CheckDefinition[],
+  provided: Provided | undefined,
+): readonly CheckDefinition[] {
+  return provided?.repo === true &&
+    !definitions.some((d) => d.id === REPO_CHECK_ID)
+    ? [...definitions, REPO_CHECK]
+    : definitions;
+}
+
 /** True when the input this check needs was given (or when nothing is known: the old behaviour). */
 export function isProvided(
   definition: Pick<CheckDefinition, 'needs'>,
   provided: Provided | undefined,
 ): boolean {
-  if (!provided || !definition.needs) return true;
+  if (!definition.needs) return true;
+  // The repo check exists only for a run that was given a repository.
+  if (definition.needs === 'repo') return provided?.repo === true;
+  if (!provided) return true;
   return definition.needs === 'website' ? provided.website : provided.supabase;
 }
 
@@ -137,6 +184,12 @@ export function isProvided(
 export function notProvidedReason(
   definition: Pick<CheckDefinition, 'needs' | 'title'>,
 ): Text {
+  if (definition.needs === 'repo') {
+    return {
+      en: `Not provided: no GitHub repository was given, so "${definition.title.en}" was not checked.`,
+      ur: `Diya nahi gaya: GitHub repository nahi di gayi, isliye "${definition.title.ur}" check nahi hua.`,
+    };
+  }
   return definition.needs === 'supabase'
     ? {
         en: `Not provided: no Supabase details were given, so "${definition.title.en}" was not checked.`,
