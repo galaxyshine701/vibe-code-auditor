@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import { CARD, pickText } from '@/lib/hero-copy';
+import { GateBar, LaneDot, LaneNode } from './checkpoint-lane';
 import { ScanBeam } from './scan-beam';
 import { VerdictBadge } from './verdict';
 
@@ -19,7 +20,8 @@ import { VerdictBadge } from './verdict';
 // The words are always in the page; the animation only decides when each row's
 // result shows (hero.css). With reduced motion, and on a phone (480 px and
 // narrower, where the diagram is also left out), the card is its final state.
-// The beam is the same piece as the intro's (scan-beam.tsx).
+// The beam is the same piece as the intro's (scan-beam.tsx). Down the left of
+// the rows runs the checkpoint lane (checkpoint-lane.tsx).
 const BEAM_START = 0.5;
 const BEAM_DUR = 2.4;
 // where the rows are, in % of the height of the rows; the beam goes from -8 to 108
@@ -60,6 +62,7 @@ function Row({
       className={`hero-row hero-row-${tone}`}
       style={{ '--at': resolveAt } as CSSProperties}
     >
+      <LaneNode tone={tone} />
       <div className="hero-row-main">
         <span className="hero-row-label">{label}</span>
         <span className="hero-row-detail">{detail}</span>
@@ -84,6 +87,8 @@ export function HeroCard({ lang }: { lang: Lang }) {
       </header>
 
       <div className="hero-rows">
+        {/* the lane: a rail with a checkpoint per row, and a dot that goes down with the beam */}
+        <LaneDot delay={`${BEAM_START}s`} duration={`${BEAM_DUR}s`} />
         {/* the beam goes over the four rows, top to bottom; it is only drawn */}
         <svg
           className="hero-beam-layer"
@@ -185,7 +190,10 @@ export function HeroCard({ lang }: { lang: Lang }) {
         className="hero-gate-line"
         style={{ '--at': T.gate } as CSSProperties}
       >
-        <p className="hero-gate-title">{pickText(CARD.gate.label, lang)}</p>
+        <p className="hero-gate-title">
+          <GateBar />
+          <span>{pickText(CARD.gate.label, lang)}</span>
+        </p>
         <p className="hero-gate-reason">{pickText(CARD.gate.reason, lang)}</p>
         <span className="hero-gate-chip">
           {pickText(CARD.gate.notProvided, lang)}

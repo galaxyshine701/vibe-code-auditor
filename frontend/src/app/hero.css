@@ -157,6 +157,9 @@
 }
 
 .hero-rows {
+  /* the lane: the left padding of a row, and the middle of the checkpoint column */
+  --lane-pad: 10px;
+  --lane-x: calc(var(--lane-pad) + 0.75rem);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -164,6 +167,86 @@
   border-radius: 14px;
   background: var(--surface-soft);
   overflow: hidden;
+}
+
+/* ---- the checkpoint lane: a straight rail, a checkpoint per row, a bar at the gate ---- */
+.hero-rows::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--lane-x) - 1px);
+  width: 2px;
+  background: var(--line-strong);
+}
+
+.hero-lane-dot {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: calc(var(--lane-x) - 4px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-soft);
+  opacity: 0;
+  pointer-events: none;
+  animation: heroLaneDot var(--dot-dur, 2.4s) linear var(--dot-delay, 0.5s) both;
+}
+
+@keyframes heroLaneDot {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    top: calc(100% - 8px);
+    opacity: 0;
+  }
+}
+
+/* a checkpoint takes the colour of its result when the beam has passed it (--at);
+   its shape says the same: a bar = stopped, an open ring = got through, a dashed ring = not proven */
+.hero-node {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  border-radius: 50%;
+  background: var(--surface-soft);
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  animation: heroNode 0.3s ease-out var(--at, 0s) both;
+}
+
+.hero-node-bar {
+  stroke-width: 4.4;
+}
+
+.hero-node-dashed circle {
+  stroke-dasharray: 3 3.4;
+}
+
+@keyframes heroNode {
+  to {
+    stroke: var(--tone);
+  }
+}
+
+/* the bar at the gate: one wide line, before the title of the gate */
+.hero-node-gate {
+  flex: none;
+  background: none;
+  stroke: var(--ink-soft);
+  stroke-width: 4.4;
+  animation: none;
 }
 
 .hero-beam-layer {
@@ -179,11 +262,11 @@
   --tone: var(--line-strong);
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   min-height: 4.4rem;
-  padding: 12px 14px 12px 18px;
+  padding: 12px 14px 12px var(--lane-pad);
 }
 
 .hero-row + .hero-row {
@@ -366,6 +449,9 @@
 }
 
 .hero-gate-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--ink);
   font-family: var(--font-display);
   font-size: 1.05rem;
@@ -509,10 +595,29 @@ html[data-intro="leaving"] .hero-card * {
     display: none;
   }
 
+  .hero-rows {
+    --lane-pad: 12px;
+  }
+
   .hero-row,
   .hero-row-ok {
     min-height: 3.3rem;
-    padding: 10px 10px 10px 14px;
+    padding: 10px 10px 10px var(--lane-pad);
+    gap: 10px;
+  }
+
+  /* the checkpoints are in their final colour, and the dot does not travel */
+  .hero-lane-dot {
+    display: none;
+  }
+
+  .hero-node {
+    animation: none;
+    stroke: var(--tone);
+  }
+
+  .hero-node-gate {
+    stroke: var(--ink-soft);
   }
 
   .hero-row-end {
@@ -546,8 +651,18 @@ html[data-intro="leaving"] .hero-card * {
 
 @media (prefers-reduced-motion: reduce) {
   .hero-beam-layer,
-  .hero-wait {
+  .hero-wait,
+  .hero-lane-dot {
     display: none;
+  }
+
+  .hero-node {
+    animation: none;
+    stroke: var(--tone);
+  }
+
+  .hero-node-gate {
+    stroke: var(--ink-soft);
   }
 
   .hero-row::before {
