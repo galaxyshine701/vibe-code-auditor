@@ -126,7 +126,7 @@ export async function mockStartAudit(
     retest: null,
     lastRetest: null,
   };
-  if (input.projectUrl.length === 0) {
+  if (!input.projectUrl) {
     throw new ApiError(400, 'INVALID_INPUT', 'projectUrl is required.');
   }
   return { id: MOCK_AUDIT_ID, status: 'running' };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { approveFix } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { severityLabel, verdictLabel } from '@/lib/findings';
@@ -16,6 +16,7 @@ import { useApiError } from '@/lib/use-api-error';
 import { ActorDiagram } from './actor-diagram';
 import { useApp } from './app-provider';
 import { CopyButton } from './copy-button';
+import { FixSeal } from './fix-seal';
 import { VerdictBadge } from './verdict';
 
 const ACTOR_LABEL: Record<OperationActor, string> = {
@@ -80,6 +81,9 @@ export function FindingCard({
   finding,
   language,
   actionsDisabled,
+  sealed = false,
+  sealAnimate = false,
+  onSealDone,
   onUpdated,
   onNotFound,
 }: {
@@ -87,6 +91,11 @@ export function FindingCard({
   finding: Finding;
   language: 'en' | 'ur';
   actionsDisabled: boolean;
+  /** A Re-test moved this finding from LEAKED to BLOCKED (isVerifiedFixed). */
+  sealed?: boolean;
+  /** The seal animates now (once, after the user's own Re-test). */
+  sealAnimate?: boolean;
+  onSealDone?: (findingId: string) => void;
   onUpdated: (finding: Finding) => void;
   /** Called on a 404, so the page can tell whether the audit is gone (R13). */
   onNotFound?: () => void;
@@ -104,6 +113,11 @@ export function FindingCard({
       : finding.explanation.en;
   const operations = finding.evidence.operations ?? [];
   const retest = finding.retest;
+  const findingId = finding.id;
+  const sealDone = useCallback(
+    () => onSealDone?.(findingId),
+    [findingId, onSealDone],
+  );
 
   async function approve() {
     if (!finding.fix || finding.fix.status !== 'proposed') return;
@@ -122,7 +136,10 @@ export function FindingCard({
   }
 
   return (
-    <article className={`finding-card finding-${finding.verdict.toLowerCase()}`}>
+    <article
+      id={`finding-${finding.id}`}
+      className={`finding-card finding-${finding.verdict.toLowerCase()}`}
+    >
       <div className="finding-top">
         <div className="finding-badges">
           <VerdictBadge
@@ -147,6 +164,8 @@ export function FindingCard({
           {retest.lastRunAt ? ` · ${formatDate(retest.lastRunAt)}` : ''}
         </span>
       </div>
+
+      {sealed ? <FixSeal animate={sealAnimate} onDone={sealDone} /> : null}
 
       <h3>{finding.title}</h3>
       <p className="finding-explanation">{explanation}</p>

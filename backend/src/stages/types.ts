@@ -57,12 +57,19 @@ export type Proof = 'PROVEN' | 'UNVERIFIED';
  * What an evidence item is about. A missing `kind` means `table` (the items
  * of the Data Access Prover, which have always been like that).
  */
-export type EvidenceKind = 'table' | 'site-bundle' | 'site-headers';
+export type EvidenceKind =
+  | 'table'
+  | 'site-bundle'
+  | 'site-headers'
+  /** a secret key in a file of the GitHub repository (Repo Scan) */
+  | 'repo-file';
 
 /** What the user gave for this run. A check needs one of them. */
 export interface Provided {
   website: boolean;
   supabase: boolean;
+  /** A GitHub repository was given. Missing = no (and the repo check is not planned). */
+  repo?: boolean;
 }
 
 export interface EvidenceItem {
@@ -74,6 +81,8 @@ export interface EvidenceItem {
   table: string | null;
   /** What it is about when it is not a table: a script or a header of the site. */
   subject?: string;
+  /** For a file of a repository: the 1-based line. Never the text of the line. */
+  line?: number;
   kind?: EvidenceKind;
   verdict: 'LEAKED' | 'BLOCKED' | 'INCONCLUSIVE';
   /** PROVEN = seen directly by the check. UNVERIFIED = the check could not tell. */
@@ -123,7 +132,9 @@ export interface Ownership {
 export type RoadmapKind =
   | 'fix-finding'
   | 'fix-site-secret'
+  | 'fix-repo-secret'
   | 'improve-header'
+  | 'improve-repo'
   | 'confirm'
   | 'cleanup'
   | 'finish-check'
@@ -177,6 +188,11 @@ export interface ClientReport {
     tables: { leaked: number; blocked: number; inconclusive: number } | null;
     /** null when no website check completed */
     site: { siteLeaked: number; headersMissing: number } | null;
+    /**
+     * Only for a run that has a GitHub repository. null when the repo scan
+     * did not complete.
+     */
+    repo?: { leaked: number } | null;
   };
   /** the ids of the first three roadmap items */
   topActions: string[];

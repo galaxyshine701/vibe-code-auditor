@@ -5,6 +5,17 @@ import {
   RequestCancelledError,
 } from './errors';
 import {
+  bundleFromId,
+  bundleGetAudit,
+  bundleGetClientReport,
+  bundleGetEvidence,
+  bundleGetFindings,
+  bundleGetRoadmap,
+  bundleNotPlayed,
+  bundleStartAudit,
+  selectedBundle,
+} from './mock-bundle';
+import {
   mockApproveFix,
   mockGetAudit,
   mockGetCertificate,
@@ -12,6 +23,12 @@ import {
   mockRetest,
   mockStartAudit,
 } from './mock';
+import type {
+  ClientReport,
+  EvidenceResponse,
+  RoadmapResponse,
+  StageBundle,
+} from './stage-types';
 import type {
   AuditStatusResponse,
   Certificate,
@@ -34,7 +51,24 @@ function normalizeFinding(finding: Finding): Finding {
 }
 
 function normalizeAudit(audit: AuditStatusResponse): AuditStatusResponse {
-  return { ...audit, lastRetest: audit.lastRetest ?? null };
+  return {
+    ...audit,
+    lastRetest: audit.lastRetest ?? null,
+    // a missing schemaVersion means 1: no stage fields (R72)
+    schemaVersion: audit.schemaVersion ?? 1,
+  };
+}
+
+// The three routes of the stages answer 404 for an audit that has none (it was
+// run with the flag off, or before these features). That is "hide", not an
+// error to show (R72). Any other error is thrown as usual.
+async function orNone<T>(read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await read();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 function normalizeCertificate(certificate: Certificate): Certificate {
@@ -143,7 +177,10 @@ export async function startAudit(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<StartAuditResponse> {
-  if (USE_MOCK) return mockStartAudit(input);
+  if (USE_MOCK) {
+    const bundle = selectedBundle();
+    return bundle ? bundleStartAudit(bundle, input) : mockStartAudit(input);
+  }
   return request<StartAuditResponse>('/api/v1/audits', accessCode, {
     method: 'POST',
     body: input,
@@ -156,7 +193,10 @@ export async function getAudit(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<AuditStatusResponse> {
-  const audit = USE_MOCK
+  const bundle = USE_MOCK ? bundleFromId(id) : null;
+  const audit = bundle
+    ? await bundleGetAudit(id)
+    : USE_MOCK
     ? await mockGetAudit(id)
     : await request<AuditStatusResponse>(
         `/api/v1/audits/${encodeURIComponent(id)}`,
@@ -171,7 +211,10 @@ export async function getFindings(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<FindingsResponse> {
-  const result = USE_MOCK
+  const bundle = USE_MOCK ? bundleFromId(id) : null;
+  const result = bundle
+    ? await bundleGetFindings(id)
+    : USE_MOCK
     ? await mockGetFindings(id)
     : await request<FindingsResponse>(
         `/api/v1/audits/${encodeURIComponent(id)}/findings`,
@@ -187,6 +230,7 @@ export async function approveFix(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<Finding> {
+  if (USE_MOCK && bundleFromId(id)) bundleNotPlayed();
   const finding = USE_MOCK
     ? await mockApproveFix(id, findingId)
     : await request<Finding>(
@@ -209,6 +253,7 @@ export async function retest(
     serviceKey: input.serviceKey,
     confirmTestProject: true,
   };
+  if (USE_MOCK && bundleFromId(id)) bundleNotPlayed();
   if (USE_MOCK) return mockRetest(id, body);
   return request<StartAuditResponse>(
     `/api/v1/audits/${encodeURIComponent(id)}/retest`,
@@ -222,6 +267,7 @@ export async function getCertificate(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<Certificate> {
+  if (USE_MOCK && bundleFromId(id)) bundleNotPlayed();
   const certificate = USE_MOCK
     ? await mockGetCertificate(id)
     : await request<Certificate>(
@@ -230,4 +276,82 @@ export async function getCertificate(
         { signal },
       );
   return normalizeCertificate(certificate);
+}
+
+/** GET /audits/:id/evidence. null = this audit has none (404). */
+export async function getEvidence(
+  id: string,
+  accessCode: string,
+  signal?: AbortSignal,
+): Promise<EvidenceResponse | null> {
+  return orNone(() =>
+    USE_MOCK && bundleFromId(id)
+      ? bundleGetEvidence(id)
+      : USE_MOCK
+        ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'No evidence.'))
+        : request<EvidenceResponse>(
+            `/api/v1/audits/${encodeURIComponent(id)}/evidence`,
+            accessCode,
+            { signal },
+          ),
+  );
+}
+
+/** GET /audits/:id/roadmap. null = this audit has none (404). */
+export async function getRoadmap(
+  id: string,
+  accessCode: string,
+  signal?: AbortSignal,
+): Promise<RoadmapResponse | null> {
+  return orNone(() =>
+    USE_MOCK && bundleFromId(id)
+      ? bundleGetRoadmap(id)
+      : USE_MOCK
+        ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'No roadmap.'))
+        : request<RoadmapResponse>(
+            `/api/v1/audits/${encodeURIComponent(id)}/roadmap`,
+            accessCode,
+            { signal },
+          ),
+  );
+}
+
+/** GET /audits/:id/client-report. null = this audit has none (404). */
+export async function getClientReport(
+  id: string,
+  accessCode: string,
+  signal?: AbortSignal,
+): Promise<ClientReport | null> {
+  return orNone(() =>
+    USE_MOCK && bundleFromId(id)
+      ? bundleGetClientReport(id)
+      : USE_MOCK
+        ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'No client report.'))
+        : request<ClientReport>(
+            `/api/v1/audits/${encodeURIComponent(id)}/client-report`,
+            accessCode,
+            { signal },
+          ),
+  );
+}
+
+/**
+ * The three stage routes of a finished run, read together (R72, R84). Called
+ * only for an audit with schemaVersion 2 or more; with the flag off none of
+ * the three is asked for. Each part is null when its route answers 404.
+ */
+export async function getStageBundle(
+  audit: AuditStatusResponse,
+  accessCode: string,
+  signal?: AbortSignal,
+): Promise<StageBundle> {
+  if ((audit.schemaVersion ?? 1) < 2) {
+    return { evidence: null, roadmap: null, clientReport: null };
+  }
+  const [evidence, roadmap, clientReport] = await Promise.all([
+    getEvidence(audit.id, accessCode, signal),
+    getRoadmap(audit.id, accessCode, signal),
+    getClientReport(audit.id, accessCode, signal),
+  ]);
+  return { evidence, roadmap, clientReport };
 }

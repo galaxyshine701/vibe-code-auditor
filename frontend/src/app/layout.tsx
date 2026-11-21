@@ -1,22 +1,40 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
+import { IntroOverlay } from '@/components/intro-overlay';
+import { ServiceWorkerRegister } from '@/components/sw-register';
+import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
+import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
+import './intro.css';
+import './stage.css';
+import './report.css';
+import './hero.css';
 
 export const metadata: Metadata = {
-  title: 'Vibe Code Auditor',
+  title: PROJECT_NAME,
   description:
-    'Find out what another user can read, change or delete in a Supabase project.',
+    'Check what a visitor can read on your site and what another user can reach in your Supabase project. The result is "no leak found by these checks".',
 };
 
-const themeScript = `(function(){try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='light'||q==='dark')?q:localStorage.getItem('vca-theme');if(t!=='light'&&t!=='dark'){t='dark';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
+// The first visit is dark, not decided by the system setting (R55). The
+// choice of the toggle is kept in localStorage ("vca-theme"). This script is
+// inline in the head, so the theme is set before the first paint.
+export const viewport: Viewport = {
+  themeColor: '#0f1114',
+  colorScheme: 'dark',
+};
+
+const themeScript = `(function(){var t='dark';try{var q=new URLSearchParams(location.search).get('theme');var s=(q==='light'||q==='dark')?q:localStorage.getItem('vca-theme');if(s==='light'||s==='dark'){t=s;}}catch(e){}document.documentElement.dataset.theme=t;})();`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* decides before the first paint whether the intro runs (R70) */}
+        <script dangerouslySetInnerHTML={{ __html: INTRO_BOOT_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -29,12 +47,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
+        {/* directly in <body>, never in the page: see intro-overlay.tsx */}
+        <IntroOverlay />
+        <ServiceWorkerRegister />
         <AppProvider>
           <AppHeader />
           <main className="site-main">{children}</main>
           <footer className="site-footer">
             <div className="shell footer-inner">
-              <p>Vibe Code Auditor · Supabase access checks</p>
+              <p>
+                {PROJECT_NAME} · {PROJECT_TAGLINE}
+              </p>
             </div>
           </footer>
         </AppProvider>

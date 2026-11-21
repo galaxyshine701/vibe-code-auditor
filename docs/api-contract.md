@@ -329,6 +329,36 @@ Optional. With a `websiteUrl` (see "Additive request: a website, with or without
 - `summary.leaked`, `blocked` and `inconclusive` and `findings` stay about tables. For an audit that has a `websiteUrl`, `summary` also has `siteLeaked`: the number of secret keys found in the scripts of the site (the `site-bundle` evidence items with verdict `LEAKED`), `0` when none or when the site could not be read (the coverage says what was not checked). An audit without a `websiteUrl` has no `siteLeaked` key at all, and with the flag off nothing changes.
 - With the flag on, a run with a website and no Supabase details can be `ready_by_these_checks` when both website checks completed with no leak and the cleanup is not `"failed"`. The sentence "Today the gate is always `not_ready`" below is true only with the flag off.
 
+### Additive: Repo Scan Lite, a public GitHub repository (`LOCK_C_AGENTS`, phase A1)
+Optional. `POST /audits` can take a public GitHub repository. Like the website, it works only with `LOCK_C_AGENTS=on`. **With the flag off, or with no `repoUrl`, nothing here exists: `repoUrl` is ignored like any other extra field, and the request, the errors, the answers, the plan and the gate are byte-for-byte as before.**
+
+```json
+{ "repoUrl": "https://github.com/owner/repo", "confirmRepoAccess": true }
+```
+
+Request:
+- `repoUrl`: a plain `https://github.com/{owner}/{repo}` address (a trailing `/` or `.git` is accepted and dropped). No other host, no `www`, no login, no port, no query, no hash, no path after the repo name (no `/tree/...`). Otherwise `400` `INVALID_INPUT` that names the field only and never quotes the value.
+- With a `repoUrl`, `confirmRepoAccess` must be exactly `true` (the caller says the repository is public and they may scan its files). Otherwise `400` `INVALID_INPUT`. Without a `repoUrl`, `confirmRepoAccess` does not exist.
+- It can be given alone, or together with `websiteUrl` and/or the Supabase group. The other rules do not change: a `websiteUrl` still needs `confirmSiteAccess: true`, and the Supabase group is still all-or-nothing with `confirmTestProject: true`. Only a public repository can be read.
+- Only the default branch, as it is now, is read. The history of old commits is not read.
+
+The check (only for a run that has a `repoUrl`):
+- A new check `repo-secrets` is added at the end of `plan[]` (mode `passive`, `required: true`: a repository that was given counts like a website that was given). A run without a `repoUrl` does not have it.
+- It reads the zip of the repository and looks in its text files for a Supabase secret key (`sb_secret_...`) or a `service_role` key, with the same rules as `bundle-secrets`. It does not test whether a key works. Plain code, no AI.
+- Limits (fixed): the zip at most 15 MB, 40 MB unpacked, 3000 entries; one file at most 1 MB; `node_modules`, `dist`, `build`, `.next`, `vendor` and `.git` folders and binary files are not read. Repo scans run one at a time (the backend already runs one audit at a time). The zip is read in memory only; a path with `..` or an absolute path, zip64 and encrypted zips are refused.
+- A file that was too big, or a link (links are never followed), is named in `coverage.partial[].notRead` and the check is `partial`.
+- If the repository cannot be read (not found or private, GitHub refused with 403 or 429, a redirect that is refused, a timeout, too big, an unsafe zip) the check is `failedToRun` with a fixed sentence in `coverage.failedToRun[].reason`, and its row in `modules` is as for the other checks. The rest of the audit still runs.
+
+What changes in the answers (only for an audit that has a `repoUrl`):
+- `GET /audits/:id`: `target.repoUrl` (the cleaned address). `summary.repoLeaked`: the number of `repo-file` evidence items with verdict `LEAKED` (`0` when none or when the repository could not be read). `summary.leaked` and `siteLeaked` do not change meaning. An audit without a `repoUrl` has neither key.
+- `GET /audits/:id/evidence`: items of this check have `check: "repo-secrets"`, `kind: "repo-file"`, `findingId: null`, `table: null`, `proof: "PROVEN"`, `verdict: "LEAKED"`, `subject` = the path of the file inside the repository, and `line` = the 1-based line of the first key of that kind in the file (an additive field: a client must accept it missing). The key itself is never in any answer: only its kind (in the sentence), the path and the line. A client must accept an unknown `kind`.
+- `GET /audits/:id/roadmap`: a `repo-file` leak gives an item of kind `fix-repo-secret` (a new kind: a client must accept an unknown kind), severity `critical` (rotate the key; remove it from the file; old commits keep it).
+- `GET /audits/:id/client-report`: `findings.repo` is `{ "leaked": n }`, or `null` when the repo scan failed or did not run (a partial scan still gives the number found); the field is missing for a run without a repo. A key in the repository counts in the `headline` ("... in the files of the GitHub repository"). The scope lists `repo-secrets` in the same buckets as the other checks.
+- **The gate.** `repo-secrets` is required when it is in the plan, so a run that was given a repository must not say "No leak found by these checks" as if the code had been read when it was not. Only when `repo-secrets` is in the plan and it did not complete: `gate.decision` is `not_ready` and `gate.reasons` has `"Repo scan did not run."` (failed or skipped) or `"Repo scan was only partly done: some files of the repository were not read."` (partial). A key found is a leak and holds the gate as for any other leak. The gate banner shows `gate.reasons` as they are.
+- A run with only a repository (no Supabase, no website) can be `ready_by_these_checks`: the repo check is its required check, and it needs no Data Access result, exactly as a website-only run. It is `not_ready` with a leak, and with "Repo scan did not run." when the repository could not be read.
+
+The optional environment variable `GITHUB_TOKEN` (a fine-grained token with no scopes) is read by the backend only. If set, it is sent only to `api.github.com` (never to the download host). If not set, the plain archive address is used. It is never logged, stored or returned.
+
 ### Additive: roadmap and client report (`LOCK_C_AGENTS`)
 Optional. Two new routes and one new row. They exist only for a run made with `LOCK_C_AGENTS=on`. **With the flag off nothing here exists** and every answer is exactly as before. `GET /audits/:id` gets no new field: only the `roadmap` row (see "Stage rows").
 - `roadmap` is a code-only agent (no AI) that runs after `evidence` and before `guide`. It still runs after a failure. It has its own time limit (the finalizer limit). If it fails or runs out of time its row is `failed` (a `message`, fixed sentence for a timeout), the audit is not changed, the roadmap is empty and the client report says "Roadmap not available." in `limits`. If the `guide` itself fails, the roadmap is empty and the client report is a fixed `not_ready` one.

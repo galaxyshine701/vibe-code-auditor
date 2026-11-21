@@ -20,6 +20,7 @@ import {
   waitUntilDone,
 } from '../report/helpers.js';
 import { allStrings, BANNED_EN, BANNED_UR } from '../stages/roadmap-fixtures.js';
+import { buildZip } from '../repo/zip-builder.js';
 
 /**
  * The mock bundles for the frontend (docs/frontend-mock). Every file is what
@@ -61,6 +62,26 @@ vi.mock('../../src/net/safe-fetch.js', async (importOriginal) => {
 const WEBSITE = 'https://www.example-shop.com';
 const FAKE_KEY = 'sb_secret_MockMockMockMock0123456789';
 const MOCK_PROJECT = 'https://example-project.supabase.co';
+const REPO_URL = 'https://github.com/example-owner/example-shop';
+// the repository of the "repo-only" bundle: a key on line 3 of one file
+const repoSetup = {
+  transport: {
+    fetchArchive: () =>
+      Promise.resolve(
+        buildZip([
+          {
+            name: 'example-owner-example-shop-1a2b3c/src/lib/supabase.ts',
+            data: `import { createClient } from '@supabase/supabase-js';\n\nconst KEY = "${FAKE_KEY}";\n`,
+          },
+          {
+            name: 'example-owner-example-shop-1a2b3c/src/app.ts',
+            data: 'export const app = 1;\n',
+          },
+        ]),
+      ),
+  },
+  secrets: [],
+};
 const T_START = '2026-11-15T10:00:00Z';
 const T_END = '2026-11-15T10:00:40Z';
 
@@ -124,6 +145,20 @@ const BUNDLES: Bundle[] = [
       label: 'Example shop',
       websiteUrl: WEBSITE,
       confirmSiteAccess: true,
+    },
+  },
+  {
+    // A1: a public repository only. Its gate is not ready because of the key.
+    name: 'repo-only',
+    request: {
+      label: 'Example shop (code)',
+      repoUrl: REPO_URL,
+      confirmRepoAccess: true,
+    },
+    send: {
+      label: 'Example shop (code)',
+      repoUrl: REPO_URL,
+      confirmRepoAccess: true,
     },
   },
   {
@@ -216,10 +251,13 @@ afterEach(async () => {
 });
 
 async function runBundle(bundle: Bundle): Promise<Record<string, unknown>> {
-  app = await buildWith(() => new FakeGateway(demoTables()), {
-    ...AGENTS_OFF,
-    enabled: true,
-  });
+  app = await buildWith(
+    () => new FakeGateway(demoTables()),
+    { ...AGENTS_OFF, enabled: true },
+    undefined,
+    undefined,
+    repoSetup,
+  );
   const started = await post(app, bundle.send);
   expect(started.status).toBe(202);
   const id = started.body.id as string;

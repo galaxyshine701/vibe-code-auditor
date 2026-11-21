@@ -20,6 +20,7 @@ import {
   DEFAULT_AUDIT_TIMING,
   GATEWAY_FACTORY,
 } from './audits.service.js';
+import { REPO_SETUP, resolveRepoSetup } from '../repo/repo-config.js';
 import { REPORT_SETUP, resolveReportSetup } from '../report/report-config.js';
 import { resolvePlatformConfig } from './platform-config.js';
 import { SupabaseAuditRepository } from './supabase-audit-repository.js';
@@ -82,6 +83,11 @@ import { SupabaseAuditRepository } from './supabase-audit-repository.js';
         log.log(`Lock C agents: ${setup.enabled ? 'on' : 'off'}`);
         return setup;
       },
+    },
+    {
+      // Repo Scan: GITHUB_TOKEN is optional. Nothing here prints a value.
+      provide: REPO_SETUP,
+      useFactory: () => resolveRepoSetup(process.env),
     },
     {
       // Off unless REPORT_AGENT=groq. Warnings are fixed sentences, no values.

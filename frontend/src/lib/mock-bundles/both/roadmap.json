@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "rm_001",
+      "kind": "fix-site-secret",
+      "severity": "critical",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Remove the secret key from the script \"www.example-shop.com/assets/app.js\"",
+        "ur": "Script \"www.example-shop.com/assets/app.js\" se secret key hatayein"
+      },
+      "why": {
+        "en": "A Supabase secret key was found in a script that any visitor can download. Anyone who reads it can use the key.",
+        "ur": "Ek Supabase secret key aisi script mein mili jise har visitor download kar sakta hai. Jo bhi use parhe wo key istemal kar sakta hai."
+      },
+      "steps": [
+        {
+          "en": "Rotate the key now: in Supabase go to API keys, create a new secret key and delete the old one.",
+          "ur": "Key abhi rotate karein: Supabase -> API keys mein nayi secret key banayein aur purani delete karein."
+        },
+        {
+          "en": "Remove the key from your code and from any env file that is built into the site. Use it only on a server.",
+          "ur": "Key ko apne code se aur us env file se hatayein jo site mein build hoti hai. Ise sirf server par istemal karein."
+        },
+        {
+          "en": "Redeploy the site, so the old script is replaced.",
+          "ur": "Site redeploy karein, taake purani script badal jaye."
+        },
+        {
+          "en": "Run the audit again to check that the key is gone.",
+          "ur": "Audit dobara chalayein aur dekhein ke key ab nahi hai."
+        }
+      ],
+      "refs": {
+        "checkId": "bundle-secrets",
+        "evidenceIds": [
+          "ev_site_bundle-secrets_1"
+        ]
+      }
+    },
+    {
+      "id": "rm_002",
+      "kind": "fix-finding",
+      "severity": "critical",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Fix the leak in table \"bookings\"",
+        "ur": "Table \"bookings\" ka leak theek karein"
+      },
+      "why": {
+        "en": "Rows of this table that belong to one user could be reached by someone else in the test.",
+        "ur": "Is table ki jo rows ek user ki hain, test mein unhein koi aur dekh ya badal sakta tha."
+      },
+      "steps": [
+        {
+          "en": "Open finding fnd_001 in the report and read the suggested fix.",
+          "ur": "Report mein finding fnd_001 kholein aur suggest kiya gaya fix parhein."
+        },
+        {
+          "en": "Read the SQL, then run it in the Supabase SQL editor of your TEST project.",
+          "ur": "SQL parhein, phir use apne TEST project ke Supabase SQL editor mein chalayein."
+        },
+        {
+          "en": "Press \"Approve fix\" to record your decision.",
+          "ur": "Apna faisla likhne ke liye \"Approve fix\" dabayein."
+        },
+        {
+          "en": "Press \"Re-test\" and check that the table is no longer a leak.",
+          "ur": "\"Re-test\" dabayein aur dekhein ke table ab leak nahi raha."
+        }
+      ],
+      "refs": {
+        "checkId": "data-access-prover",
+        "findingIds": [
+          "fnd_001"
+        ],
+        "evidenceIds": [
+          "ev_fnd_001"
+        ]
+      }
+    },
+    {
+      "id": "rm_003",
+      "kind": "improve-header",
+      "severity": "medium",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Add the Strict-Transport-Security header",
+        "ur": "Strict-Transport-Security header lagayein"
+      },
+      "why": {
+        "en": "Without this header a browser may still try plain http for your site.",
+        "ur": "Is header ke baghair browser ab bhi aapki site ke liye seedha http aazma sakta hai."
+      },
+      "steps": [
+        {
+          "en": "Send the header \"Strict-Transport-Security: max-age=31536000; includeSubDomains\" from your host or server.",
+          "ur": "Apne host ya server se header \"Strict-Transport-Security: max-age=31536000; includeSubDomains\" bhejein."
+        },
+        {
+          "en": "Run the audit again to see the header.",
+          "ur": "Header dekhne ke liye audit dobara chalayein."
+        }
+      ],
+      "refs": {
+        "checkId": "tls-headers",
+        "evidenceIds": [
+          "ev_site_tls-headers_2"
+        ]
+      }
+    },
+    {
+      "id": "rm_004",
+      "kind": "improve-header",
+      "severity": "medium",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Add a Content-Security-Policy header",
+        "ur": "Content-Security-Policy header lagayein"
+      },
+      "why": {
+        "en": "The browser has no rule about where scripts may come from, so a script injected by someone else would run.",
+        "ur": "Browser ke paas ye rule nahi ke scripts kahan se aa sakti hain, isliye kisi aur ki dali hui script chal jayegi."
+      },
+      "steps": [
+        {
+          "en": "Start with a simple policy such as \"default-src 'self'\" and allow only the places your site really loads scripts from.",
+          "ur": "Sada policy se shuru karein, jaise \"default-src 'self'\", aur sirf wahi jagahein allow karein jahan se aapki site sach mein scripts leti hai."
+        },
+        {
+          "en": "Send it as the Content-Security-Policy header, test the site, then run the audit again.",
+          "ur": "Ise Content-Security-Policy header ke taur par bhejein, site test karein, phir audit dobara chalayein."
+        }
+      ],
+      "refs": {
+        "checkId": "tls-headers",
+        "evidenceIds": [
+          "ev_site_tls-headers_3"
+        ]
+      }
+    },
+    {
+      "id": "rm_005",
+      "kind": "confirm",
+      "severity": "low",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Confirm that table \"hotels\" is meant to be like this",
+        "ur": "Tasdeeq karein ke table \"hotels\" aisa hi hona chahiye"
+      },
+      "why": {
+        "en": "The checks could not tell whether this table is a problem. It may be public on purpose, or it could not be tested.",
+        "ur": "Checks nahi bata sake ke ye table masla hai ya nahi. Ho sakta hai ye jaan boojh kar public ho, ya iska test na ho saka ho."
+      },
+      "steps": [
+        {
+          "en": "Decide whether everyone may read this table (for example a public hotel list).",
+          "ur": "Faisla karein ke is table ko har koi parh sakta hai ya nahi (jaise public hotel list)."
+        },
+        {
+          "en": "If it holds private data, add a row-level security rule, then run a re-test.",
+          "ur": "Agar isme private data hai to row-level security ka rule lagayein, phir re-test chalayein."
+        }
+      ],
+      "refs": {
+        "checkId": "data-access-prover",
+        "findingIds": [
+          "fnd_003"
+        ],
+        "evidenceIds": [
+          "ev_fnd_003"
+        ]
+      }
+    },
+    {
+      "id": "rm_006",
+      "kind": "improve-header",
+      "severity": "info",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Add a Referrer-Policy header",
+        "ur": "Referrer-Policy header lagayein"
+      },
+      "why": {
+        "en": "Without it a browser may pass the full address of your pages to other sites.",
+        "ur": "Iske baghair browser aapke pages ka poora address doosri sites ko de sakta hai."
+      },
+      "steps": [
+        {
+          "en": "Send the header \"Referrer-Policy: strict-origin-when-cross-origin\" from your host or server.",
+          "ur": "Apne host ya server se header \"Referrer-Policy: strict-origin-when-cross-origin\" bhejein."
+        }
+      ],
+      "refs": {
+        "checkId": "tls-headers",
+        "evidenceIds": [
+          "ev_site_tls-headers_6"
+        ]
+      }
+    },
+    {
+      "id": "rm_007",
+      "kind": "retest",
+      "severity": "info",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Re-test after you fix things",
+        "ur": "Theek karne ke baad re-test karein"
+      },
+      "why": {
+        "en": "A re-test runs the same checks again and shows whether each fix worked.",
+        "ur": "Re-test wohi checks dobara chalata hai aur dikhata hai ke har fix kaam kar gaya ya nahi."
+      },
+      "steps": [
+        {
+          "en": "Press \"Re-test\" and enter the keys of your TEST project again (they are never stored).",
+          "ur": "\"Re-test\" dabayein aur apne TEST project ki keys dobara dein (wo kabhi save nahi hotin)."
+        }
+      ],
+      "refs": {
+        "checkId": "data-access-prover"
+      }
+    }
+  ],
+  "truncated": 0
+}

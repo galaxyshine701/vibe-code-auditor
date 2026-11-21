@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "rm_001",
+      "kind": "fix-finding",
+      "severity": "critical",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Fix the leak in table \"bookings\"",
+        "ur": "Table \"bookings\" ka leak theek karein"
+      },
+      "why": {
+        "en": "Rows of this table that belong to one user could be reached by someone else in the test.",
+        "ur": "Is table ki jo rows ek user ki hain, test mein unhein koi aur dekh ya badal sakta tha."
+      },
+      "steps": [
+        {
+          "en": "Open finding fnd_001 in the report and read the suggested fix.",
+          "ur": "Report mein finding fnd_001 kholein aur suggest kiya gaya fix parhein."
+        },
+        {
+          "en": "Read the SQL, then run it in the Supabase SQL editor of your TEST project.",
+          "ur": "SQL parhein, phir use apne TEST project ke Supabase SQL editor mein chalayein."
+        },
+        {
+          "en": "Press \"Approve fix\" to record your decision.",
+          "ur": "Apna faisla likhne ke liye \"Approve fix\" dabayein."
+        },
+        {
+          "en": "Press \"Re-test\" and check that the table is no longer a leak.",
+          "ur": "\"Re-test\" dabayein aur dekhein ke table ab leak nahi raha."
+        }
+      ],
+      "refs": {
+        "checkId": "data-access-prover",
+        "findingIds": [
+          "fnd_001"
+        ],
+        "evidenceIds": [
+          "ev_fnd_001"
+        ]
+      }
+    },
+    {
+      "id": "rm_002",
+      "kind": "confirm",
+      "severity": "low",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Confirm that table \"hotels\" is meant to be like this",
+        "ur": "Tasdeeq karein ke table \"hotels\" aisa hi hona chahiye"
+      },
+      "why": {
+        "en": "The checks could not tell whether this table is a problem. It may be public on purpose, or it could not be tested.",
+        "ur": "Checks nahi bata sake ke ye table masla hai ya nahi. Ho sakta hai ye jaan boojh kar public ho, ya iska test na ho saka ho."
+      },
+      "steps": [
+        {
+          "en": "Decide whether everyone may read this table (for example a public hotel list).",
+          "ur": "Faisla karein ke is table ko har koi parh sakta hai ya nahi (jaise public hotel list)."
+        },
+        {
+          "en": "If it holds private data, add a row-level security rule, then run a re-test.",
+          "ur": "Agar isme private data hai to row-level security ka rule lagayein, phir re-test chalayein."
+        }
+      ],
+      "refs": {
+        "checkId": "data-access-prover",
+        "findingIds": [
+          "fnd_003"
+        ],
+        "evidenceIds": [
+          "ev_fnd_003"
+        ]
+      }
+    },
+    {
+      "id": "rm_003",
+      "kind": "retest",
+      "severity": "info",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Re-test after you fix things",
+        "ur": "Theek karne ke baad re-test karein"
+      },
+      "why": {
+        "en": "A re-test runs the same checks again and shows whether each fix worked.",
+        "ur": "Re-test wohi checks dobara chalata hai aur dikhata hai ke har fix kaam kar gaya ya nahi."
+      },
+      "steps": [
+        {
+          "en": "Press \"Re-test\" and enter the keys of your TEST project again (they are never stored).",
+          "ur": "\"Re-test\" dabayein aur apne TEST project ki keys dobara dein (wo kabhi save nahi hotin)."
+        }
+      ],
+      "refs": {
+        "checkId": "data-access-prover"
+      }
+    },
+    {
+      "id": "rm_004",
+      "kind": "provide-input",
+      "severity": "info",
+      "fromRequiredCheck": false,
+      "title": {
+        "en": "Add a website address to check the site too",
+        "ur": "Site bhi check karne ke liye website ka address dein"
+      },
+      "why": {
+        "en": "\"Certificate and security headers of the site\" was not checked, because it was not provided.",
+        "ur": "\"Site ka certificate aur security headers\" check nahi hua, kyunke diya nahi gaya."
+      },
+      "steps": [
+        {
+          "en": "Type the public https address of your website, and confirm that you may test it.",
+          "ur": "Apni website ka public https address likhein, aur tasdeeq karein ke aap use test kar sakte hain."
+        },
+        {
+          "en": "Run the audit again.",
+          "ur": "Audit dobara chalayein."
+        }
+      ],
+      "refs": {
+        "checkId": "tls-headers"
+      }
+    },
+    {
+      "id": "rm_005",
+      "kind": "provide-input",
+      "severity": "info",
+      "fromRequiredCheck": false,
+      "title": {
+        "en": "Add a website address to check the site too",
+        "ur": "Site bhi check karne ke liye website ka address dein"
+      },
+      "why": {
+        "en": "\"Secret keys inside the scripts of the site\" was not checked, because it was not provided.",
+        "ur": "\"Site ki scripts ke andar chhupi hui secret keys\" check nahi hua, kyunke diya nahi gaya."
+      },
+      "steps": [
+        {
+          "en": "Type the public https address of your website, and confirm that you may test it.",
+          "ur": "Apni website ka public https address likhein, aur tasdeeq karein ke aap use test kar sakte hain."
+        },
+        {
+          "en": "Run the audit again.",
+          "ur": "Audit dobara chalayein."
+        }
+      ],
+      "refs": {
+        "checkId": "bundle-secrets"
+      }
+    }
+  ],
+  "truncated": 0
+}

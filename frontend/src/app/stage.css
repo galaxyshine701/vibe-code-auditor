@@ -1,0 +1,245 @@
+/* The screens of the agent pipeline (website checks, gate, scope, roadmap).
+   Kept apart from globals.css; the same tokens (colours, fonts) are used. */
+
+/* ---- Connect: the two source groups, website and Supabase (R76) ---- */
+.source-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.source-lede {
+  margin: 0;
+}
+
+.source-group {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 16px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-soft);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.source-group > p {
+  margin: 0;
+}
+
+.source-group[data-state="complete"] {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+
+.source-group[data-state="partial"] {
+  border-color: color-mix(in srgb, var(--canary) 60%, var(--line));
+  box-shadow: inset 3px 0 0 var(--canary);
+}
+
+.source-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+  margin-left: -6px;
+}
+
+.source-title {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.source-chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.source-ready {
+  color: var(--ok);
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.source-needs {
+  color: var(--ink-soft);
+  border-color: var(--canary);
+  background: var(--canary-soft);
+}
+
+.source-note {
+  margin: 0;
+  padding: 10px 13px;
+  border-left: 3px solid var(--canary);
+  border-radius: 8px;
+  color: var(--ink-soft);
+  background: var(--canary-soft);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .source-group {
+    padding: 14px 12px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-group,
+  .source-chip {
+    transition: none;
+  }
+}
+
+/* ---- Progress: what is looked at, and the rows (R75) ---- */
+.target-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.target-lines li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.target-kind {
+  flex: 0 0 auto;
+  min-width: 4.6rem;
+  color: var(--muted-2);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.progress-top-side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* the rows come in one after the other, as the backend lists them */
+.module-row {
+  animation: rowIn 0.4s ease both;
+  animation-delay: calc(var(--row-index, 0) * 70ms);
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* skipped is not a failure: grey, dashed, no bar, no alarm colour (R75) */
+.module-skipped,
+.module-unknown {
+  color: var(--muted);
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+}
+
+.module-row-skipped .module-name-row strong {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.module-note {
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.module-note-reason {
+  border-left-style: dashed;
+}
+
+.module-note-message {
+  border-left-color: var(--muted-2);
+  color: var(--ink-soft);
+}
+
+.progress-headline {
+  margin: 22px 0 0;
+  padding: 12px 15px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.headline-leak {
+  color: var(--leak);
+  border-color: var(--leak);
+  background: var(--leak-soft);
+}
+
+.headline-clear {
+  color: var(--ok);
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.headline-not-ready {
+  color: var(--ink);
+  border-color: var(--canary);
+  background: var(--canary-soft);
+}
+
+.summary-grid-four {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.summary-grid-site {
+  grid-template-columns: minmax(0, 12rem) 1fr;
+  align-items: center;
+}
+
+.summary-site-note {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .summary-grid-four {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .summary-grid-site {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .module-row {
+    animation: none;
+  }
+}

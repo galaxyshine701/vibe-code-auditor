@@ -2,19 +2,25 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AccessGate } from '@/components/access-gate';
 import { useApp } from '@/components/app-provider';
+import { BadgeNotice } from '@/components/badges';
 import { CleanupWarning } from '@/components/cleanup-warning';
 import { ErrorBanner } from '@/components/error-banner';
+import { LangToggle } from '@/components/lang-toggle';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
+import { useBadges } from '@/components/use-badges';
 import { getAudit } from '@/lib/api';
 import { formatDate, progressWidth } from '@/lib/format';
 import {
   ApiError,
   RequestCancelledError,
 } from '@/lib/errors';
+import { hasReasons, rowView, targetLines } from '@/lib/progress-rows';
+import { headlineOf, leakCount, noTableCheck, pick } from '@/lib/stage';
 import type { AuditStatus, AuditStatusResponse } from '@/lib/types';
+import { useLang } from '@/lib/use-lang';
 import { useApiError } from '@/lib/use-api-error';
 
 const STATUS_LABEL: Record<AuditStatus, string> = {
@@ -29,6 +35,7 @@ export default function ProgressPage() {
   const id = params.id;
   const { accessCode, rateLimitSecondsLeft } = useApp();
   const handleApiError = useApiError();
+  const [lang, setLang] = useLang();
 
   const [audit, setAudit] = useState<AuditStatusResponse | null>(null);
   const [waiting, setWaiting] = useState(true);
@@ -37,6 +44,11 @@ export default function ProgressPage() {
   const [retryTick, setRetryTick] = useState(0);
 
   const timer = useRef<number | undefined>(undefined);
+  // Badges (R64). The audit was started by the user: if this page saw it
+  // queued or running, the badge it earns gets its animation (R65).
+  const badges = useBadges();
+  const evaluateBadges = badges.evaluate;
+  const sawRunning = useRef(false);
 
   useEffect(() => {
     if (!accessCode) return;
@@ -55,7 +67,21 @@ export default function ProgressPage() {
         setWaiting(false);
         setError('');
         if (result.status === 'queued' || result.status === 'running') {
+          sawRunning.current = true;
           timer.current = window.setTimeout(poll, 2_000);
+        } else if (result.status === 'completed') {
+          evaluateBadges({
+            auditCompleted: true,
+            retestActive: false,
+            lastRetestStatus: result.lastRetest?.status ?? null,
+            findings: null,
+            // tables and secret keys in the scripts of the site (R73): a site
+            // with a key in a script does not earn "no leak found"
+            leaked: leakCount(result.summary),
+            blocked: result.summary.blocked,
+            cleanup: result.cleanup,
+            actionObserved: sawRunning.current,
+          });
         }
       } catch (caught) {
         if (cancelled || caught instanceof RequestCancelledError) return;
@@ -77,7 +103,7 @@ export default function ProgressPage() {
       controller.abort();
       if (timer.current !== undefined) window.clearTimeout(timer.current);
     };
-  }, [accessCode, handleApiError, id, retryTick]);
+  }, [accessCode, evaluateBadges, handleApiError, id, retryTick]);
 
   if (!accessCode) {
     return (
@@ -94,8 +120,8 @@ export default function ProgressPage() {
         <div className="card empty-card">
           <h1>This audit no longer exists.</h1>
           <p className="muted">
-            No audit with this id was found. Audits are kept in server memory,
-            so a server restart removes them.
+            No audit with this id was found. The server keeps the newest 50
+            audits, so an older one is no longer there.
           </p>
           <Link href="/" className="button button-primary">
             Start a new audit
@@ -105,6 +131,7 @@ export default function ProgressPage() {
     );
   }
 
+  const headline = audit ? headlineOf(audit, null) : null;
   const status = audit?.status;
   const isRunning = status === 'queued' || status === 'running';
   const isFailed = status === 'failed';
@@ -115,7 +142,20 @@ export default function ProgressPage() {
         <div>
           <h1>{audit?.target.label ?? 'Loading audit…'}</h1>
           {audit ? (
-            <p className="muted break">{audit.target.projectUrl}</p>
+            <ul className="target-lines">
+              {targetLines(audit.target).map((line) => (
+                <li key={line.kind}>
+                  <span className="target-kind">
+                    {line.kind === 'website'
+                      ? 'Website'
+                      : line.kind === 'repo'
+                        ? 'GitHub repo'
+                        : 'Supabase'}
+                  </span>
+                  <span className="muted break">{line.url}</span>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="muted">Contacting the server…</p>
           )}
@@ -161,48 +201,135 @@ export default function ProgressPage() {
                   </span>
                 </div>
               </div>
-              {isRunning ? (
-                <span className="live-chip" role="status">
-                  <span className="live-dot" aria-hidden="true" />
-                  Polling every 2s
-                </span>
-              ) : null}
+              <div className="progress-top-side">
+                {hasReasons(audit.modules) ? (
+                  <LangToggle lang={lang} onChange={setLang} />
+                ) : null}
+                {isRunning ? (
+                  <span className="live-chip" role="status">
+                    <span className="live-dot" aria-hidden="true" />
+                    Polling every 2s
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="module-list">
-              {audit.modules.map((module) => (
-                <div className="module-row" key={module.id}>
-                  <div className="module-name-row">
-                    <div>
-                      <strong>{module.name}</strong>
-                      <span className={`module-status module-${module.status}`}>
-                        {STATUS_LABEL[module.status]}
-                      </span>
-                    </div>
-                    <span className="mono-small">{module.progress}%</span>
-                  </div>
+              {audit.modules.map((module, index) => {
+                const row = rowView(module, lang);
+                return (
                   <div
-                    className="progress-track"
-                    role="progressbar"
-                    aria-label={`${module.name} progress`}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={module.progress}
+                    className={`module-row module-row-${row.tone}`}
+                    key={module.id}
+                    style={{ '--row-index': index } as CSSProperties}
                   >
-                    <span
-                      className={`progress-fill progress-${module.status}`}
-                      style={{ width: progressWidth(module.progress) }}
-                    />
+                    <div className="module-name-row">
+                      <div>
+                        <strong>{module.name}</strong>
+                        <span className={`module-status module-${row.tone}`}>
+                          {row.statusLabel}
+                        </span>
+                      </div>
+                      {row.showBar ? (
+                        <span className="mono-small">{row.percent}%</span>
+                      ) : null}
+                    </div>
+                    {row.showBar ? (
+                      <div
+                        className="progress-track"
+                        role="progressbar"
+                        aria-label={`${module.name} progress`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={row.percent}
+                      >
+                        <span
+                          className={`progress-fill progress-${row.tone}`}
+                          style={{ width: progressWidth(row.percent) }}
+                        />
+                      </div>
+                    ) : null}
+                    {row.note ? (
+                      <p className={`module-note module-note-${row.noteKind}`}>
+                        {row.note}
+                      </p>
+                    ) : null}
                   </div>
-                  {module.message ? (
-                    <p className="muted small">{module.message}</p>
-                  ) : null}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {status === 'completed' ? (
-              <div className="summary-grid">
+            {status === 'completed' && headline ? (
+              <p className={`progress-headline headline-${headline.tone}`}>
+                {pick(headline.text, lang)}
+              </p>
+            ) : null}
+
+            {status === 'completed' && noTableCheck(audit) ? (
+              <div className="summary-grid summary-grid-site">
+                {audit.target.websiteUrl ? (
+                  <div
+                    className={`summary-item ${
+                      (audit.summary.siteLeaked ?? 0) > 0
+                        ? 'summary-leaked'
+                        : 'summary-blocked'
+                    }`}
+                  >
+                    <span>{audit.summary.siteLeaked ?? 0}</span>
+                    <strong>Secret keys in scripts</strong>
+                  </div>
+                ) : null}
+                {audit.target.repoUrl ? (
+                  <div
+                    className={`summary-item ${
+                      (audit.summary.repoLeaked ?? 0) > 0
+                        ? 'summary-leaked'
+                        : 'summary-blocked'
+                    }`}
+                  >
+                    <span>{audit.summary.repoLeaked ?? 0}</span>
+                    <strong>Secrets in repo</strong>
+                  </div>
+                ) : null}
+                <p className="muted small summary-site-note">
+                  No Supabase details were given, so no table was checked.
+                </p>
+              </div>
+            ) : null}
+
+            {status === 'completed' && !noTableCheck(audit) ? (
+              <div
+                className={
+                  audit.summary.siteLeaked === undefined &&
+                  audit.summary.repoLeaked === undefined
+                    ? 'summary-grid'
+                    : 'summary-grid summary-grid-four'
+                }
+              >
+                {audit.summary.repoLeaked !== undefined ? (
+                  <div
+                    className={`summary-item ${
+                      audit.summary.repoLeaked > 0
+                        ? 'summary-leaked'
+                        : 'summary-blocked'
+                    }`}
+                  >
+                    <span>{audit.summary.repoLeaked}</span>
+                    <strong>Secrets in repo</strong>
+                  </div>
+                ) : null}
+                {audit.summary.siteLeaked !== undefined ? (
+                  <div
+                    className={`summary-item ${
+                      audit.summary.siteLeaked > 0
+                        ? 'summary-leaked'
+                        : 'summary-blocked'
+                    }`}
+                  >
+                    <span>{audit.summary.siteLeaked}</span>
+                    <strong>Keys in scripts</strong>
+                  </div>
+                ) : null}
                 <div className="summary-item summary-leaked">
                   <span>{audit.summary.leaked}</span>
                   <strong>Leaked</strong>
@@ -216,6 +343,16 @@ export default function ProgressPage() {
                   <strong>Blocked</strong>
                 </div>
               </div>
+            ) : null}
+
+            {status === 'completed' ? (
+              <BadgeNotice
+                state={badges.state}
+                justEarned={badges.justEarned}
+                celebrating={badges.celebrating}
+                onCelebrated={badges.finishCelebration}
+                inconclusiveCount={audit.summary.inconclusive}
+              />
             ) : null}
 
             {status === 'completed' ? (
