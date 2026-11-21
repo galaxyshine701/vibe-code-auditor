@@ -1,10 +1,12 @@
-# Vibe Code Auditor (draft)
+# Gatecheck (draft)
+
+_Formerly Vibe Code Auditor._
 
 > Draft only. It does not replace `README.md`.
 
 ## The problem
 
-Apps built quickly with AI tools on Supabase often ship with data that other users can read or change, or with a secret key left in the code. Nobody notices until someone else does. Vibe Code Auditor runs a few safe, repeatable checks and reports what it found, with evidence.
+Apps built quickly with AI tools on Supabase often ship with data that other users can read or change, or with a secret key left in the code. Nobody notices until someone else does. Gatecheck runs a few repeatable checks and reports what it found, with evidence.
 
 ## The three inputs
 
