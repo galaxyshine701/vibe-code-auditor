@@ -90,6 +90,12 @@
   line-height: 1.45;
 }
 
+.field .field-problem {
+  color: var(--ink-soft);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 520px) {
   .source-group {
     padding: 14px 12px 16px;

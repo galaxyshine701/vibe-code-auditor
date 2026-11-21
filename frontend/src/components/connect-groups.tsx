@@ -1,5 +1,6 @@
 'use client';
 
+import { repoUrlProblem } from '@/lib/form';
 import type { ConnectCheck, ConnectFields, GroupCheck } from '@/lib/form';
 import { SecretInput } from './secret-input';
 
@@ -25,6 +26,7 @@ export function ConnectGroups({
   check: ConnectCheck;
   onChange: (patch: Partial<ConnectFields>) => void;
 }) {
+  const repoProblem = repoUrlProblem(fields.repoUrl);
   return (
     <div className="source-groups">
       <p className="muted small source-lede">
@@ -169,11 +171,18 @@ export function ConnectGroups({
             autoComplete="off"
             spellCheck={false}
             inputMode="url"
+            aria-invalid={repoProblem ? true : undefined}
+            aria-describedby={repoProblem ? 'repo-url-problem' : undefined}
           />
           <small>
             https://github.com/&lt;owner&gt;/&lt;repo&gt;. A private repository
             can not be read.
           </small>
+          {repoProblem ? (
+            <small className="field-problem" id="repo-url-problem" role="status">
+              {repoProblem}
+            </small>
+          ) : null}
         </label>
         <label className="check-row">
           <input

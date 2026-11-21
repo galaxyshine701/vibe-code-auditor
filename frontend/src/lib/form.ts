@@ -65,6 +65,53 @@ function groupOf(parts: [string, boolean][]): GroupCheck {
     : { state: 'partial', missing };
 }
 
+/** The message under the repository field when the address is not accepted. */
+export const REPO_URL_PROBLEM =
+  'Use exactly https://github.com/owner/repo: https only, github.com only, no path after the name, no ?query or #part.';
+
+const REPO_NAME = /^[A-Za-z0-9_.-]{1,100}$/;
+
+/**
+ * The ONE rule for the repository address, the same as the backend's
+ * parseRepoUrl (backend/src/audits/audit-input.ts): https, github.com (the host
+ * is lower-cased by the URL parser, as in the backend), exactly owner/repo, one
+ * trailing slash and a trailing .git allowed, no port, login, ?query or #part.
+ * A change here needs the same change there (a spec compares them).
+ */
+export function isValidRepoUrl(value: string): boolean {
+  if (value.length > 300) return false;
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return false;
+  }
+  const parts = url.pathname.replace(/\/$/, '').split('/');
+  const owner = parts[1] ?? '';
+  const repo = (parts[2] ?? '').replace(/\.git$/, '');
+  return (
+    url.protocol === 'https:' &&
+    url.hostname === 'github.com' &&
+    url.port === '' &&
+    url.username === '' &&
+    url.password === '' &&
+    url.search === '' &&
+    url.hash === '' &&
+    parts.length === 3 &&
+    REPO_NAME.test(owner) &&
+    REPO_NAME.test(repo) &&
+    owner !== '.' &&
+    owner !== '..' &&
+    repo !== '.' &&
+    repo !== '..'
+  );
+}
+
+/** The inline message for the field: empty while it is empty or valid. */
+export function repoUrlProblem(value: string): string {
+  return filled(value) && !isValidRepoUrl(value) ? REPO_URL_PROBLEM : '';
+}
+
 export function checkConnect(fields: ConnectFields): ConnectCheck {
   const website = groupOf([
     ['Website address', filled(fields.websiteUrl)],
@@ -76,10 +123,19 @@ export function checkConnect(fields: ConnectFields): ConnectCheck {
     ['Secret key', filled(fields.serviceKey)],
     ['the TEST project box', fields.confirmTestProject],
   ]);
-  const repo = groupOf([
+  const repoBox = ['the box "This repository is public and I may scan its files"', fields.confirmRepoAccess] as [string, boolean];
+  let repo = groupOf([
     ['Repository address', filled(fields.repoUrl)],
-    ['the box "This repository is public and I may scan its files"', fields.confirmRepoAccess],
+    repoBox,
   ]);
+  // a filled address counts only when the backend would accept it: a wrong
+  // one keeps the group at "Needs more" (never "Ready", never "Not used")
+  if (filled(fields.repoUrl) && !isValidRepoUrl(fields.repoUrl)) {
+    repo = {
+      state: 'partial',
+      missing: ['a valid repository address (https://github.com/owner/repo)', ...(fields.confirmRepoAccess ? [] : [repoBox[0]])],
+    };
+  }
   const groups = [website, supabase, repo];
   const oneComplete = groups.some((g) => g.state === 'complete');
   const nonePartial = groups.every((g) => g.state !== 'partial');
