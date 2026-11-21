@@ -245,16 +245,6 @@ export function HeroMotion({
             canary
           </text>
 
-          {/* the lock of the canary row: open until the policy is added, closed after */}
-          <g className="motion-lock" aria-hidden="true">
-            <rect className="motion-lock-body" x="656" y="188" width="16" height="11" rx="2.5" />
-            <path
-              className="motion-lock-shackle"
-              d="M659 188 V185 a5 5 0 0 1 10 0 V188"
-              fill="none"
-            />
-          </g>
-
           <g className="motion-gate" aria-hidden="true">
             <line x1="470" y1="26" x2="470" y2="360" />
             <text x="470" y="16">

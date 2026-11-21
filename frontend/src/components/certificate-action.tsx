@@ -4,28 +4,28 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import type { CertificateLock } from '@/lib/outcome';
 
-function Padlock({ open }: { open: boolean }) {
+// A plain round mark in front of the button text: a dashed ring while the
+// result view is not available yet, a solid ring with a filled dot when it is.
+// Only a shape; the words next to it say the same thing.
+function CertMark({ ready }: { ready: boolean }) {
   return (
     <svg
-      className={`padlock ${open ? 'is-open' : ''}`}
+      className={`cert-mark ${ready ? 'is-ready' : ''}`}
       viewBox="0 0 16 16"
       width="14"
       height="14"
       aria-hidden="true"
     >
-      <rect x="3" y="7.2" width="10" height="6.8" rx="1.6" className="padlock-body" />
-      <path
-        className="padlock-shackle"
-        d="M5.4 7.2V5.2a2.6 2.6 0 0 1 5.2 0v2"
-        fill="none"
-      />
+      <circle className="cert-mark-ring" cx="8" cy="8" r="6" />
+      {ready ? <circle className="cert-mark-fill" cx="8" cy="8" r="3.2" /> : null}
     </svg>
   );
 }
 
-// "Open result view" (R68, R87: the screen is called Re-test result). Locked until the audit is eligible, with the
-// reason always written next to it (not in a tooltip). The lock opens with a
-// short animation, once, only when the user's own Re-test made it eligible.
+// "Open result view" (R68, R87: the screen is called Re-test result). Not
+// available until the audit is eligible, with the reason always written next to
+// it (not in a tooltip). The mark fills with a short animation, once, only when
+// the user's own Re-test made it eligible.
 export function CertificateAction({
   auditId,
   lock,
@@ -48,7 +48,7 @@ export function CertificateAction({
     return (
       <div className={`cert-action ${playUnlock ? 'is-unlocking' : ''}`}>
         <Link href={`/audits/${auditId}/certificate`} className="button button-ghost cert-button">
-          <Padlock open />
+          <CertMark ready />
           Open result view
         </Link>
       </div>
@@ -64,7 +64,7 @@ export function CertificateAction({
         aria-describedby="cert-reason"
         onClick={(event) => event.preventDefault()}
       >
-        <Padlock open={false} />
+        <CertMark ready={false} />
         Open result view
       </button>
       <p className="muted small cert-reason" id="cert-reason">

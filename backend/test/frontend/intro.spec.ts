@@ -484,17 +484,13 @@ describe('the example run (CSS and component)', () => {
     expect(Number(blockB![2])).toBeLessThan(Number(blockV![2]));
   });
 
-  it('the scene says Visitor, not Anon, and has a lock that opens and closes', () => {
+  it('the scene says Visitor, not Anon, and has no lock (the policy line is the only barrier)', () => {
     const source = read('components', 'hero-motion.tsx');
     expect(source).not.toMatch(/\bAnon\b/);
     expect(source.match(/Visitor/g)!.length).toBeGreaterThanOrEqual(4);
-    expect(source).toContain('motion-lock-shackle');
-    expect(css).toMatch(
-      /\[data-phase="leaked"\] \.motion-lock-shackle \{[^}]*rotate/,
-    );
-    expect(css).toMatch(
-      /\.motion-stage\.is-final \.motion-lock-shackle \{[^}]*transform: none/,
-    );
+    expect(source).not.toMatch(/motion-lock|shackle/);
+    expect(css).not.toMatch(/motion-lock|shackle/);
+    expect(source).toContain('motion-gate');
   });
 
   it('every part of the story is scaled by --hs', () => {

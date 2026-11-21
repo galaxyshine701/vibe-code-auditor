@@ -2984,7 +2984,7 @@ h4 {
   }
 }
 
-/* ---- Fix confirmed seal, Before and after, certificate lock (R66, R67, R68) ----
+/* ---- Fix confirmed seal, Before and after, result view mark (R66, R67, R68) ----
    Every animation runs once and lasts under 800 ms. Texts stay --ink or --muted;
    the colours of the shapes are decoration, the words say the same thing. */
 .fix-seal {
@@ -3013,14 +3013,10 @@ h4 {
   transform-origin: center;
 }
 
-.seal-check {
-  fill: none;
-  stroke: var(--ok);
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 0;
+.seal-core {
+  fill: var(--ok);
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .seal-canary {
@@ -3034,8 +3030,8 @@ h4 {
   animation: sealRing 0.65s ease-out 1 both;
 }
 
-.fix-seal.is-animating .seal-check {
-  animation: sealCheck 0.3s ease-out 0.35s 1 both;
+.fix-seal.is-animating .seal-core {
+  animation: sealCore 0.3s ease-out 0.35s 1 both;
 }
 
 .fix-seal.is-animating .seal-canary {
@@ -3057,12 +3053,14 @@ h4 {
   }
 }
 
-@keyframes sealCheck {
+@keyframes sealCore {
   from {
-    stroke-dashoffset: 1;
+    opacity: 0;
+    transform: scale(0.3);
   }
   to {
-    stroke-dashoffset: 0;
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -3168,41 +3166,44 @@ h4 {
   margin: 0;
 }
 
-.padlock {
+.cert-mark {
   flex: none;
   overflow: visible;
 }
 
-.padlock-body {
-  fill: currentColor;
-}
-
-.padlock-shackle {
+.cert-mark-ring {
+  fill: none;
   stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
+  stroke-width: 1.5;
+  stroke-dasharray: 2.4 2.2;
+}
+
+.cert-mark.is-ready .cert-mark-ring {
+  stroke-dasharray: none;
+}
+
+.cert-mark-fill {
+  fill: var(--ok);
   transform-box: fill-box;
-  transform-origin: 100% 100%;
+  transform-origin: center;
 }
 
-.padlock.is-open .padlock-shackle {
-  transform: translateY(-1.6px) rotate(24deg);
-}
-
-.cert-action.is-unlocking .padlock-shackle {
-  animation: shackleOpen 0.6s ease-out 1 both;
+.cert-action.is-unlocking .cert-mark-fill {
+  animation: certMarkFill 0.6s ease-out 1 both;
 }
 
 .cert-action.is-unlocking .cert-button {
   animation: certGlow 0.6s ease-out 1 both;
 }
 
-@keyframes shackleOpen {
+@keyframes certMarkFill {
   from {
-    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+    transform: scale(0.3);
   }
   to {
-    transform: translateY(-1.6px) rotate(24deg);
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -3234,57 +3235,12 @@ h4 {
 
 @media (prefers-reduced-motion: reduce) {
   .fix-seal.is-animating .seal-ring,
-  .fix-seal.is-animating .seal-check,
+  .fix-seal.is-animating .seal-core,
   .fix-seal.is-animating .seal-canary,
-  .cert-action.is-unlocking .padlock-shackle,
+  .cert-action.is-unlocking .cert-mark-fill,
   .cert-action.is-unlocking .cert-button {
     animation: none;
   }
-}
-
-/* ---- The lock of the canary row, the intro and the last frame (R70) ----
-   Open until the policy is added (a leak), closed after (BLOCKED). */
-.motion-lock-body {
-  fill: var(--ok);
-  transition: fill calc(0.35s * var(--hs, 1)) ease;
-}
-
-.motion-lock-shackle {
-  stroke: var(--ok);
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  transform-box: fill-box;
-  transform-origin: 100% 100%;
-  transition: transform calc(0.35s * var(--hs, 1)) ease, stroke calc(0.35s * var(--hs, 1)) ease;
-}
-
-.motion-stage[data-phase="idle"] .motion-lock-body,
-.motion-stage[data-phase="owner"] .motion-lock-body {
-  fill: var(--muted);
-}
-
-.motion-stage[data-phase="idle"] .motion-lock-shackle,
-.motion-stage[data-phase="owner"] .motion-lock-shackle {
-  stroke: var(--muted);
-  transform: translateY(-2px) rotate(26deg);
-}
-
-.motion-stage[data-phase="leaked"] .motion-lock-body {
-  fill: var(--leak);
-}
-
-.motion-stage[data-phase="leaked"] .motion-lock-shackle {
-  stroke: var(--leak);
-  transform: translateY(-2px) rotate(26deg);
-}
-
-.motion-stage.is-final .motion-lock-body {
-  fill: var(--ok);
-}
-
-.motion-stage.is-final .motion-lock-shackle {
-  stroke: var(--ok);
-  transform: none;
 }
 
 /* The intro: a layer of the whole screen. It is a child of <body> (layout.tsx),

@@ -359,13 +359,13 @@ describe('the files', () => {
     logic: read('lib', 'outcome.ts'),
   };
 
-  it('every animation of the badges, the seal and the lock is under 800 ms', () => {
+  it('every animation of the badges, the seal and the result view mark is under 800 ms', () => {
     const names = [
       'badgePop',
       'sealRing',
-      'sealCheck',
+      'sealCore',
       'sealCanary',
-      'shackleOpen',
+      'certMarkFill',
       'certGlow',
     ];
     for (const name of names) {
@@ -392,9 +392,9 @@ describe('the files', () => {
     );
     for (const selector of [
       '.fix-seal.is-animating .seal-ring',
-      '.fix-seal.is-animating .seal-check',
+      '.fix-seal.is-animating .seal-core',
       '.fix-seal.is-animating .seal-canary',
-      '.cert-action.is-unlocking .padlock-shackle',
+      '.cert-action.is-unlocking .cert-mark-fill',
       '.cert-action.is-unlocking .cert-button',
     ]) {
       expect(block, selector).toContain(selector);
