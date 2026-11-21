@@ -7,7 +7,10 @@ import { AGENTS_OFF, AGENTS_SETUP } from '../../src/agents/agents-config.js';
 import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
 import { ApiError } from '../../src/common/api-error.js';
-import { parseAuditRequest } from '../../src/audits/audit-input.js';
+import {
+  parseAuditRequest,
+  REPO_SCAN_OFF_MESSAGE,
+} from '../../src/audits/audit-input.js';
 import { AUDIT_REPOSITORY } from '../../src/audits/audit-repository.js';
 import { GATEWAY_FACTORY } from '../../src/audits/audits.service.js';
 import { REPO_SETUP } from '../../src/repo/repo-config.js';
@@ -88,8 +91,21 @@ describe('parseAuditRequest: repoUrl', () => {
     expect(fails({ repoUrl: 'https://evil.example/ZZZ-secret-ZZZ' })).not.toContain('ZZZ');
   });
 
-  it('flag off: repoUrl is ignored like any extra field (the old parser, the old message)', () => {
-    expect(() => parse({ repoUrl: REPO_URL }, false)).toThrow(/confirmTestProject/);
+  it('flag off: repoUrl is refused with a visible message (not ignored), whatever else is in the body', () => {
+    for (const body of [
+      { repoUrl: REPO_URL },
+      { repoUrl: REPO_URL, confirmRepoAccess: true },
+      { repoUrl: 'ZZZ-not-an-address' },
+    ]) {
+      expect(() => parse(body, false)).toThrow(REPO_SCAN_OFF_MESSAGE);
+    }
+    expect(() => parse({ repoUrl: 'ZZZ-not-an-address' }, false)).not.toThrow(/ZZZ/);
+  });
+
+  it('flag off: a websiteUrl is still ignored like any extra field, and no repoUrl changes nothing', () => {
+    expect(() => parse({ websiteUrl: 'https://www.example.com' }, false)).toThrow(
+      /confirmTestProject|projectUrl/,
+    );
   });
 
   it('a body without repoUrl is parsed exactly as before', () => {
@@ -291,18 +307,30 @@ describe('a repository alone (no Supabase, no website)', () => {
   });
 });
 
-describe('flag off: nothing changes', () => {
-  it('repoUrl is ignored (the old validation answers) and GitHub is never called', async () => {
+describe('flag off: a repoUrl is refused with a visible message', () => {
+  it('400 "Repo scan is not enabled on this server.", no audit is started, GitHub is never called', async () => {
     const transport = zipOf({ name: 'o-r-1/a.ts', data: 'x' }) as RepoTransport & {
       calls: { count: number };
     };
     const nest = await build(transport, AGENTS_OFF);
-    const res = await post(nest, { repoUrl: REPO_URL, confirmRepoAccess: true });
-    expect(res.status).toBe(400);
-    const ok = await post(nest, { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true });
+    for (const body of [
+      { repoUrl: REPO_URL, confirmRepoAccess: true },
+      { ...validBody(), repoUrl: REPO_URL, confirmRepoAccess: true },
+      { ...validBody(), repoUrl: 'not even an address' },
+    ]) {
+      const res = await post(nest, body);
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).toContain('Repo scan is not enabled on this server.');
+      expect(JSON.stringify(res.body)).not.toContain('not even an address');
+    }
+    expect(transport.calls.count).toBe(0);
+  });
+
+  it('a body without repoUrl is answered exactly as before (Supabase only, flag off)', async () => {
+    const nest = await build(zipOf({ name: 'o-r-1/a.ts', data: 'x' }), AGENTS_OFF);
+    const ok = await post(nest, validBody());
     expect(ok.status).toBe(202);
     const done = await waitUntilDone(nest, ok.body.id);
-    expect(transport.calls.count).toBe(0);
     expect(done.body.target.repoUrl).toBeUndefined();
     expect(done.body.summary.repoLeaked).toBeUndefined();
     expect((done.body.modules as { id: string }[]).map((m) => m.id)).not.toContain('repo-secrets');

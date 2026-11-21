@@ -330,7 +330,7 @@ Optional. With a `websiteUrl` (see "Additive request: a website, with or without
 - With the flag on, a run with a website and no Supabase details can be `ready_by_these_checks` when both website checks completed with no leak and the cleanup is not `"failed"`. The sentence "Today the gate is always `not_ready`" below is true only with the flag off.
 
 ### Additive: Repo Scan Lite, a public GitHub repository (`LOCK_C_AGENTS`, phase A1)
-Optional. `POST /audits` can take a public GitHub repository. Like the website, it works only with `LOCK_C_AGENTS=on`. **With the flag off, or with no `repoUrl`, nothing here exists: `repoUrl` is ignored like any other extra field, and the request, the errors, the answers, the plan and the gate are byte-for-byte as before.**
+Optional. `POST /audits` can take a public GitHub repository. Like the website, it works only with `LOCK_C_AGENTS=on`. **With no `repoUrl`, nothing here exists, and the request, the errors, the answers, the plan and the gate are byte-for-byte as before. With the flag off, a `repoUrl` is refused with `400` `INVALID_INPUT` and the message `Repo scan is not enabled on this server.` (it is not skipped silently, and no audit is started).**
 
 ```json
 { "repoUrl": "https://github.com/owner/repo", "confirmRepoAccess": true }

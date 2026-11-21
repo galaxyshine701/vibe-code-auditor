@@ -165,6 +165,7 @@ function parseWebsiteUrl(value: unknown): string {
 const REPO_MESSAGE =
   'repoUrl must look like https://github.com/owner/repo (a public repository, no login, no path after the name).';
 const REPO_NAME = /^[A-Za-z0-9_.-]{1,100}$/;
+export const REPO_SCAN_OFF_MESSAGE = 'Repo scan is not enabled on this server.';
 
 function parseRepoUrl(value: unknown): {
   owner: string;
@@ -236,6 +237,12 @@ export function parseAuditRequest(
     typeof body === 'object' && body !== null && !Array.isArray(body);
   const has = (field: string) =>
     isObject && Object.prototype.hasOwnProperty.call(body, field);
+  // A repoUrl while the agent pipeline (LOCK_C_AGENTS) is off is refused with
+  // a visible message, never skipped silently. Other extra fields (a
+  // websiteUrl with the flag off) are still ignored as before.
+  if (!websiteEnabled && has('repoUrl')) {
+    throw invalid(REPO_SCAN_OFF_MESSAGE);
+  }
   if (!websiteEnabled || !(has('websiteUrl') || has('repoUrl'))) {
     return requestOf(parseAuditInput(body));
   }
