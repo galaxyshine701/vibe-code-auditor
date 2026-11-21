@@ -152,6 +152,12 @@ export interface RoadmapItem {
   why: Text;
   /** 1 to 4 steps */
   steps: Text[];
+  /**
+   * A fixed text to paste into the AI tool that built the app (English first,
+   * Roman Urdu as the second copy). Only on fix-finding, fix-site-secret,
+   * fix-repo-secret, improve-header and improve-repo. Never holds a key.
+   */
+  fixPrompt?: Text;
   refs: { checkId: string; findingIds?: string[]; evidenceIds?: string[] };
 }
 

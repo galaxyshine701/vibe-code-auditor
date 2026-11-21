@@ -59,6 +59,16 @@ export const COPY = {
   limitsHeading: { en: 'Limits of these checks', ur: 'In checks ki hadein' },
   emptyBucket: { en: 'Nothing here.', ur: 'Yahan kuch nahi.' },
 
+  // the fix prompt of a roadmap item
+  fixPromptHeading: { en: 'Fix prompt for your AI tool', ur: 'Aapke AI tool ke liye fix prompt' },
+  fixPromptHint: {
+    en: 'Paste it into the AI tool that built your app. It shows the plan first and changes nothing until you approve.',
+    ur: 'Ise us AI tool mein paste karein jis ne aapki app banayi. Woh pehle plan dikhata hai aur aap ke approve karne tak kuch nahi badalta.',
+  },
+  copyPrompt: { en: 'Copy', ur: 'Copy karein' },
+  copiedPrompt: { en: 'Copied', ur: 'Copy ho gaya' },
+  copyFailed: { en: 'Could not copy: select the text and copy it by hand.', ur: 'Copy nahi hua: text select karke haath se copy karein.' },
+
   // the roadmap (R81)
   roadmapHeading: { en: 'Next steps', ur: 'Agle qadam' },
   roadmapIntro: {

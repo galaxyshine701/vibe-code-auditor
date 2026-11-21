@@ -28,6 +28,10 @@
           "ur": "Audit dobara chalayein aur dekhein ke key ab files mein nahi hai."
         }
       ],
+      "fixPrompt": {
+        "en": "A Supabase secret key was found in the file \"src/lib/supabase.ts\" of my repository. Take it out of that file and read it from an environment variable instead. Make sure the env files are listed in .gitignore. Remind me that the old commits keep the key, so I must rotate it in the Supabase dashboard.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Mere repository ki file \"src/lib/supabase.ts\" mein Supabase secret key mili. Use us file se nikalo aur uski jagah environment variable se parho. Dekho ke env files .gitignore mein hain. Mujhe yaad dilao ke purane commits mein key rehti hai, is liye mujhe Supabase dashboard mein use rotate karna hai.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
       "refs": {
         "checkId": "repo-secrets",
         "evidenceIds": [

@@ -1,5 +1,11 @@
 import type { Finding, Severity } from '../prover/types.js';
 import { CHECKS } from './planner-config.js';
+import {
+  fixFindingPrompt,
+  fixRepoSecretPrompt,
+  fixSiteSecretPrompt,
+  improveHeaderPrompt,
+} from './fix-prompts.js';
 import type {
   Coverage,
   EvidenceItem,
@@ -68,6 +74,10 @@ export interface RoadmapInput {
 }
 
 type Draft = Omit<RoadmapItem, 'id'>;
+
+/** `fixPrompt` only when there is one (a key that is absent, not undefined). */
+const fixPromptField = (text: Text | undefined) =>
+  text ? { fixPrompt: text } : {};
 
 const DATA_ACCESS = 'data-access-prover';
 const HEADERS = 'tls-headers';
@@ -286,6 +296,8 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: '"Re-test" dabayein aur dekhein ke table ab leak nahi raha.',
         },
       ],
+      // A finding that has a fix SQL had an owner column; one without does not.
+      fixPrompt: fixFindingPrompt(table, found?.fix != null),
       refs: {
         checkId: DATA_ACCESS,
         findingIds: [item.findingId],
@@ -365,6 +377,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab nahi hai.',
         },
       ],
+      fixPrompt: fixSiteSecretPrompt(item.subject),
       refs: { checkId: BUNDLE, evidenceIds: [item.id] },
     });
   }
@@ -400,6 +413,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab files mein nahi hai.',
         },
       ],
+      fixPrompt: fixRepoSecretPrompt(item.subject),
       refs: { checkId: REPO, evidenceIds: [item.id] },
     });
   }
@@ -418,6 +432,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
       title: advice.title,
       why: advice.why,
       steps: advice.steps,
+      ...fixPromptField(improveHeaderPrompt(item.subject)),
       refs: { checkId: HEADERS, evidenceIds: [item.id] },
     });
   }

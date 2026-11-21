@@ -387,6 +387,7 @@ Optional. Two new routes and one new row. They exist only for a run made with `L
 ```
 - `kind`: `fix-finding` | `fix-site-secret` | `improve-header` | `confirm` | `cleanup` | `finish-check` | `provide-input` | `retest`. A client shows a kind it does not know as plain text.
 - `severity`: the usual values. `fromRequiredCheck`: the item comes from a check that is required in this run.
+- `fixPrompt` (optional, `{ en, ur }`): a fixed text to paste into the AI tool that built the app. Only on `fix-finding`, `fix-site-secret`, `fix-repo-secret`, `improve-header` and `improve-repo` items (a header the audit does not know has none). It is built from templates in code, not by an AI model. English comes first, `ur` is the Roman Urdu copy of the same prompt. It always says to show the plan first and apply only after the person approves. It never holds a key and never asks for one: only a table name, a file path, a script name or a header name goes into it. A `fix-finding` for a table with no owner column asks the person who should read and write, and does not guess. A client that does not know the field ignores it.
 - `steps`: 1 to 4 items. `refs.findingIds` are ids from `GET .../findings`; `refs.evidenceIds` are ids from `GET .../evidence`; `refs.checkId` is an id from `plan`.
 - Which item comes from what:
   - `fix-finding`: a table that is `LEAKED`. Severity is the finding's. The SQL stays in the finding's `fix`.
