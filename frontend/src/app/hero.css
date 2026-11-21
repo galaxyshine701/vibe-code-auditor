@@ -23,13 +23,53 @@
   line-height: 1.12;
 }
 
-/* ---- the three chips: the two groups of the Connect form, and both ---- */
+/* ---- the lede: the problem, what it is, and what it does in four short lines ---- */
+.hero-problem {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 1.08rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.hero-does {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-does li {
+  display: grid;
+  grid-template-columns: 8.6rem minmax(0, 1fr);
+  gap: 2px 14px;
+  align-items: baseline;
+  padding-left: 12px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.hero-does strong {
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.hero-does span {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* ---- the four chips: the three groups of the Connect form, and all ---- */
 .hero-chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin: -12px 0 26px;
+  margin: 0 0 26px;
 }
 
 .hero-chip-btn {
@@ -56,7 +96,7 @@
   outline-offset: 2px;
 }
 
-.hero-chip-btn[data-chip="both"] {
+.hero-chip-btn[data-chip="all"] {
   border-style: dashed;
 }
 
@@ -446,6 +486,20 @@ html[data-intro="leaving"] .hero-card * {
 @media (max-width: 480px) {
   .hero-card {
     padding: 14px 12px;
+  }
+
+  /* the four lines of what it does: the title above its text, so nothing is squeezed at 375 px */
+  .hero-does li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+  }
+
+  .hero-chips {
+    gap: 6px;
+  }
+
+  .hero-chip-btn {
+    padding: 6px 13px;
   }
 
   .hero-beam-layer,

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { PROJECT_NAME } from '../lib/brand';
+import { PROJECT_DESCRIPTION, PROJECT_NAME } from '../lib/brand';
 
 // The web app manifest (R59). Colours are --bg of the dark theme, the theme the
 // app opens in (R55). The icons are drawn by scripts/make-icons.mjs.
@@ -8,8 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: '/',
     name: PROJECT_NAME,
     short_name: PROJECT_NAME,
-    description:
-      'Check what a visitor can read on your site and what another user can reach in a Supabase test project.',
+    description: PROJECT_DESCRIPTION,
     start_url: '/',
     scope: '/',
     display: 'standalone',

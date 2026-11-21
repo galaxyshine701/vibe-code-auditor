@@ -293,7 +293,10 @@ describe('the Connect form screen', () => {
     expect(groups).toContain('Public GitHub repo');
     expect(groups).toContain('This repository is public and I may scan its files.');
     expect(groups.indexOf('Supabase project')).toBeLessThan(groups.indexOf('Public GitHub repo'));
-    // the hero card still says "website address, Supabase details, or both"
-    expect(read('lib', 'hero-copy.ts')).toMatch(/website address, Supabase details, or both/);
+    // the hero now names the repo too: its step says "a public GitHub repo", and it has a GitHub repo chip
+    expect(read('lib', 'hero-copy.ts')).toMatch(
+      /Add a website address, Supabase details, a public GitHub repo, or any of them together/,
+    );
+    expect(read('lib', 'hero-copy.ts')).toContain("id: 'repo'");
   });
 });

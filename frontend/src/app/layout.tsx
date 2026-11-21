@@ -4,7 +4,7 @@ import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
 import { IntroOverlay } from '@/components/intro-overlay';
 import { ServiceWorkerRegister } from '@/components/sw-register';
-import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
+import { PROJECT_DESCRIPTION, PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
 import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
 import './intro.css';
@@ -14,8 +14,7 @@ import './hero.css';
 
 export const metadata: Metadata = {
   title: PROJECT_NAME,
-  description:
-    'Check what a visitor can read on your site and what another user can reach in your Supabase project. The result is "no leak found by these checks".',
+  description: PROJECT_DESCRIPTION,
 };
 
 // The first visit is dark, not decided by the system setting (R55). The

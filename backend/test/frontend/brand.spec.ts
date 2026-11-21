@@ -40,6 +40,29 @@ describe('the product name', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('the page description and the manifest name the three checks and say "by these checks"', async () => {
+    const brand = (await import(
+      /* @vite-ignore */ pathToFileURL(join(FRONTEND, 'src', 'lib', 'brand.ts'))
+        .href
+    )) as { PROJECT_DESCRIPTION: string };
+    const text = brand.PROJECT_DESCRIPTION;
+    expect(text).toContain('live site');
+    expect(text).toContain('Supabase');
+    expect(text).toContain('two test users');
+    expect(text).toContain('public GitHub repo');
+    expect(text).toContain('gate result');
+    expect(text).toContain('by these checks');
+    expect(text).not.toMatch(
+      /\b(safe|safely|secure|secured|certified|certificate|guarantee[ds]?)\b/i,
+    );
+    const layout = readFileSync(join(FRONTEND, 'src', 'app', 'layout.tsx'), 'utf8');
+    const manifest = readFileSync(join(FRONTEND, 'src', 'app', 'manifest.ts'), 'utf8');
+    expect(layout).toContain('description: PROJECT_DESCRIPTION');
+    expect(manifest).toContain('description: PROJECT_DESCRIPTION');
+    // the old sentences, which spoke of a website and Supabase only, are gone
+    expect(layout + manifest).not.toContain('what another user can reach');
+  });
+
   it('leaves no trace of the old name', () => {
     const offenders = files.filter((file) =>
       /Vibe Code Auditor/i.test(readFileSync(file, 'utf8')),

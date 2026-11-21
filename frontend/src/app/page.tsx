@@ -24,7 +24,10 @@ import {
 } from '@/lib/form';
 import {
   CHIPS,
+  CHIP_TARGET,
+  PROBLEM,
   STEPS,
+  WHAT_IT_DOES,
   headlineWords,
   honestyLine,
   pickText,
@@ -48,18 +51,17 @@ export default function ConnectPage() {
   const HEADLINE = headlineWords(lang);
   const HEADLINE_TEXT = HEADLINE.join(' ');
 
-  // A chip points at the group of the Connect form it is named after (Both: at
-  // both). The group says "here" for a moment.
+  // A chip points at the group of the Connect form it is named after (All: at
+  // every group). The group says "here" for a moment.
   function pickSource(chip: ChipId) {
-    const first = document.getElementById(
-      chip === 'supabase' ? 'project-url' : 'website-url',
-    );
+    const target = CHIP_TARGET[chip];
+    const first = document.getElementById(target.field);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     first?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
     first?.focus({ preventScroll: true });
     const groups = document.querySelectorAll<HTMLElement>('.source-group');
     const wanted =
-      chip === 'both' ? [...groups] : [groups[chip === 'supabase' ? 1 : 0]];
+      target.group === null ? [...groups] : [groups[target.group]];
     for (const group of wanted) {
       if (!group) continue;
       group.classList.remove('is-nudged');
@@ -166,7 +168,16 @@ export default function ConnectPage() {
               </span>
             ))}
           </h1>
+          <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
           <p className="hero-lede">{subLine(lang)}</p>
+          <ul className="hero-does" aria-label={pickText({ en: 'What it does', ur: 'Ye kya karta hai' }, lang)}>
+            {WHAT_IT_DOES.map((line) => (
+              <li key={line.id} data-does={line.id}>
+                <strong>{pickText(line.title, lang)}</strong>
+                <span>{pickText(line.body, lang)}</span>
+              </li>
+            ))}
+          </ul>
           <div className="hero-chips" role="group" aria-label={pickText({ en: 'What to check', ur: 'Kya check karna hai' }, lang)}>
             {CHIPS.map((chip) => (
               <button

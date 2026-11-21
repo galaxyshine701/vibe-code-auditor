@@ -18,6 +18,9 @@ const copy = (await import(
   HEADLINE: Pair;
   headlineWords: (lang: 'en' | 'ur') => string[];
   subLine: (lang: 'en' | 'ur') => string;
+  PROBLEM: Pair;
+  WHAT_IT_DOES: { id: string; title: Pair; body: Pair }[];
+  CHIP_TARGET: Record<string, { field: string; group: number | null }>;
   CHIPS: { id: string; label: Pair }[];
   CARD: Record<string, any>;
   STEPS: { title: Pair; body: Pair }[];
@@ -26,6 +29,8 @@ const copy = (await import(
 
 const ALL_TEXT = JSON.stringify([
   copy.HEADLINE,
+  copy.PROBLEM,
+  copy.WHAT_IT_DOES,
   copy.CHIPS,
   copy.CARD,
   copy.STEPS,
@@ -58,27 +63,104 @@ describe('the headline', () => {
   });
 });
 
-describe('the three chips: the two groups of the Connect form, and both', () => {
-  it('are Website, Supabase and Both, with a Roman Urdu name', () => {
+describe('the lede: the problem first, then what Gatecheck is', () => {
+  it('starts with the problem, in one plain sentence, in both languages', () => {
+    expect(copy.PROBLEM.en).toBe(
+      'An app built with AI tools can go live with its database or keys open to anyone.',
+    );
+    expect(copy.PROBLEM.ur.length).toBeGreaterThan(20);
+    expect(copy.PROBLEM.ur).toContain('AI tools');
+    // no statistics: no digit, no percent
+    expect(copy.PROBLEM.en + copy.PROBLEM.ur).not.toMatch(/\d|%/);
+  });
+
+  it('then says what it checks and what it gives: a gate result, by these checks, with the evidence', () => {
+    expect(copy.subLine('en')).toBe(
+      'Gatecheck checks a live site, a Supabase project and a public GitHub repo, then gives one gate result, by these checks, with the evidence.',
+    );
+    expect(copy.subLine('ur')).toContain('Gatecheck ek live site');
+    expect(copy.subLine('ur')).toContain('public GitHub repo');
+    expect(copy.subLine('ur')).toContain('in checks ke hisaab se');
+    expect(copy.subLine('ur')).toContain('saboot');
+  });
+
+  it('is shown in this order: problem, lede, four lines, chips', () => {
+    const page = read('app', 'page.tsx');
+    const at = (text: string) => page.indexOf(text);
+    expect(at('hero-problem')).toBeGreaterThan(-1);
+    expect(at('hero-problem')).toBeLessThan(at('subLine(lang)'));
+    expect(at('subLine(lang)')).toBeLessThan(at('hero-does'));
+    expect(at('hero-does')).toBeLessThan(at('hero-chips'));
+    expect(page).toContain('pickText(PROBLEM, lang)');
+  });
+});
+
+describe('the four lines of what it does', () => {
+  it('say plainly: a live site, Supabase tables by replaying two test users (RLS), a public GitHub repo, and a gate with evidence', () => {
+    expect(copy.WHAT_IT_DOES.map((l) => l.id)).toEqual([
+      'site',
+      'supabase',
+      'repo',
+      'gate',
+    ]);
+    const by = (id: string) => copy.WHAT_IT_DOES.find((l) => l.id === id)!;
+    expect(by('site').body.en).toContain('headers');
+    expect(by('site').body.en).toContain('scripts');
+    expect(by('supabase').body.en).toContain('two test users');
+    expect(by('supabase').body.en).toContain('row level security (RLS)');
+    expect(by('repo').body.en).toContain('secret keys');
+    expect(by('repo').body.en).toContain('no RLS');
+    expect(by('gate').body.en).toContain('by these checks');
+    expect(by('gate').body.en).toContain('evidence');
+    expect(by('gate').body.ur).toMatch(/in checks ke hisaab se/i);
+  });
+
+  it('every line has English and Roman Urdu', () => {
+    for (const line of copy.WHAT_IT_DOES) {
+      expect(line.title.en).not.toBe('');
+      expect(line.title.ur).not.toBe('');
+      expect(line.body.en.length).toBeGreaterThan(20);
+      expect(line.body.ur.length).toBeGreaterThan(20);
+    }
+  });
+});
+
+describe('the four chips: the three groups of the Connect form, and all', () => {
+  it('are Website, Supabase, GitHub repo and All, with a Roman Urdu name', () => {
     expect(copy.CHIPS.map((c) => c.label.en)).toEqual([
       'Website',
       'Supabase',
-      'Both',
+      'GitHub repo',
+      'All',
     ]);
     expect(copy.CHIPS.map((c) => c.id)).toEqual([
       'website',
       'supabase',
-      'both',
+      'repo',
+      'all',
     ]);
-    expect(copy.CHIPS[2].label.ur).toBe('Dono');
+    expect(copy.CHIPS[3].label.ur).toBe('Sab');
   });
 
-  it('point at the fields of the two groups, which have those ids', () => {
+  it('point at the first field of their group, which has that id; All points at every group', () => {
+    expect(copy.CHIP_TARGET).toEqual({
+      website: { field: 'website-url', group: 0 },
+      supabase: { field: 'project-url', group: 1 },
+      repo: { field: 'repo-url', group: 2 },
+      all: { field: 'website-url', group: null },
+    });
     const page = read('app', 'page.tsx');
-    expect(page).toContain("'project-url' : 'website-url'");
+    expect(page).toContain('CHIP_TARGET[chip]');
+    expect(page).toContain('target.group === null');
     const groups = read('components', 'connect-groups.tsx');
-    expect(groups).toContain('id="website-url"');
-    expect(groups).toContain('id="project-url"');
+    for (const target of Object.values(copy.CHIP_TARGET)) {
+      expect(groups).toContain(`id="${target.field}"`);
+    }
+    // the groups are in the order website, Supabase, repo
+    const order = ['website-url', 'project-url', 'repo-url'].map((id) =>
+      groups.indexOf(`id="${id}"`),
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
     // they sit under the sub-line
     expect(page.indexOf('subLine(lang)')).toBeLessThan(
       page.indexOf('hero-chips'),
@@ -89,15 +171,20 @@ describe('the three chips: the two groups of the Connect form, and both', () => 
 describe('the example run card', () => {
   const card = read('components', 'hero-card.tsx');
 
-  it('has three evidence rows: site headers (amber), scripts of the site (red), table data (green)', () => {
+  it('has four evidence rows: site headers (amber), scripts of the site (red), table data (green), repository files (amber, INCONCLUSIVE)', () => {
     expect(copy.CARD.headers.label.en).toBe('Site headers');
     expect(copy.CARD.scripts.label.en).toBe('Scripts of the site');
     expect(copy.CARD.tables.label.en).toBe('Table data');
-    expect(card).toMatch(/tone="warn"/);
+    expect(copy.CARD.repo.label.en).toBe('Repository files');
+    expect(copy.CARD.repo.label.ur).toBe('Repository ki files');
+    expect(copy.CARD.repo.detail.en).toContain('no row level security');
+    expect(copy.CARD.repo.detail.en).toContain('may be enabled elsewhere');
+    expect(card.match(/tone="warn"/g)).toHaveLength(2);
     expect(card).toMatch(/tone="leak"/);
     expect(card).toMatch(/tone="ok"/);
     expect(card).toContain('<VerdictBadge verdict="LEAKED"');
     expect(card).toContain('<VerdictBadge verdict="BLOCKED"');
+    expect(card).toContain('<VerdictBadge verdict="INCONCLUSIVE"');
   });
 
   it('two headers are missing, in both languages', () => {
@@ -130,9 +217,18 @@ describe('the example run card', () => {
     );
   });
 
-  it('says it is an example, with made-up numbers', () => {
-    expect(copy.CARD.tag.en).toBe('Example run');
+  it('says "Example, not a real audit" in English and Roman Urdu, with made-up numbers, in the card head and its label', () => {
+    expect(copy.CARD.tag.en).toBe('Example, not a real audit');
+    expect(copy.CARD.tag.ur).toBe('Misaal, asli audit nahi');
     expect(copy.CARD.tagNote.en).toBe('Made-up numbers');
+    expect(copy.CARD.tagNote.ur).toBe('Farzi ankre');
+    // the tag is the visible head of the card and also its accessible name
+    expect(card).toContain('aria-label={pickText(CARD.tag, lang)}');
+    expect(card.indexOf('hero-card-tag')).toBeLessThan(card.indexOf('hero-rows'));
+    expect(card).toContain('{pickText(CARD.tag, lang)}</span>');
+    // it is not hidden on a phone
+    const css = read('app', 'hero.css');
+    expect(css).not.toMatch(/\.hero-card-(tag|head|note)[^{]*\{[^}]*display: none/);
   });
 
   it('every text has English and Roman Urdu', () => {
@@ -149,9 +245,11 @@ describe('the example run card', () => {
     walk(copy.CARD, 'CARD');
     walk(copy.STEPS, 'STEPS');
     walk(copy.CHIPS, 'CHIPS');
+    walk(copy.WHAT_IT_DOES, 'WHAT_IT_DOES');
+    walk(copy.PROBLEM, 'PROBLEM');
   });
 
-  it('is resolved by the scan beam of the intro, top to bottom, over the three rows', () => {
+  it('is resolved by the scan beam of the intro, top to bottom, over the four rows', () => {
     expect(card).toContain("import { ScanBeam } from './scan-beam'");
     expect(card).toContain('<ScanBeam');
     expect(card).toContain('axis="y"');
@@ -167,15 +265,22 @@ describe('the example run card', () => {
     );
   });
 
-  it('the beam reaches the rows in order: headers, scripts, tables, then the gate', () => {
+  it('the beam reaches the rows in order: headers, scripts, tables, repository, then the gate', () => {
     const times = [
-      ...card.matchAll(/(headers|scripts|tables|gate): (?:at\((\d+)\)|`)/g),
+      ...card.matchAll(/(headers|scripts|tables|repo|gate): (?:at\((\d+)\)|`)/g),
     ];
-    expect(times.length).toBeGreaterThanOrEqual(3);
+    expect(times.length).toBeGreaterThanOrEqual(4);
     const at = (name: string) =>
       Number(card.match(new RegExp(name + ': at\\((\\d+)\\)'))?.[1]);
     expect(at('headers')).toBeLessThan(at('scripts'));
     expect(at('scripts')).toBeLessThan(at('tables'));
+    expect(at('tables')).toBeLessThan(at('repo'));
+    expect(at('repo')).toBeLessThan(108); // inside the beam's path
+    // the rows are in the markup in the same order
+    const rowAt = (text: string) => card.indexOf(`resolveAt={T.${text}}`);
+    expect(rowAt('headers')).toBeLessThan(rowAt('scripts'));
+    expect(rowAt('scripts')).toBeLessThan(rowAt('tables'));
+    expect(rowAt('tables')).toBeLessThan(rowAt('repo'));
   });
 
   it('waits for the intro like the headline: paused while the intro runs, then it starts', () => {
@@ -210,8 +315,21 @@ describe('the example run card', () => {
     // the card is never hidden any more (it was, under 980 px)
     expect(css).not.toMatch(/\.hero-card(-wrap)? \{[^}]*display: none/);
     expect(read('components', 'hero-card.tsx').match(/<Row\b/g)?.length).toBe(
-      3,
+      4,
     );
+  });
+
+  it('at 375 px the four lines of what it does stack (title above its text), and the four chips wrap', () => {
+    const css = read('app', 'hero.css');
+    const block = css.slice(css.indexOf('@media (max-width: 480px)'));
+    expect(block).toMatch(
+      /\.hero-does li \{\s*grid-template-columns: minmax\(0, 1fr\)/,
+    );
+    expect(css).toMatch(/\.hero-chips \{[^}]*flex-wrap: wrap/);
+    // no fixed width wider than a phone in the hero rules
+    expect(css).not.toMatch(/(?<![\w-])(?:min-)?width: (?:[4-9]\d\d|\d{4,})px/);
+    // long words (Roman Urdu) wrap instead of pushing the page sideways
+    expect(css).toMatch(/\.hero-does span \{[^}]*overflow-wrap: break-word/);
   });
 
   it('the canary scene is made small: three tries, a policy line, one canary row', () => {

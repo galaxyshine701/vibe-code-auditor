@@ -4,14 +4,16 @@ import { CARD, pickText } from '@/lib/hero-copy';
 import { ScanBeam } from './scan-beam';
 import { VerdictBadge } from './verdict';
 
-// The example run of the hero: three evidence rows that a scan beam resolves one
+// The example run of the hero: four evidence rows that a scan beam resolves one
 // after the other, then a gate line. It shows what a report is made of: a
-// website (headers, scripts), a table check, and a gate with a reason and what
-// was not provided. All of it is an example, and the card says so.
+// website (headers, scripts), a table check, a public repository, and a gate
+// with a reason and what was not provided. All of it is an example, and the
+// card says so ("Example, not a real audit").
 //
 //   Site headers        2 missing (amber)
 //   Scripts of the site a secret-looking key, masked (red, LEAKED)
 //   Table data          the canary scene made small (green, BLOCKED)
+//   Repository files    a table with no RLS in a migration (amber, INCONCLUSIVE)
 //   Gate                "Not ready by these checks", one reason, one "Not provided"
 //
 // The words are always in the page; the animation only decides when each row's
@@ -27,9 +29,10 @@ const at = (percent: number) =>
   (BEAM_START + (BEAM_DUR * (percent - FROM)) / (TO - FROM)).toFixed(2) + 's';
 
 const T = {
-  headers: at(15),
-  scripts: at(46),
-  tables: at(80),
+  headers: at(10),
+  scripts: at(34),
+  tables: at(62),
+  repo: at(88),
   gate: `${(BEAM_START + BEAM_DUR + 0.25).toFixed(2)}s`,
 };
 
@@ -81,7 +84,7 @@ export function HeroCard({ lang }: { lang: Lang }) {
       </header>
 
       <div className="hero-rows">
-        {/* the beam goes over the three rows, top to bottom; it is only drawn */}
+        {/* the beam goes over the four rows, top to bottom; it is only drawn */}
         <svg
           className="hero-beam-layer"
           viewBox="0 0 100 100"
@@ -161,6 +164,19 @@ export function HeroCard({ lang }: { lang: Lang }) {
         >
           <span className="hero-result">
             <VerdictBadge verdict="BLOCKED" />
+          </span>
+        </Row>
+
+        {/* a public repository: a warning sign only (INCONCLUSIVE), never a proven leak */}
+        <Row
+          tone="warn"
+          label={pickText(CARD.repo.label, lang)}
+          detail={pickText(CARD.repo.detail, lang)}
+          resolveAt={T.repo}
+          lang={lang}
+        >
+          <span className="hero-result">
+            <VerdictBadge verdict="INCONCLUSIVE" />
           </span>
         </Row>
       </div>
