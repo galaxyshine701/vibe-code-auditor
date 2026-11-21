@@ -55,3 +55,18 @@ describe('the mock roadmaps hold prompts in both languages', () => {
     expect(seen).toBeGreaterThan(3);
   });
 });
+
+describe('the evidence of a public variable name (repo-env-name)', () => {
+  it('is its own group, shown as path:line, with words in both languages and no "key hidden" line', async () => {
+    const groups = read('components', 'evidence-groups.tsx');
+    expect(groups).toContain("'repo-env-name': 'kindRepoName'");
+    expect(groups).toContain("kind === 'repo-file' || kind === 'repo-env-name'");
+    expect(groups).toContain("{kind === 'repo-file' ? (");
+    expect(read('lib', 'stage.ts')).toContain("'repo-file', 'repo-env-name']");
+    const copy = (await import(
+      /* @vite-ignore */ join(FRONTEND, 'lib', 'stage-copy.ts')
+    )) as { COPY: Record<string, { en: string; ur: string }> };
+    expect(copy.COPY.kindRepoName.en).toBe('Repository variable names');
+    expect(copy.COPY.kindRepoName.ur.length).toBeGreaterThan(5);
+  });
+});

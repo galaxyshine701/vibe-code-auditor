@@ -211,6 +211,14 @@ describe('the roadmap carries a prompt on the five kinds, and only there', () =>
     expect(by('fix-site-secret')[0].fixPrompt!.en).toContain('"a script"');
   });
 
+  it('the title and the prompt of a site secret never hold a key from the script name', () => {
+    const item = by('fix-site-secret')[0];
+    expect(item.title.en).not.toContain(FAKE_SECRET);
+    expect(item.title.ur).not.toContain(FAKE_SECRET);
+    expect(item.title.en).not.toContain(FAKE_JWT);
+    expect(item.title.en).toContain('"a script"');
+  });
+
   it('all fixtures: same input, same roadmap, no key shape', () => {
     for (const make of Object.values(ALL_FIXTURES)) {
       const a = buildRoadmap(inputOf(make()));

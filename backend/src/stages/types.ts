@@ -62,7 +62,9 @@ export type EvidenceKind =
   | 'site-bundle'
   | 'site-headers'
   /** a secret key in a file of the GitHub repository (Repo Scan) */
-  | 'repo-file';
+  | 'repo-file'
+  /** a NEXT_PUBLIC_ / VITE_ variable name with SECRET or SERVICE_ROLE in a file of the repository (Repo Scan, rule 2) */
+  | 'repo-env-name';
 
 /** What the user gave for this run. A check needs one of them. */
 export interface Provided {

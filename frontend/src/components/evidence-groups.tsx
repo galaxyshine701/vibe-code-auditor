@@ -18,6 +18,7 @@ const KIND_TITLE: Record<string, CopyKey> = {
   'site-headers': 'kindHeaders',
   'site-bundle': 'kindBundle',
   'repo-file': 'kindRepo',
+  'repo-env-name': 'kindRepoName',
 };
 
 const VERDICTS: readonly string[] = ['LEAKED', 'BLOCKED', 'INCONCLUSIVE'];
@@ -35,7 +36,7 @@ function Subject({ item, lang }: { item: EvidenceItem; lang: Lang }) {
   if (kind === 'table') {
     return <code className="evidence-subject">{item.table ?? item.subject ?? item.check}</code>;
   }
-  if (kind === 'repo-file') {
+  if (kind === 'repo-file' || kind === 'repo-env-name') {
     // a path and a line, as the API gave them; never the text of the line
     return (
       <code className="evidence-subject">

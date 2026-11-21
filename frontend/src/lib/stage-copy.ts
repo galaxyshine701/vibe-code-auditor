@@ -99,6 +99,7 @@ export const COPY = {
   kindHeaders: { en: 'Site headers', ur: 'Site ke headers' },
   kindBundle: { en: 'Scripts of the site', ur: 'Site ki scripts' },
   kindRepo: { en: 'Repository files', ur: 'Repository ki files' },
+  kindRepoName: { en: 'Repository variable names', ur: 'Repository ki variable ke naam' },
   repoKeyHidden: {
     en: 'The key is hidden. Only its place is shown.',
     ur: 'Key chhupi hui hai. Sirf uski jagah dikhai gayi hai.',

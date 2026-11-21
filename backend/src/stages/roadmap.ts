@@ -5,6 +5,8 @@ import {
   fixRepoSecretPrompt,
   fixSiteSecretPrompt,
   improveHeaderPrompt,
+  improveRepoPrompt,
+  plain,
 } from './fix-prompts.js';
 import type {
   Coverage,
@@ -346,7 +348,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   // A secret key in a script of the site: the most urgent thing there is.
   for (const item of evidence) {
     if (item.kind !== 'site-bundle' || item.verdict !== 'LEAKED') continue;
-    const subject = item.subject ?? 'a script';
+    const subject = plain(item.subject, 'a script');
     drafts.push({
       kind: 'fix-site-secret',
       severity: 'critical',
@@ -414,6 +416,49 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
         },
       ],
       fixPrompt: fixRepoSecretPrompt(item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
+  // A public variable name that says SECRET or SERVICE_ROLE (rule 2). Only a
+  // warning: the value was not looked at, so it is high, never critical, and
+  // it never changes the gate by itself.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-env-name' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const subject = plain(item.subject, 'a file');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check the secret-looking variable in the file "${subject}"`,
+        ur: `File "${subject}" ki secret jaisi variable dekhein`,
+      },
+      why: {
+        en: 'A variable that starts with NEXT_PUBLIC_ or VITE_ is sent to every visitor by the browser build, and its name says it is a secret. The value was not checked.',
+        ur: 'NEXT_PUBLIC_ ya VITE_ se shuru hone wali variable browser build har visitor ko bhej deta hai, aur uska naam kehta hai ke ye secret hai. Value check nahi hui.',
+      },
+      steps: [
+        {
+          en: 'Open the file and find out what the variable holds.',
+          ur: 'File kholein aur dekhein ke variable mein kya hai.',
+        },
+        {
+          en: 'If it holds a secret, rotate it in Supabase, rename it without NEXT_PUBLIC_ or VITE_, and use it only in server code.',
+          ur: 'Agar isme secret hai to Supabase mein rotate karein, NEXT_PUBLIC_ ya VITE_ ke baghair naam rakhein, aur sirf server code mein use karein.',
+        },
+        {
+          en: 'If it is not a secret, rename it so the name does not say so.',
+          ur: 'Agar secret nahi hai to naam aisa rakhein jo secret na kahe.',
+        },
+        {
+          en: 'Run the audit again to check the file.',
+          ur: 'File dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('public-env-secret', item.subject),
       refs: { checkId: REPO, evidenceIds: [item.id] },
     });
   }

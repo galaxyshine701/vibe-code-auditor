@@ -25,6 +25,11 @@ const WHAT_FOUND: Record<KeyKind, Text> = {
   },
 };
 
+const WHAT_NAME: Text = {
+  en: 'A variable in this file starts with NEXT_PUBLIC_ or VITE_ and has SECRET or SERVICE_ROLE in its name. A browser build publishes such variables to every visitor. The value was not checked: this is a warning sign, not a proven leak.',
+  ur: 'Is file ki ek variable NEXT_PUBLIC_ ya VITE_ se shuru hoti hai aur uske naam mein SECRET ya SERVICE_ROLE hai. Browser build aisi variables har visitor ko publish kar deta hai. Value check nahi hui: ye khatre ki nishani hai, sabit shuda leak nahi.',
+};
+
 /** One fixed sentence for each reason the repository could not be read. */
 const FAILURE: Record<RepoNotReadReason, Text> = {
   'not-found': {
@@ -134,7 +139,21 @@ export function createRepoInspectorAgent(
         proof: 'PROVEN' as const,
         summary: WHAT_FOUND[hit.kind],
       }));
-      (context.siteEvidence ??= []).push(...items);
+      // Rule 2: a public variable name that says SECRET or SERVICE_ROLE. The
+      // check can not see the value's use, so it is INCONCLUSIVE, never LEAKED.
+      const nameItems: EvidenceItem[] = outcome.nameHits.map((hit, index) => ({
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + index + 1}`,
+        check: REPO_INSPECTOR_ID,
+        findingId: null,
+        table: null,
+        subject: hit.path,
+        line: hit.line,
+        kind: 'repo-env-name' as const,
+        verdict: 'INCONCLUSIVE' as const,
+        proof: 'UNVERIFIED' as const,
+        summary: WHAT_NAME,
+      }));
+      (context.siteEvidence ??= []).push(...items, ...nameItems);
 
       // A binary file is not a miss. A big file or a link is.
       const missed = outcome.notRead.filter((n) => NOT_READ[n.reason]);

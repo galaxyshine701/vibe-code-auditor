@@ -37,6 +37,7 @@ export type EvidenceKind =
   | 'site-bundle'
   | 'site-headers'
   | 'repo-file'
+  | 'repo-env-name'
   | string;
 
 export interface EvidenceItem {

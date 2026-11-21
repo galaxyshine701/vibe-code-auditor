@@ -1,4 +1,4 @@
-import { scanForKeyHits, type KeyKind } from '../stages/site-rules.js';
+import { scanForKeyHits, scanForKeys, type KeyKind } from '../stages/site-rules.js';
 import { REPO_SCAN_LIMITS, type RepoScanLimits } from './repo-limits.js';
 import { readZip, stripRootFolder, ZipError } from './zip-reader.js';
 
@@ -48,6 +48,17 @@ export interface RepoHit {
   line: number;
 }
 
+/**
+ * A variable NAME that a browser build publishes (it starts with NEXT_PUBLIC_
+ * or VITE_) and that says SECRET or SERVICE_ROLE. Only the file and the line:
+ * never the value, never the text of the line.
+ */
+export interface RepoNameHit {
+  path: string;
+  /** the 1-based line of the first such name in the file */
+  line: number;
+}
+
 export type RepoNotReadReason =
   | 'too-large'
   | 'symlink'
@@ -63,6 +74,8 @@ export interface RepoScanOutcome {
   /** why, when `completed` is false (one fixed code, never the library text) */
   failure?: RepoNotReadReason;
   hits: RepoHit[];
+  /** public variable names that say SECRET or SERVICE_ROLE (rule 2) */
+  nameHits: RepoNameHit[];
   /** files that were looked at */
   filesScanned: number;
   /** files that were NOT read, and why */
@@ -79,6 +92,30 @@ const TEXT_FILE =
 /** Which files are read at all (by name, before any are unpacked). */
 export function isScannable(path: string): boolean {
   return !SKIP_FOLDERS.test(path) && TEXT_FILE.test(path);
+}
+
+/** Documents are not code: a name in a README is not a variable in use. */
+const DOCUMENT_FILE = /\.(?:md|txt)$/i;
+
+/** The most files that give a name hit (the rest are not listed). */
+export const MAX_NAME_HITS = 50;
+
+const PUBLIC_SECRET_NAME =
+  /(?<![A-Za-z0-9_])(?:NEXT_PUBLIC|VITE)_[A-Z0-9_]*(?:SECRET|SERVICE_ROLE)[A-Z0-9_]*/;
+
+/**
+ * The line of the first public variable name that says SECRET or SERVICE_ROLE.
+ * A line that also holds a recognised key is left out: the key rule already
+ * reports that one as a leak. Returns the line number only.
+ */
+export function findPublicSecretName(text: string): number | null {
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!PUBLIC_SECRET_NAME.test(lines[i])) continue;
+    if (scanForKeys(lines[i]).length > 0) continue;
+    return i + 1;
+  }
+  return null;
 }
 
 /** A file with a NUL byte near the start is binary, not text. */
@@ -100,6 +137,7 @@ export async function scanRepo(
     completed: false,
     failure,
     hits: [],
+    nameHits: [],
     filesScanned: 0,
     notRead: [],
     paths: [],
@@ -135,6 +173,7 @@ export async function scanRepo(
   }
 
   const hits: RepoHit[] = [];
+  const nameHits: RepoNameHit[] = [];
   const notRead: RepoScanOutcome['notRead'] = contents.skipped.map((s) => ({
     path: stripRootFolder(s.path),
     reason: s.reason,
@@ -149,9 +188,14 @@ export async function scanRepo(
     }
     filesScanned += 1;
     paths.push(path);
-    for (const hit of scanForKeyHits(file.data.toString('utf8'))) {
+    const text = file.data.toString('utf8');
+    for (const hit of scanForKeyHits(text)) {
       hits.push({ path, kind: hit.kind, line: hit.line });
     }
+    if (!DOCUMENT_FILE.test(path) && nameHits.length < MAX_NAME_HITS) {
+      const line = findPublicSecretName(text);
+      if (line !== null) nameHits.push({ path, line });
+    }
   }
-  return { completed: true, hits, filesScanned, notRead, paths };
+  return { completed: true, hits, nameHits, filesScanned, notRead, paths };
 }
