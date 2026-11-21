@@ -84,7 +84,7 @@
     {
       "id": "rm_003",
       "kind": "improve-repo",
-      "severity": "medium",
+      "severity": "high",
       "fromRequiredCheck": true,
       "title": {
         "en": "Check row level security for the table \"orders\" in the migrations",

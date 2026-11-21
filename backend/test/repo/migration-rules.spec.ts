@@ -152,6 +152,60 @@ describe('create table if not exists, schema-qualified and quoted names', () => 
   });
 });
 
+describe('other ways to write create table', () => {
+  it('upper and mixed case: CREATE TABLE, Create Table, and ALTER TABLE ... ENABLE ROW LEVEL SECURITY', () => {
+    expect(tablesOf(m('1.sql', 'CREATE TABLE Orders (id int);'))).toEqual(['orders']);
+    expect(tablesOf(m('1.sql', 'Create Table IF Not Exists Notes (id int);'))).toEqual(['notes']);
+    expect(tablesOf(m('1.sql', 'CREATE\n  TABLE\tPUBLIC.Items (id int);'))).toEqual(['items']);
+    expect(
+      tablesOf(
+        m('1.sql', 'CREATE TABLE Orders (id int);\nALTER TABLE ORDERS ENABLE ROW LEVEL SECURITY;'),
+      ),
+    ).toEqual([]);
+  });
+  it('create unlogged table, in any case', () => {
+    expect(tablesOf(m('1.sql', 'create unlogged table cache (id int);'))).toEqual(['cache']);
+    expect(tablesOf(m('1.sql', 'CREATE UNLOGGED TABLE IF NOT EXISTS public.Cache2 (id int);'))).toEqual([
+      'cache2',
+    ]);
+    expect(
+      tablesOf(m('1.sql', 'create unlogged table cache (id int);\nalter table cache enable row level security;')),
+    ).toEqual([]);
+  });
+  it('create table ... partition of: the partition is a table of its own and is listed; RLS on the parent does not cover it', () => {
+    const sql =
+      'create table events (id int, at date) partition by range (at);\n' +
+      'alter table events enable row level security;\n' +
+      "create table events_2024 partition of events for values from ('2024-01-01') to ('2025-01-01');";
+    expect(tablesOf(m('1.sql', sql))).toEqual(['events_2024']);
+    expect(
+      tablesOf(
+        m('1.sql', sql + '\nalter table events_2024 enable row level security;'),
+      ),
+    ).toEqual([]);
+    expect(
+      tablesOf(m('1.sql', 'CREATE TABLE public.logs_2024 PARTITION OF public.logs DEFAULT;')),
+    ).toEqual(['logs_2024']);
+  });
+  it('create table ... (like ...): the copy does not carry row level security, so it is listed', () => {
+    expect(tablesOf(m('1.sql', 'create table orders_copy (like orders including all);'))).toEqual([
+      'orders_copy',
+    ]);
+    expect(
+      tablesOf(
+        m(
+          '1.sql',
+          'create table a (id int);\nalter table a enable row level security;\ncreate table b (like a including all);',
+        ),
+      ),
+    ).toEqual(['b']);
+    expect(tablesOf(m('1.sql', 'CREATE TABLE c (LIKE public.a INCLUDING DEFAULTS, extra int);'))).toEqual(['c']);
+  });
+  it('create table ... as select is a table too', () => {
+    expect(tablesOf(m('1.sql', 'create table snap as select * from orders;'))).toEqual(['snap']);
+  });
+});
+
 describe('alter table only ... enable row level security', () => {
   it('alter table only public.x enable row level security counts', () => {
     expect(
@@ -402,6 +456,8 @@ describe('scanRepo and the inspector agent', () => {
     const limits = buildCoverage(checks, []).limits.map((l) => l.en).join(' ');
     expect(limits).toContain('may be enabled elsewhere');
     expect(limits).toContain('public schema');
+    expect(limits).toContain('any folder called migrations');
+    expect(limits).toContain('PARTITION OF');
   });
 });
 
@@ -434,12 +490,12 @@ describe('roadmap and gate for a table without RLS in the migrations', () => {
     buildRoadmap({ plan, findings: [], evidence: [item(table)], coverage, cleanup: null, provided })
       .items.filter((i) => i.kind !== 'provide-input');
 
-  it('is one improve-repo item (medium) with its own specific prompt', () => {
+  it('is one improve-repo item (high, like a public variable name) with its own specific prompt', () => {
     const [one, ...rest] = items('orders');
     expect(rest).toHaveLength(0);
     expect(one).toMatchObject({
       kind: 'improve-repo',
-      severity: 'medium',
+      severity: 'high',
       refs: { checkId: REPO_CHECK_ID, evidenceIds: ['ev_site_repo-secrets_1'] },
     });
     expect(one.title.en).toContain('"orders"');

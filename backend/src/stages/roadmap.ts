@@ -464,8 +464,10 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   }
 
   // A table a migration creates with no "enable row level security" in any
-  // migration (rule 1). The real database may differ, so it is a warning only:
-  // medium, and it never changes the gate by itself.
+  // migration (rule 1). The real database may differ, so it is a warning only
+  // (never critical), and it never changes the gate by itself. High, the same
+  // as a public variable name (rule 2): a table open to every visitor is the
+  // main thing this tool is about.
   for (const item of evidence) {
     if (item.kind !== 'repo-migration' || item.verdict !== 'INCONCLUSIVE') {
       continue;
@@ -473,7 +475,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
     const table = plain(item.table ?? undefined, 'a table');
     drafts.push({
       kind: 'improve-repo',
-      severity: 'medium',
+      severity: 'high',
       fromRequiredCheck: required(plan, REPO),
       title: {
         en: `Check row level security for the table "${table}" in the migrations`,
