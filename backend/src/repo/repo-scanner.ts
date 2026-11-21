@@ -1,4 +1,10 @@
 import { scanForKeyHits, scanForKeys, type KeyKind } from '../stages/site-rules.js';
+import {
+  findTablesWithoutRls,
+  isMigrationFile,
+  type MigrationFile,
+  type MigrationTableHit,
+} from './migration-rules.js';
 import { REPO_SCAN_LIMITS, type RepoScanLimits } from './repo-limits.js';
 import { readZip, stripRootFolder, ZipError } from './zip-reader.js';
 
@@ -78,6 +84,10 @@ export interface RepoScanOutcome {
   nameHits: RepoNameHit[];
   /** true when more files had such a name than MAX_NAME_HITS: the list is cut */
   nameHitsCut: boolean;
+  /** tables a migration creates and no migration enables row level security for (rule 1) */
+  migrationHits: MigrationTableHit[];
+  /** true when more tables than the list holds: the list is cut */
+  migrationHitsCut: boolean;
   /** files that were looked at */
   filesScanned: number;
   /** files that were NOT read, and why */
@@ -141,6 +151,8 @@ export async function scanRepo(
     hits: [],
     nameHits: [],
     nameHitsCut: false,
+    migrationHits: [],
+    migrationHitsCut: false,
     filesScanned: 0,
     notRead: [],
     paths: [],
@@ -178,6 +190,7 @@ export async function scanRepo(
   const hits: RepoHit[] = [];
   const nameHits: RepoNameHit[] = [];
   let nameHitsCut = false;
+  const migrations: MigrationFile[] = [];
   const notRead: RepoScanOutcome['notRead'] = contents.skipped.map((s) => ({
     path: stripRootFolder(s.path),
     reason: s.reason,
@@ -193,6 +206,7 @@ export async function scanRepo(
     filesScanned += 1;
     paths.push(path);
     const text = file.data.toString('utf8');
+    if (isMigrationFile(path)) migrations.push({ path, text });
     for (const hit of scanForKeyHits(text)) {
       hits.push({ path, kind: hit.kind, line: hit.line });
     }
@@ -204,5 +218,13 @@ export async function scanRepo(
       }
     }
   }
-  return { completed: true, hits, nameHits, nameHitsCut, filesScanned, notRead, paths };
+  const migration = findTablesWithoutRls(migrations);
+  return {
+    completed: true,
+    hits,
+    nameHits,
+    nameHitsCut,
+    migrationHits: migration.hits,
+    migrationHitsCut: migration.cut,
+    filesScanned, notRead, paths };
 }

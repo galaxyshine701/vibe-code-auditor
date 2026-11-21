@@ -155,6 +155,10 @@ export const REPO_CHECK: CheckDefinition = {
       ur: 'NEXT_PUBLIC_ ya VITE_ se shuru hone wale aur SECRET ya SERVICE_ROLE kehne wale variable naam sirf BADE (UPPERCASE) harfon mein check hote hain (chhote harf wala naam nazar nahi aata), aur is ke liye .md aur .txt files chhod di jati hain.',
     },
     {
+      en: 'Migrations: only .sql files in a folder called migrations are read, and only tables of the public schema. A table with no "enable row level security" in them is only a warning sign (INCONCLUSIVE): row level security may be enabled elsewhere, for example in the Supabase dashboard. Renamed tables and SQL that is built by code are not followed.',
+      ur: 'Migrations: sirf "migrations" folder ki .sql files parhi jati hain, aur sirf public schema ke tables. Jis table ke liye in mein "enable row level security" na ho wo sirf khatre ki nishani hai (INCONCLUSIVE): row level security kahin aur on ho sakti hai, maslan Supabase dashboard mein. Naam badle hue tables aur code se banayi gayi SQL follow nahi hoti.',
+    },
+    {
       en: 'A key that is found is reported as exposed. Whether it still works is not tested.',
       ur: 'Jo key milti hai use "exposed" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota.',
     },

@@ -62,7 +62,9 @@ describe('the evidence of a public variable name (repo-env-name)', () => {
     expect(groups).toContain("'repo-env-name': 'kindRepoName'");
     expect(groups).toContain("kind === 'repo-file' || kind === 'repo-env-name'");
     expect(groups).toContain("{kind === 'repo-file' ? (");
-    expect(read('lib', 'stage.ts')).toContain("'repo-file', 'repo-env-name']");
+    expect(read('lib', 'stage.ts')).toContain(
+      "'repo-file', 'repo-env-name', 'repo-migration']",
+    );
     const copy = (await import(
       /* @vite-ignore */ join(FRONTEND, 'lib', 'stage-copy.ts')
     )) as { COPY: Record<string, { en: string; ur: string }> };

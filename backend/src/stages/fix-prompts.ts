@@ -125,6 +125,13 @@ export function improveHeaderPrompt(header: string | undefined): Text | undefine
  *  - public-env-secret: a variable named NEXT_PUBLIC_ or VITE_ with SECRET or
  *    SERVICE_ROLE in its name (a browser build publishes it).
  */
+/** A table name as SQL writes it: quoted when it is not a plain lowercase name. */
+export function sqlName(table: string): string {
+  return /^[a-z_][a-z0-9_$]*$/.test(table)
+    ? table
+    : `"${table.replace(/"/g, '""')}"`;
+}
+
 export type ImproveRepoRule = 'migration-rls' | 'public-env-secret';
 
 export function improveRepoPrompt(
@@ -134,8 +141,8 @@ export function improveRepoPrompt(
   if (rule === 'migration-rls') {
     const table = plain(subject, 'this table');
     return build(
-      `My repository has a migration that creates the table "${table}" but no migration that runs "enable row level security" for it. It may be turned on elsewhere (for example in the Supabase dashboard). First check the other migrations. If it is not turned on, add a new migration with "alter table ${table} enable row level security", and show me the policies you propose before anything else.`,
-      `Mere repository ki ek migration table "${table}" banati hai, lekin koi migration is ke liye "enable row level security" nahi chalati. Ho sakta hai woh kahin aur (maslan Supabase dashboard mein) on ho. Pehle baaki migrations dekho. Agar on nahi hai to nayi migration lagao jis mein "alter table ${table} enable row level security" ho, aur sab se pehle mujhe woh policies dikhao jo tum suggest karte ho.`,
+      `My repository has a migration that creates the table "${table}" but no migration that runs "enable row level security" for it. It may be turned on elsewhere (for example in the Supabase dashboard). First check the other migrations. If it is not turned on, add a new migration with "alter table public.${sqlName(table)} enable row level security", and show me the policies you propose before anything else.`,
+      `Mere repository ki ek migration table "${table}" banati hai, lekin koi migration is ke liye "enable row level security" nahi chalati. Ho sakta hai woh kahin aur (maslan Supabase dashboard mein) on ho. Pehle baaki migrations dekho. Agar on nahi hai to nayi migration lagao jis mein "alter table public.${sqlName(table)} enable row level security" ho, aur sab se pehle mujhe woh policies dikhao jo tum suggest karte ho.`,
     );
   }
   const file = plain(subject, 'a file');

@@ -463,6 +463,49 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
     });
   }
 
+  // A table a migration creates with no "enable row level security" in any
+  // migration (rule 1). The real database may differ, so it is a warning only:
+  // medium, and it never changes the gate by itself.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-migration' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const table = plain(item.table ?? undefined, 'a table');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'medium',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check row level security for the table "${table}" in the migrations`,
+        ur: `Migrations mein table "${table}" ki row level security dekhein`,
+      },
+      why: {
+        en: 'A migration creates this table, and no migration turns on row level security for it. It may be enabled elsewhere, for example in the Supabase dashboard, so this could not be confirmed from the repository.',
+        ur: 'Ek migration ye table banati hai, aur koi migration iske liye row level security on nahi karti. Ho sakta hai ye kahin aur on ho, maslan Supabase dashboard mein, isliye repository se tasdeeq nahi ho saki.',
+      },
+      steps: [
+        {
+          en: 'In Supabase open the table and check whether row level security is on.',
+          ur: 'Supabase mein table kholein aur dekhein ke row level security on hai ya nahi.',
+        },
+        {
+          en: 'If it is off, add a migration with "enable row level security" for this table and the policies it needs.',
+          ur: 'Agar off hai to is table ke liye "enable row level security" aur zaroori policies wali migration lagayein.',
+        },
+        {
+          en: 'If it is on elsewhere, add the same line to a migration so the repository tells the truth.',
+          ur: 'Agar kahin aur on hai to wahi line kisi migration mein bhi likhein taake repository sach bataye.',
+        },
+        {
+          en: 'Run the audit again to check the migrations.',
+          ur: 'Migrations dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('migration-rls', item.table ?? undefined),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
   // A header that is missing or weak. A header that is there gets nothing.
   for (const item of evidence) {
     if (item.kind !== 'site-headers' || item.verdict !== 'INCONCLUSIVE') {

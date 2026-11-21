@@ -38,6 +38,7 @@ export type EvidenceKind =
   | 'site-headers'
   | 'repo-file'
   | 'repo-env-name'
+  | 'repo-migration'
   | string;
 
 export interface EvidenceItem {

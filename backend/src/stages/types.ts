@@ -69,7 +69,9 @@ export type EvidenceKind =
   /** a secret key in a file of the GitHub repository (Repo Scan) */
   | 'repo-file'
   /** a NEXT_PUBLIC_ / VITE_ variable name with SECRET or SERVICE_ROLE in a file of the repository (Repo Scan, rule 2) */
-  | 'repo-env-name';
+  | 'repo-env-name'
+  /** a table that a migration creates and no migration enables row level security for (Repo Scan, rule 1) */
+  | 'repo-migration';
 
 /** What the user gave for this run. A check needs one of them. */
 export interface Provided {

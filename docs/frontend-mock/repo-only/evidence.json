@@ -15,6 +15,36 @@
         "en": "A Supabase secret key (sb_secret_...) is in this file of the repository. Anyone who opens the repository can read it, and old commits keep it. Rotate the key and remove it from the file.",
         "ur": "Repository ki is file mein Supabase ki secret key (sb_secret_...) maujood hai. Jo bhi repository kholta hai use parh sakta hai, aur purane commits mein bhi rehti hai. Key rotate karein aur file se hatayein."
       }
+    },
+    {
+      "id": "ev_site_repo-secrets_2",
+      "check": "repo-secrets",
+      "findingId": null,
+      "table": null,
+      "subject": ".env.example",
+      "line": 2,
+      "kind": "repo-env-name",
+      "verdict": "INCONCLUSIVE",
+      "proof": "UNVERIFIED",
+      "summary": {
+        "en": "A variable in this file starts with NEXT_PUBLIC_ or VITE_ and has SECRET or SERVICE_ROLE in its name. A browser build publishes such variables to every visitor. The value was not checked: this is a warning sign, not a proven leak.",
+        "ur": "Is file ki ek variable NEXT_PUBLIC_ ya VITE_ se shuru hoti hai aur uske naam mein SECRET ya SERVICE_ROLE hai. Browser build aisi variables har visitor ko publish kar deta hai. Value check nahi hui: ye khatre ki nishani hai, sabit shuda leak nahi."
+      }
+    },
+    {
+      "id": "ev_site_repo-secrets_3",
+      "check": "repo-secrets",
+      "findingId": null,
+      "table": "orders",
+      "subject": "supabase/migrations/001_init.sql",
+      "line": 2,
+      "kind": "repo-migration",
+      "verdict": "INCONCLUSIVE",
+      "proof": "UNVERIFIED",
+      "summary": {
+        "en": "A migration creates this table, and no migration in the repository turns on row level security for it. It may be enabled elsewhere (for example in the Supabase dashboard), so this is a warning sign, not a proven leak.",
+        "ur": "Ek migration ye table banati hai, aur repository ki koi migration iske liye row level security on nahi karti. Ho sakta hai ye kahin aur (maslan Supabase dashboard mein) on ho, isliye ye khatre ki nishani hai, sabit shuda leak nahi."
+      }
     }
   ],
   "coverage": {
@@ -91,6 +121,10 @@
       {
         "en": "Variable names that start with NEXT_PUBLIC_ or VITE_ and say SECRET or SERVICE_ROLE are checked in UPPERCASE only (a lowercase name is not seen), and .md and .txt files are skipped for this.",
         "ur": "NEXT_PUBLIC_ ya VITE_ se shuru hone wale aur SECRET ya SERVICE_ROLE kehne wale variable naam sirf BADE (UPPERCASE) harfon mein check hote hain (chhote harf wala naam nazar nahi aata), aur is ke liye .md aur .txt files chhod di jati hain."
+      },
+      {
+        "en": "Migrations: only .sql files in a folder called migrations are read, and only tables of the public schema. A table with no \"enable row level security\" in them is only a warning sign (INCONCLUSIVE): row level security may be enabled elsewhere, for example in the Supabase dashboard. Renamed tables and SQL that is built by code are not followed.",
+        "ur": "Migrations: sirf \"migrations\" folder ki .sql files parhi jati hain, aur sirf public schema ke tables. Jis table ke liye in mein \"enable row level security\" na ho wo sirf khatre ki nishani hai (INCONCLUSIVE): row level security kahin aur on ho sakti hai, maslan Supabase dashboard mein. Naam badle hue tables aur code se banayi gayi SQL follow nahi hoti."
       }
     ]
   }

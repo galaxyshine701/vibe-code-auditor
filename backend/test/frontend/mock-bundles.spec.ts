@@ -77,6 +77,16 @@ const repoSetup = {
             name: 'example-owner-example-shop-1a2b3c/src/app.ts',
             data: 'export const app = 1;\n',
           },
+          // a public variable that says SERVICE_ROLE (rule 2): a warning sign
+          {
+            name: 'example-owner-example-shop-1a2b3c/.env.example',
+            data: 'NEXT_PUBLIC_SUPABASE_URL=https://example-project.supabase.co\nNEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=\n',
+          },
+          // a table with no "enable row level security" in the migrations (rule 1)
+          {
+            name: 'example-owner-example-shop-1a2b3c/supabase/migrations/001_init.sql',
+            data: '-- the shop tables\ncreate table public.orders (\n  id uuid primary key,\n  user_id uuid\n);\n',
+          },
         ]),
       ),
   },

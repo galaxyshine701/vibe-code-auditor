@@ -1,6 +1,7 @@
 import { REPO_CHECK, REPO_CHECK_ID, notProvidedReason } from '../stages/planner-config.js';
 import type { KeyKind } from '../stages/site-rules.js';
 import type { EvidenceItem, Text } from '../stages/types.js';
+import { MAX_MIGRATION_HITS } from '../repo/migration-rules.js';
 import { createGithubTransport } from '../repo/github-transport.js';
 import { REPO_SCAN_LIMITS } from '../repo/repo-limits.js';
 import {
@@ -29,6 +30,17 @@ const WHAT_FOUND: Record<KeyKind, Text> = {
 const WHAT_NAME: Text = {
   en: 'A variable in this file starts with NEXT_PUBLIC_ or VITE_ and has SECRET or SERVICE_ROLE in its name. A browser build publishes such variables to every visitor. The value was not checked: this is a warning sign, not a proven leak.',
   ur: 'Is file ki ek variable NEXT_PUBLIC_ ya VITE_ se shuru hoti hai aur uske naam mein SECRET ya SERVICE_ROLE hai. Browser build aisi variables har visitor ko publish kar deta hai. Value check nahi hui: ye khatre ki nishani hai, sabit shuda leak nahi.',
+};
+
+const WHAT_MIGRATION: Text = {
+  en: 'A migration creates this table, and no migration in the repository turns on row level security for it. It may be enabled elsewhere (for example in the Supabase dashboard), so this is a warning sign, not a proven leak.',
+  ur: 'Ek migration ye table banati hai, aur repository ki koi migration iske liye row level security on nahi karti. Ho sakta hai ye kahin aur (maslan Supabase dashboard mein) on ho, isliye ye khatre ki nishani hai, sabit shuda leak nahi.',
+};
+
+/** Said in the limits when more tables than the list holds. */
+const MIGRATION_LIST_CUT: Text = {
+  en: `The list of tables without row level security in the migrations is not complete: only the first ${MAX_MIGRATION_HITS} tables are listed.`,
+  ur: `Migrations mein row level security ke baghair tables ki list mukammal nahi: sirf pehle ${MAX_MIGRATION_HITS} tables likhe gaye hain.`,
 };
 
 /** Said in the limits when more files had such a name than the list holds. */
@@ -160,13 +172,35 @@ export function createRepoInspectorAgent(
         proof: 'UNVERIFIED' as const,
         summary: WHAT_NAME,
       }));
-      (context.siteEvidence ??= []).push(...items, ...nameItems);
+      // Rule 1: a table a migration creates, with no "enable row level security"
+      // in any migration. The real database may differ: INCONCLUSIVE only.
+      const migrationItems: EvidenceItem[] = outcome.migrationHits.map(
+        (hit, index) => ({
+          id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + nameItems.length + index + 1}`,
+          check: REPO_INSPECTOR_ID,
+          findingId: null,
+          table: hit.table,
+          subject: hit.path,
+          line: hit.line,
+          kind: 'repo-migration' as const,
+          verdict: 'INCONCLUSIVE' as const,
+          proof: 'UNVERIFIED' as const,
+          summary: WHAT_MIGRATION,
+        }),
+      );
+      (context.siteEvidence ??= []).push(
+        ...items,
+        ...nameItems,
+        ...migrationItems,
+      );
 
       // A binary file is not a miss. A big file or a link is.
       const missed = outcome.notRead.filter((n) => NOT_READ[n.reason]);
-      const cut = outcome.nameHitsCut
-        ? { limitNotes: [NAME_LIST_CUT] }
-        : {};
+      const notes = [
+        ...(outcome.nameHitsCut ? [NAME_LIST_CUT] : []),
+        ...(outcome.migrationHitsCut ? [MIGRATION_LIST_CUT] : []),
+      ];
+      const cut = notes.length > 0 ? { limitNotes: notes } : {};
       results[REPO_INSPECTOR_ID] =
         missed.length > 0
           ? {
