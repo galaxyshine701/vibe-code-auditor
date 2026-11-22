@@ -142,6 +142,20 @@ describe('the four chips: the three groups of the Connect form, and all', () => 
     expect(copy.CHIPS[3].label.ur).toBe('Sab');
   });
 
+  it('there are exactly 4 chips, and "Both" is nowhere in the hero (copy, targets, styles, page)', () => {
+    expect(copy.CHIPS).toHaveLength(4);
+    expect(Object.keys(copy.CHIP_TARGET).sort()).toEqual(
+      ['all', 'repo', 'supabase', 'website'],
+    );
+    for (const file of [
+      read('lib', 'hero-copy.ts'),
+      read('app', 'hero.css'),
+      read('app', 'page.tsx'),
+    ]) {
+      expect(file).not.toMatch(/\bBoth\b|data-chip="both"|id: 'both'|'both'|\bDono\b/);
+    }
+  });
+
   it('point at the first field of their group, which has that id; All points at every group', () => {
     expect(copy.CHIP_TARGET).toEqual({
       website: { field: 'website-url', group: 0 },

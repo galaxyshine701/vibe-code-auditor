@@ -100,7 +100,7 @@ export function certificateLock(subject: CertificateSubject): CertificateLock {
     return { eligible: false, reason: 'A Re-test is running. Wait until it has finished.' };
   }
   if (subject.leaked > 0) {
-    return { eligible: false, reason: 'Fix the leaks and Re-test to unlock.' };
+    return { eligible: false, reason: 'Fix the leaks and Re-test to open the result view.' };
   }
   if (subject.blocked < 1) {
     return {
