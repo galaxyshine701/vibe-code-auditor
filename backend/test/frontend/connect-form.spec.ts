@@ -209,7 +209,10 @@ describe('after a 202 (R29, R76)', () => {
 describe('the Connect screen wires the groups', () => {
   const page = readFileSync(join(FRONTEND, 'src', 'app', 'page.tsx'), 'utf8');
   it('uses the group component, the rules of form.ts and shows the 400 message as given', () => {
-    expect(page).toContain('<ConnectGroups');
+    // the repository is the main box; the other two groups are under "Add more checks"
+    expect(page).toContain('<RepoGroup');
+    expect(page).toContain('<MoreChecks');
+    expect(page).not.toContain('<ConnectGroups');
     expect(page).toContain('buildStartBody(fields)');
     expect(page).toContain('setError(handleApiError(caught))');
     // the old single-group state is gone

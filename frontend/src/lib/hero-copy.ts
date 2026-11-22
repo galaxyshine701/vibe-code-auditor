@@ -69,7 +69,7 @@ export const WHAT_IT_DOES = [
   },
 ] as const satisfies readonly { id: string; title: Pair; body: Pair }[];
 
-/** The chips under the lede: the three groups of the Connect form, and all of them. */
+/** The chips under the main box: the three groups of the Connect form, and all of them. */
 export const CHIPS = [
   { id: 'website', label: { en: 'Website', ur: 'Website' } },
   { id: 'supabase', label: { en: 'Supabase', ur: 'Supabase' } },
@@ -79,16 +79,22 @@ export const CHIPS = [
 
 export type ChipId = (typeof CHIPS)[number]['id'];
 
+export type GroupId = 'website' | 'supabase' | 'repo';
+
 /**
  * Where a chip points: the first field of its group (an element id of the
- * Connect form) and the group's place in the list of groups (website,
- * Supabase, repo). `null` = every group.
+ * Connect form) and the group's name (`data-group` of its fieldset). `null` =
+ * every group. The website and Supabase groups are inside "Add more checks",
+ * which a chip opens first (`opensMore`).
  */
-export const CHIP_TARGET: Record<ChipId, { field: string; group: number | null }> = {
-  website: { field: 'website-url', group: 0 },
-  supabase: { field: 'project-url', group: 1 },
-  repo: { field: 'repo-url', group: 2 },
-  all: { field: 'website-url', group: null },
+export const CHIP_TARGET: Record<
+  ChipId,
+  { field: string; group: GroupId | null; opensMore: boolean }
+> = {
+  website: { field: 'website-url', group: 'website', opensMore: true },
+  supabase: { field: 'project-url', group: 'supabase', opensMore: true },
+  repo: { field: 'repo-url', group: 'repo', opensMore: false },
+  all: { field: 'repo-url', group: null, opensMore: true },
 };
 
 /** The example run. The numbers are an example, and the card says so. */

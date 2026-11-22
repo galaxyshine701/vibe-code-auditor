@@ -1,13 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroCard } from '@/components/hero-card';
 import { LangToggle } from '@/components/lang-toggle';
-import { ConnectGroups } from '@/components/connect-groups';
+import { GroupsNote, MoreChecks, RepoGroup } from '@/components/connect-groups';
 import { SecretInput } from '@/components/secret-input';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
@@ -52,24 +52,37 @@ export default function ConnectPage() {
   const HEADLINE_TEXT = HEADLINE.join(' ');
 
   // A chip points at the group of the Connect form it is named after (All: at
-  // every group). The group says "here" for a moment.
+  // every group). The website and Supabase groups are inside "Add more checks":
+  // the chip opens it first, and the group says "here" for a moment once it is
+  // on the screen.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [pendingChip, setPendingChip] = useState<ChipId | null>(null);
+
   function pickSource(chip: ChipId) {
-    const target = CHIP_TARGET[chip];
+    if (CHIP_TARGET[chip].opensMore) setMoreOpen(true);
+    setPendingChip(chip);
+  }
+
+  useEffect(() => {
+    if (!pendingChip) return;
+    const target = CHIP_TARGET[pendingChip];
     const first = document.getElementById(target.field);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     first?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
     first?.focus({ preventScroll: true });
-    const groups = document.querySelectorAll<HTMLElement>('.source-group');
+    const groups = [...document.querySelectorAll<HTMLElement>('.source-group')];
     const wanted =
-      target.group === null ? [...groups] : [groups[target.group]];
+      target.group === null
+        ? groups
+        : groups.filter((group) => group.dataset.group === target.group);
     for (const group of wanted) {
-      if (!group) continue;
       group.classList.remove('is-nudged');
       void group.offsetWidth;
       group.classList.add('is-nudged');
       window.setTimeout(() => group.classList.remove('is-nudged'), 1500);
     }
-  }
+    setPendingChip(null);
+  }, [pendingChip]);
 
   const [fields, setFields] = useState<ConnectFields>(EMPTY_FIELDS);
   const [accessCodeInput, setAccessCodeInput] = useState('');
@@ -94,6 +107,17 @@ export default function ConnectPage() {
     !submitting && rateLimitSecondsLeft === 0
       ? startHintOf(check, Boolean(effectiveAccessCode))
       : '';
+  // "Add more checks" is closed at first. It stays open while anything is
+  // typed in it: a half-filled group must never be hidden.
+  const moreOpenNow =
+    moreOpen ||
+    check.website.state !== 'empty' ||
+    check.supabase.state !== 'empty';
+  // A run with only a repository reads only the files of that repository.
+  const repoOnly =
+    check.repo.state === 'complete' &&
+    check.website.state === 'empty' &&
+    check.supabase.state === 'empty';
 
   async function runAudit() {
     if (!check.canStart) {
@@ -102,7 +126,7 @@ export default function ConnectPage() {
       return;
     }
     if (!effectiveAccessCode) {
-      setError('Enter the access code in the hero first.');
+      setError('Enter the access code above the Start button first.');
       setCanRetry(false);
       return;
     }
@@ -170,15 +194,93 @@ export default function ConnectPage() {
           </h1>
           <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
           <p className="hero-lede">{subLine(lang)}</p>
-          <ul className="hero-does" aria-label={pickText({ en: 'What it does', ur: 'Ye kya karta hai' }, lang)}>
-            {WHAT_IT_DOES.map((line) => (
-              <li key={line.id} data-does={line.id}>
-                <strong>{pickText(line.title, lang)}</strong>
-                <span>{pickText(line.body, lang)}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="hero-chips" role="group" aria-label={pickText({ en: 'What to check', ur: 'Kya check karna hai' }, lang)}>
+
+          {/* the one main box: a public repository, the access code, Start; the rest is under "Add more checks" */}
+          <form
+            id="start-box"
+            className="start-box"
+            aria-label="Start"
+            onSubmit={submit}
+            noValidate
+          >
+            <RepoGroup fields={fields} check={check} onChange={change} />
+
+            <MoreChecks
+              fields={fields}
+              check={check}
+              onChange={change}
+              open={moreOpenNow}
+              onOpenChange={setMoreOpen}
+            />
+            <GroupsNote check={check} />
+
+            <div className="start-code" id="access-gate">
+              {!accessCode ? (
+                <label className="field field-code">
+                  <span>Access code</span>
+                  <SecretInput
+                    id="access-code"
+                    value={accessCodeInput}
+                    onChange={(event) => setAccessCodeInput(event.target.value)}
+                    placeholder="Enter the door"
+                    maxLength={4096}
+                  />
+                  <small>
+                    Kept in this page’s memory only. It is sent as a header,
+                    never in the URL. Nothing is checked until you enter it.
+                  </small>
+                </label>
+              ) : (
+                <div className="memory-chip">
+                  <span className="memory-dot" aria-hidden="true" />
+                  <span>Access code held for this page only.</span>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={changeAccessCode}
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <RateLimitNotice />
+            {error ? (
+              <ErrorBanner
+                message={error}
+                onRetry={canRetry ? () => void runAudit() : undefined}
+              />
+            ) : null}
+
+            <button
+              type="submit"
+              className="button button-primary button-large"
+              disabled={startDisabled}
+              aria-describedby={startHint ? 'start-hint' : undefined}
+            >
+              {submitting ? 'Starting…' : 'Start'}
+            </button>
+            {startHint ? (
+              <p className="muted small" id="start-hint" role="status">
+                {startHint}
+              </p>
+            ) : null}
+            {repoOnly ? (
+              <p className="muted small" id="repo-only-note" role="status">
+                Repository checks only: only the files of this repository are
+                read. The website and Supabase are not checked.
+              </p>
+            ) : null}
+            <p className="fine-print">
+              Keys stay in memory only. They are cleared from the form after the
+              server accepts the run. Refreshing the page clears the access
+              code. Table names and check results (never keys) are sent to Groq
+              to write the explanation.
+            </p>
+          </form>
+
+          <div className="hero-chips" role="group" aria-label={pickText({ en: 'Add a check', ur: 'Aur check jodein' }, lang)}>
             {CHIPS.map((chip) => (
               <button
                 key={chip.id}
@@ -191,40 +293,16 @@ export default function ConnectPage() {
               </button>
             ))}
           </div>
+          <ul className="hero-does" aria-label={pickText({ en: 'What it does', ur: 'Ye kya karta hai' }, lang)}>
+            {WHAT_IT_DOES.map((line) => (
+              <li key={line.id} data-does={line.id}>
+                <strong>{pickText(line.title, lang)}</strong>
+                <span>{pickText(line.body, lang)}</span>
+              </li>
+            ))}
+          </ul>
 
-          <div className="hero-gate" id="access-gate">
-            {!accessCode ? (
-              <label className="field field-code">
-                <span>Access code</span>
-                <SecretInput
-                  id="access-code"
-                  value={accessCodeInput}
-                  onChange={(event) => setAccessCodeInput(event.target.value)}
-                  placeholder="Enter the door"
-                  maxLength={4096}
-                />
-                <small>
-                  Kept in this page’s memory only. It unlocks the run and is
-                  sent as a header, never in the URL.
-                </small>
-              </label>
-            ) : (
-              <div className="memory-chip">
-                <span className="memory-dot" aria-hidden="true" />
-                <span>Access code held for this page only.</span>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={changeAccessCode}
-                >
-                  Change
-                </button>
-              </div>
-            )}
-            <p className="hero-gate-note">
-              This is the door. The temporary users and canary rows are created
-              only after you enter it.
-            </p>
+          <div className="hero-gate">
             <button
               type="button"
               className="button button-ghost button-small hero-replay"
@@ -255,71 +333,6 @@ export default function ConnectPage() {
       <p className="hero-honesty">{honestyLine(lang)}</p>
 
       <div className="connect-grid">
-        <section className="card form-card" aria-labelledby="start-heading">
-          <div className="card-heading">
-            <div>
-              <h2 id="start-heading">Start an audit</h2>
-              <p className="muted small">
-                Connect a staging or test project.
-              </p>
-              <p className="muted small">
-                The auditor adds two temporary users and one canary row per
-                table, then removes them.
-              </p>
-              <p className="muted small">
-                Table names and check results (never keys) are sent to Groq to write the explanation.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={submit} className="stack" noValidate>
-            <label className="field">
-              <span>
-                Label <em>optional</em>
-              </span>
-              <input
-                type="text"
-                value={fields.label}
-                onChange={(event) => change({ label: event.target.value })}
-                placeholder="Example shop (test project)"
-                maxLength={120}
-                autoComplete="off"
-              />
-              <small>Used only to name this run. Maximum 120 characters.</small>
-            </label>
-
-            <ConnectGroups fields={fields} check={check} onChange={change} />
-
-            <RateLimitNotice />
-            {error ? (
-              <ErrorBanner
-                message={error}
-                onRetry={canRetry ? () => void runAudit() : undefined}
-              />
-            ) : null}
-
-            <button
-              type="submit"
-              className="button button-primary button-large"
-              disabled={startDisabled}
-              aria-describedby={startHint ? 'start-hint' : undefined}
-            >
-              {submitting ? 'Starting audit…' : 'Start audit'}
-            </button>
-            {startHint ? (
-              <p className="muted small" id="start-hint" role="status">
-                {startHint}
-              </p>
-            ) : null}
-            <p className="fine-print">
-              Keys stay in memory only. They are cleared from the form after the
-              server accepts the audit. Refreshing the page clears the access
-              code.
-            </p>
-          </form>
-        </section>
-
-        <aside className="stack">
           <section className="card info-card">
             <h2>How the table check works</h2>
             <ol className="steps">
@@ -386,7 +399,6 @@ export default function ConnectPage() {
               </div>
             </dl>
           </section>
-        </aside>
       </div>
     </div>
   );

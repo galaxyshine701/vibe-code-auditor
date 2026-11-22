@@ -84,13 +84,14 @@ describe('the lede: the problem first, then what Gatecheck is', () => {
     expect(copy.subLine('ur')).toContain('saboot');
   });
 
-  it('is shown in this order: problem, lede, four lines, chips', () => {
+  it('is shown in this order: problem, lede, the main box, chips, four lines', () => {
     const page = read('app', 'page.tsx');
     const at = (text: string) => page.indexOf(text);
     expect(at('hero-problem')).toBeGreaterThan(-1);
     expect(at('hero-problem')).toBeLessThan(at('subLine(lang)'));
-    expect(at('subLine(lang)')).toBeLessThan(at('hero-does'));
-    expect(at('hero-does')).toBeLessThan(at('hero-chips'));
+    expect(at('subLine(lang)')).toBeLessThan(at('id="start-box"'));
+    expect(at('id="start-box"')).toBeLessThan(at('hero-chips'));
+    expect(at('hero-chips')).toBeLessThan(at('hero-does'));
     expect(page).toContain('pickText(PROBLEM, lang)');
   });
 });
@@ -157,26 +158,27 @@ describe('the four chips: the three groups of the Connect form, and all', () => 
   });
 
   it('point at the first field of their group, which has that id; All points at every group', () => {
+    // the groups are found by name (data-group), not by their place: the repo
+    // is the main box, the other two are inside "Add more checks", which a chip opens
     expect(copy.CHIP_TARGET).toEqual({
-      website: { field: 'website-url', group: 0 },
-      supabase: { field: 'project-url', group: 1 },
-      repo: { field: 'repo-url', group: 2 },
-      all: { field: 'website-url', group: null },
+      website: { field: 'website-url', group: 'website', opensMore: true },
+      supabase: { field: 'project-url', group: 'supabase', opensMore: true },
+      repo: { field: 'repo-url', group: 'repo', opensMore: false },
+      all: { field: 'repo-url', group: null, opensMore: true },
     });
     const page = read('app', 'page.tsx');
     expect(page).toContain('CHIP_TARGET[chip]');
     expect(page).toContain('target.group === null');
+    expect(page).toContain('group.dataset.group === target.group');
     const groups = read('components', 'connect-groups.tsx');
     for (const target of Object.values(copy.CHIP_TARGET)) {
       expect(groups).toContain(`id="${target.field}"`);
     }
-    // the groups are in the order website, Supabase, repo
-    const order = ['website-url', 'project-url', 'repo-url'].map((id) =>
-      groups.indexOf(`id="${id}"`),
-    );
-    expect(order).toEqual([...order].sort((a, b) => a - b));
-    // they sit under the sub-line
-    expect(page.indexOf('subLine(lang)')).toBeLessThan(
+    for (const name of ['website', 'supabase', 'repo']) {
+      expect(groups).toContain(`data-group="${name}"`);
+    }
+    // they sit under the main box
+    expect(page.indexOf('id="start-box"')).toBeLessThan(
       page.indexOf('hero-chips'),
     );
   });

@@ -109,6 +109,69 @@
   }
 }
 
+/* ---- Home: the one main box and "Add more checks" (A1) ---- */
+.start-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.start-box .fine-print,
+.start-box > p {
+  margin: 0;
+}
+
+.more-checks {
+  min-inline-size: 0;
+}
+
+.more-checks-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 2px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.more-checks-summary em {
+  color: var(--muted-2);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.more-checks-summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.more-checks[open] > .more-checks-summary {
+  margin-bottom: 10px;
+}
+
+.start-code {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 520px) {
+  .start-box {
+    padding: 14px;
+  }
+}
+
 /* ---- Progress: what is looked at, and the rows (R75) ---- */
 .target-lines {
   display: flex;

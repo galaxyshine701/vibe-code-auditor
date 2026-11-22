@@ -288,11 +288,14 @@ describe('the Report of the repo-only bundle', () => {
 });
 
 describe('the Connect form screen', () => {
-  it('has the third group with its box, after the other two, and the hero is untouched', () => {
+  it('has the repo group with its box (the main box of the home page), and the hero names the repo too', () => {
     const groups = read('components', 'connect-groups.tsx');
     expect(groups).toContain('Public GitHub repo');
     expect(groups).toContain('This repository is public and I may scan its files.');
-    expect(groups.indexOf('Supabase project')).toBeLessThan(groups.indexOf('Public GitHub repo'));
+    // the repo is the main box: it comes before the two groups under "Add more checks"
+    expect(groups.indexOf('export function RepoGroup')).toBeLessThan(
+      groups.indexOf('export function MoreChecks'),
+    );
     // the hero now names the repo too: its step says "a public GitHub repo", and it has a GitHub repo chip
     expect(read('lib', 'hero-copy.ts')).toMatch(
       /Add a website address, Supabase details, a public GitHub repo, or any of them together/,
