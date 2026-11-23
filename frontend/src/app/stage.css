@@ -185,6 +185,93 @@
   }
 }
 
+/* ---- Progress: the activity strip, the status of each module as the backend gave it ---- */
+.activity {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.activity-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-now {
+  margin: 0;
+}
+
+.activity-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.activity-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grey);
+}
+
+.activity-completed .activity-dot {
+  background: var(--ok);
+}
+
+.activity-failed .activity-dot {
+  background: var(--leak);
+}
+
+.activity-running {
+  border-color: var(--canary);
+}
+
+.activity-running .activity-dot {
+  background: var(--canary);
+  animation: activityPulse 1.4s ease-in-out infinite;
+}
+
+/* skipped: a hollow dot and a dashed edge, and the word says it too */
+.activity-skipped {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.activity-skipped .activity-dot {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--grey);
+}
+
+@keyframes activityPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-running .activity-dot {
+    animation: none;
+  }
+}
+
 /* ---- Progress: what is looked at, and the rows (R75) ---- */
 .target-lines {
   display: flex;

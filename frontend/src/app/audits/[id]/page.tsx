@@ -17,7 +17,14 @@ import {
   ApiError,
   RequestCancelledError,
 } from '@/lib/errors';
-import { hasReasons, rowView, targetLines } from '@/lib/progress-rows';
+import {
+  activityOrder,
+  activityText,
+  hasReasons,
+  rowView,
+  runningNow,
+  targetLines,
+} from '@/lib/progress-rows';
 import { headlineOf, leakCount, noTableCheck, pick } from '@/lib/stage';
 import type { AuditStatus, AuditStatusResponse } from '@/lib/types';
 import { useLang } from '@/lib/use-lang';
@@ -213,6 +220,30 @@ export default function ProgressPage() {
                 ) : null}
               </div>
             </div>
+
+            {audit.modules.length > 0 ? (
+              <div className="activity">
+                <ol className="activity-strip" aria-label="Activity of the modules">
+                  {activityOrder(audit.modules).map((module) => {
+                    const row = rowView(module, lang);
+                    return (
+                      <li
+                        key={module.id}
+                        className={`activity-item activity-${row.tone}`}
+                      >
+                        <span className="activity-dot" aria-hidden="true" />
+                        <span>{activityText(module, lang)}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {runningNow(audit.modules).length > 0 ? (
+                  <p className="muted small activity-now" role="status">
+                    Running now: {runningNow(audit.modules).join(', ')}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="module-list">
               {audit.modules.map((module, index) => {

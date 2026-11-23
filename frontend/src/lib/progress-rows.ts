@@ -69,6 +69,43 @@ export function hasReasons(modules: AuditModule[] | undefined): boolean {
   return (modules ?? []).some((m) => Boolean(m.reason?.en));
 }
 
+// The activity strip: one chip for each module the backend sent, with the
+// status the backend gave it and nothing else (no step, no file, no guess). Only
+// the order is the page's: Planner, Repo scan, Site headers, Bundle scan,
+// Evidence, Roadmap, Guide, then any other module that ran or is running (the
+// Data Access Prover, the Report agent), then the skipped ones, last.
+const ACTIVITY_FIRST = [
+  'planner',
+  'repo-secrets',
+  'tls-headers',
+  'bundle-secrets',
+  'evidence',
+  'roadmap',
+  'guide',
+] as const;
+
+export function activityOrder(modules: AuditModule[] | undefined | null): AuditModule[] {
+  const list = modules ?? [];
+  const skipped = (m: AuditModule) => String(m.status) === 'skipped';
+  const named = ACTIVITY_FIRST.flatMap((id) =>
+    list.filter((m) => m.id === id && !skipped(m)),
+  );
+  const rest = list.filter((m) => !skipped(m) && !named.includes(m));
+  return [...named, ...rest, ...list.filter(skipped)];
+}
+
+/** "Planner: completed". The name and the status are the backend's. */
+export function activityText(module: AuditModule, lang: Lang): string {
+  return `${module.name}: ${rowView(module, lang).statusLabel.toLowerCase()}`;
+}
+
+/** The names of the modules that are running now (empty when none is). */
+export function runningNow(modules: AuditModule[] | undefined | null): string[] {
+  return (modules ?? [])
+    .filter((m) => String(m.status) === 'running')
+    .map((m) => m.name);
+}
+
 export interface TargetLine {
   kind: 'website' | 'supabase' | 'repo';
   url: string;
