@@ -147,6 +147,47 @@ export const CARD = {
   },
 } as const;
 
+/**
+ * The scene above the rows of the example run: a canary on a checkpoint post, a
+ * stranger stopped at a striped barrier (BLOCKED), and an app being built with a
+ * key left in a window (LEAKED). It is a picture of the idea, not a real audit,
+ * and the card around it says so (CARD.tag).
+ */
+export const SCENE = {
+  label: {
+    en: 'Example scene: a canary on a post, a stranger stopped at a barrier, a key left in a window of an app',
+    ur: 'Misaal ka manzar: post par canary, barrier par ruka hua ajnabi, app ki khidki mein chhoti hui key',
+  },
+  canary: {
+    title: { en: 'Canary row', ur: 'Canary row' },
+    note: { en: 'on a checkpoint post', ur: 'checkpoint post par' },
+  },
+  barrier: {
+    title: { en: 'Stranger stopped', ur: 'Ajnabi ruk gaya' },
+    verdict: 'BLOCKED',
+  },
+  key: {
+    title: { en: 'Key in a window', ur: 'Khidki mein key' },
+    verdict: 'LEAKED',
+  },
+} as const;
+
+/**
+ * The three verdict tiles under the rows: how many of the example's verdicts
+ * are LEAKED, INCONCLUSIVE and BLOCKED. A test counts the verdict badges of
+ * the card, so these numbers cannot drift from the rows.
+ */
+export const TILES = [
+  { verdict: 'LEAKED', count: 1 },
+  { verdict: 'INCONCLUSIVE', count: 1 },
+  { verdict: 'BLOCKED', count: 1 },
+] as const;
+
+export const TILES_LABEL: Pair = {
+  en: 'Verdicts of the example run',
+  ur: 'Misaal ke run ke verdicts',
+};
+
 export const STEPS = [
   {
     title: { en: 'Connect', ur: 'Jodein' },

@@ -170,7 +170,7 @@ export default function ConnectPage() {
 
   return (
     <div className="shell page-stack">
-      <section className="hero">
+      <section className="hero hero-stage">
         <div className="hero-copy">
           <div className="hero-copy-top">
             <p className="hero-kicker">{PROJECT_TAGLINE}</p>
@@ -196,6 +196,7 @@ export default function ConnectPage() {
           <p className="hero-lede">{subLine(lang)}</p>
 
           {/* the one main box: a public repository, the access code, Start; the rest is under "Add more checks" */}
+          <div className="start-wrap">
           <form
             id="start-box"
             className="start-box"
@@ -279,6 +280,7 @@ export default function ConnectPage() {
               to write the explanation.
             </p>
           </form>
+          </div>
 
           <div className="hero-chips" role="group" aria-label={pickText({ en: 'Add a check', ur: 'Aur check jodein' }, lang)}>
             {CHIPS.map((chip) => (

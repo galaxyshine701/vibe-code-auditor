@@ -1,7 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Lang } from '@/lib/check-labels';
-import { CARD, pickText } from '@/lib/hero-copy';
+import { CARD, TILES, TILES_LABEL, pickText } from '@/lib/hero-copy';
+import { DotNumeral } from './dot-numeral';
 import { GateBar, LaneDot, LaneNode } from './checkpoint-lane';
+import { HeroScene } from './hero-scene';
 import { ScanBeam } from './scan-beam';
 import { VerdictBadge } from './verdict';
 
@@ -85,6 +87,9 @@ export function HeroCard({ lang }: { lang: Lang }) {
         <span className="hero-card-tag">{pickText(CARD.tag, lang)}</span>
         <span className="hero-card-note">{pickText(CARD.tagNote, lang)}</span>
       </header>
+
+      {/* the picture of the idea: a canary on a post, a stranger at a barrier, a key in a window */}
+      <HeroScene lang={lang} />
 
       <div className="hero-rows">
         {/* the lane: a rail with a checkpoint per row, and a dot that goes down with the beam */}
@@ -185,6 +190,19 @@ export function HeroCard({ lang }: { lang: Lang }) {
           </span>
         </Row>
       </div>
+
+      {/* how many verdicts of each kind the example has (dot-matrix numerals) */}
+      <ul className="hero-tiles" aria-label={pickText(TILES_LABEL, lang)}>
+        {TILES.map((tile) => (
+          <li
+            key={tile.verdict}
+            className={`hero-tile hero-tile-${tile.verdict.toLowerCase()}`}
+          >
+            <DotNumeral value={tile.count} />
+            <span className="hero-tile-word">{tile.verdict}</span>
+          </li>
+        ))}
+      </ul>
 
       <div
         className="hero-gate-line"

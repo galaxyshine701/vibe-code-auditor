@@ -144,6 +144,19 @@
   cursor: pointer;
 }
 
+.more-checks-summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.more-checks[open] > .more-checks-summary::after {
+  content: "-";
+}
+
 .more-checks-summary em {
   color: var(--muted-2);
   font-size: 0.72rem;

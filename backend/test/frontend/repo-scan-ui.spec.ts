@@ -129,10 +129,10 @@ describe('the Connect form: the third group', () => {
     }
   });
 
-  it('the hint names the three groups, and never a value', () => {
+  it('the hint names the repo box first (it is the first box of the page), and never a value', () => {
     const hint = form.startHintOf(form.checkConnect(fields()), false);
     expect(hint).toBe(
-      'To start: enter the access code. Complete the website group, the Supabase group, the repository group, or more than one.',
+      'To start: enter the access code. Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.',
     );
     const partial = form.startHintOf(
       form.checkConnect(fields({ repoUrl: 'https://github.com/SECRET-OWNER/b' })),

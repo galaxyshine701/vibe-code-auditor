@@ -159,7 +159,9 @@ export function startNote(check: ConnectCheck): string {
   }
   if (notes.length > 0) return `Finish or clear a group: ${notes.join('. ')}.`;
   if (!check.canStart) {
-    return 'Complete the website group, the Supabase group, the repository group, or more than one.';
+    // The repository box is the first thing on the page, so it is named first;
+    // the groups under "Add more checks" are the other way in.
+    return 'Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.';
   }
   return '';
 }

@@ -183,11 +183,17 @@ describe('the notes name fields, never values', () => {
     expect(note).not.toContain('KEYVALUE');
   });
 
-  it('the hint under the start button: access code first, then the groups', () => {
+  it('the hint under the start button: access code first, then the repo box (the first box of the page)', () => {
     const empty = form.checkConnect(fields());
     expect(form.startHintOf(empty, false)).toBe(
-      'To start: enter the access code. Complete the website group, the Supabase group, the repository group, or more than one.',
+      'To start: enter the access code. Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.',
     );
+    // with the access code, only the repo part is left to say
+    expect(form.startHintOf(empty, true)).toBe(
+      'To start: Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.',
+    );
+    // the old wording, which named the groups in the old order, is gone
+    expect(form.startHintOf(empty, false)).not.toMatch(/website group|Supabase group/);
     const ready = form.checkConnect(fields(WEBSITE));
     expect(form.startHintOf(ready, true)).toBe('');
     expect(form.startHintOf(ready, false)).toBe(
