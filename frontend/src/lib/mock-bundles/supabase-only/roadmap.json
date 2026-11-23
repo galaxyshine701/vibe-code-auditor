@@ -32,6 +32,10 @@
           "ur": "\"Re-test\" dabayein aur dekhein ke table ab leak nahi raha."
         }
       ],
+      "fixPrompt": {
+        "en": "In my Supabase project, the table \"bookings\" can be read or changed by users who do not own the rows. Turn on row level security for this table, and add policies so a signed-in user can only read, change and delete their own rows (use the owner column of the table). Write the change as a SQL migration for a TEST project first.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Mere Supabase project mein table \"bookings\" ki rows woh users bhi parh ya badal sakte hain jo un ke malik nahi. Is table par row level security on karo, aur aisi policies lagao ke signed-in user sirf apni rows parh, badal aur delete kar sake (table ka owner column use karo). Pehle TEST project ke liye ise SQL migration ki surat mein likho.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
       "refs": {
         "checkId": "data-access-prover",
         "findingIds": [

@@ -28,6 +28,10 @@
           "ur": "Audit dobara chalayein aur dekhein ke key ab files mein nahi hai."
         }
       ],
+      "fixPrompt": {
+        "en": "A Supabase secret key was found in the file \"src/lib/supabase.ts\" of my repository. Take it out of that file and read it from an environment variable instead. Make sure the env files are listed in .gitignore. Remind me that the old commits keep the key, so I must rotate it in the Supabase dashboard.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Mere repository ki file \"src/lib/supabase.ts\" mein Supabase secret key mili. Use us file se nikalo aur uski jagah environment variable se parho. Dekho ke env files .gitignore mein hain. Mujhe yaad dilao ke purane commits mein key rehti hai, is liye mujhe Supabase dashboard mein use rotate karna hai.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
       "refs": {
         "checkId": "repo-secrets",
         "evidenceIds": [
@@ -37,6 +41,90 @@
     },
     {
       "id": "rm_002",
+      "kind": "improve-repo",
+      "severity": "high",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Check the secret-looking variable in the file \".env.example\"",
+        "ur": "File \".env.example\" ki secret jaisi variable dekhein"
+      },
+      "why": {
+        "en": "A variable that starts with NEXT_PUBLIC_ or VITE_ is sent to every visitor by the browser build, and its name says it is a secret. The value was not checked.",
+        "ur": "NEXT_PUBLIC_ ya VITE_ se shuru hone wali variable browser build har visitor ko bhej deta hai, aur uska naam kehta hai ke ye secret hai. Value check nahi hui."
+      },
+      "steps": [
+        {
+          "en": "Open the file and find out what the variable holds.",
+          "ur": "File kholein aur dekhein ke variable mein kya hai."
+        },
+        {
+          "en": "If it holds a secret, rotate it in Supabase, rename it without NEXT_PUBLIC_ or VITE_, and use it only in server code.",
+          "ur": "Agar isme secret hai to Supabase mein rotate karein, NEXT_PUBLIC_ ya VITE_ ke baghair naam rakhein, aur sirf server code mein use karein."
+        },
+        {
+          "en": "If it is not a secret, rename it so the name does not say so.",
+          "ur": "Agar secret nahi hai to naam aisa rakhein jo secret na kahe."
+        },
+        {
+          "en": "Run the audit again to check the file.",
+          "ur": "File dekhne ke liye audit dobara chalayein."
+        }
+      ],
+      "fixPrompt": {
+        "en": "In the file \".env.example\" of my repository there is an environment variable whose name starts with NEXT_PUBLIC_ or VITE_ and holds the word SECRET or SERVICE_ROLE. Names like that are published to every visitor by the browser build. Check what the variable is for. If it holds a secret, rename it to a server-only name (without the NEXT_PUBLIC_ or VITE_ prefix) and move the code that uses it to the server. If it is not a secret, rename it so the name does not say so.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Mere repository ki file \".env.example\" mein ek environment variable hai jis ka naam NEXT_PUBLIC_ ya VITE_ se shuru hota hai aur jis mein SECRET ya SERVICE_ROLE likha hai. Aise naam browser build har visitor ko publish kar deta hai. Dekho ke yeh variable kis liye hai. Agar isme secret hai to use server-only naam do (NEXT_PUBLIC_ ya VITE_ ke baghair) aur use karne wala code server par le jao. Agar secret nahi hai to naam aisa rakho jo secret na kahe.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
+      "refs": {
+        "checkId": "repo-secrets",
+        "evidenceIds": [
+          "ev_site_repo-secrets_2"
+        ]
+      }
+    },
+    {
+      "id": "rm_003",
+      "kind": "improve-repo",
+      "severity": "high",
+      "fromRequiredCheck": true,
+      "title": {
+        "en": "Check row level security for the table \"orders\" in the migrations",
+        "ur": "Migrations mein table \"orders\" ki row level security dekhein"
+      },
+      "why": {
+        "en": "A migration creates this table, and no migration turns on row level security for it. It may be enabled elsewhere, for example in the Supabase dashboard, so this could not be confirmed from the repository.",
+        "ur": "Ek migration ye table banati hai, aur koi migration iske liye row level security on nahi karti. Ho sakta hai ye kahin aur on ho, maslan Supabase dashboard mein, isliye repository se tasdeeq nahi ho saki."
+      },
+      "steps": [
+        {
+          "en": "In Supabase open the table and check whether row level security is on.",
+          "ur": "Supabase mein table kholein aur dekhein ke row level security on hai ya nahi."
+        },
+        {
+          "en": "If it is off, add a migration with \"enable row level security\" for this table and the policies it needs.",
+          "ur": "Agar off hai to is table ke liye \"enable row level security\" aur zaroori policies wali migration lagayein."
+        },
+        {
+          "en": "If it is on elsewhere, add the same line to a migration so the repository tells the truth.",
+          "ur": "Agar kahin aur on hai to wahi line kisi migration mein bhi likhein taake repository sach bataye."
+        },
+        {
+          "en": "Run the audit again to check the migrations.",
+          "ur": "Migrations dekhne ke liye audit dobara chalayein."
+        }
+      ],
+      "fixPrompt": {
+        "en": "My repository has a migration that creates the table \"orders\" but no migration that runs \"enable row level security\" for it. It may be turned on elsewhere (for example in the Supabase dashboard). First check the other migrations. If it is not turned on, add a new migration with \"alter table public.orders enable row level security\", and show me the policies you propose before anything else.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Mere repository ki ek migration table \"orders\" banati hai, lekin koi migration is ke liye \"enable row level security\" nahi chalati. Ho sakta hai woh kahin aur (maslan Supabase dashboard mein) on ho. Pehle baaki migrations dekho. Agar on nahi hai to nayi migration lagao jis mein \"alter table public.orders enable row level security\" ho, aur sab se pehle mujhe woh policies dikhao jo tum suggest karte ho.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
+      "refs": {
+        "checkId": "repo-secrets",
+        "evidenceIds": [
+          "ev_site_repo-secrets_3"
+        ]
+      }
+    },
+    {
+      "id": "rm_004",
       "kind": "provide-input",
       "severity": "info",
       "fromRequiredCheck": false,
@@ -63,7 +151,7 @@
       }
     },
     {
-      "id": "rm_003",
+      "id": "rm_005",
       "kind": "provide-input",
       "severity": "info",
       "fromRequiredCheck": false,
@@ -90,7 +178,7 @@
       }
     },
     {
-      "id": "rm_004",
+      "id": "rm_006",
       "kind": "provide-input",
       "severity": "info",
       "fromRequiredCheck": false,

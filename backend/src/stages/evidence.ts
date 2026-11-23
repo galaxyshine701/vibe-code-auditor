@@ -71,6 +71,12 @@ export function buildCoverage(
     }
     // named things that were left out on purpose (not "partial")
     coverage.outOfScope.push(...(result?.outOfScope ?? []));
+    for (const note of result?.limitNotes ?? []) {
+      if (!seenLimits.has(note.en)) {
+        seenLimits.add(note.en);
+        coverage.limits.push(note);
+      }
+    }
     for (const limit of definition.limits) {
       if (!seenLimits.has(limit.en)) {
         seenLimits.add(limit.en);

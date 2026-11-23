@@ -1,5 +1,13 @@
 import type { Finding, Severity } from '../prover/types.js';
 import { CHECKS } from './planner-config.js';
+import {
+  fixFindingPrompt,
+  fixRepoSecretPrompt,
+  fixSiteSecretPrompt,
+  improveHeaderPrompt,
+  improveRepoPrompt,
+  plain,
+} from './fix-prompts.js';
 import type {
   Coverage,
   EvidenceItem,
@@ -68,6 +76,10 @@ export interface RoadmapInput {
 }
 
 type Draft = Omit<RoadmapItem, 'id'>;
+
+/** `fixPrompt` only when there is one (a key that is absent, not undefined). */
+const fixPromptField = (text: Text | undefined) =>
+  text ? { fixPrompt: text } : {};
 
 const DATA_ACCESS = 'data-access-prover';
 const HEADERS = 'tls-headers';
@@ -286,6 +298,8 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: '"Re-test" dabayein aur dekhein ke table ab leak nahi raha.',
         },
       ],
+      // A finding that has a fix SQL had an owner column; one without does not.
+      fixPrompt: fixFindingPrompt(table, found?.fix != null),
       refs: {
         checkId: DATA_ACCESS,
         findingIds: [item.findingId],
@@ -334,7 +348,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   // A secret key in a script of the site: the most urgent thing there is.
   for (const item of evidence) {
     if (item.kind !== 'site-bundle' || item.verdict !== 'LEAKED') continue;
-    const subject = item.subject ?? 'a script';
+    const subject = plain(item.subject, 'a script');
     drafts.push({
       kind: 'fix-site-secret',
       severity: 'critical',
@@ -365,6 +379,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab nahi hai.',
         },
       ],
+      fixPrompt: fixSiteSecretPrompt(item.subject),
       refs: { checkId: BUNDLE, evidenceIds: [item.id] },
     });
   }
@@ -373,7 +388,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   // of the repository too, so removing the file is not enough: rotate it.
   for (const item of evidence) {
     if (item.kind !== 'repo-file' || item.verdict !== 'LEAKED') continue;
-    const subject = item.subject ?? 'a file';
+    const subject = plain(item.subject, 'a file');
     drafts.push({
       kind: 'fix-repo-secret',
       severity: 'critical',
@@ -400,6 +415,95 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab files mein nahi hai.',
         },
       ],
+      fixPrompt: fixRepoSecretPrompt(item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
+  // A public variable name that says SECRET or SERVICE_ROLE (rule 2). Only a
+  // warning: the value was not looked at, so it is high, never critical, and
+  // it never changes the gate by itself.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-env-name' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const subject = plain(item.subject, 'a file');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check the secret-looking variable in the file "${subject}"`,
+        ur: `File "${subject}" ki secret jaisi variable dekhein`,
+      },
+      why: {
+        en: 'A variable that starts with NEXT_PUBLIC_ or VITE_ is sent to every visitor by the browser build, and its name says it is a secret. The value was not checked.',
+        ur: 'NEXT_PUBLIC_ ya VITE_ se shuru hone wali variable browser build har visitor ko bhej deta hai, aur uska naam kehta hai ke ye secret hai. Value check nahi hui.',
+      },
+      steps: [
+        {
+          en: 'Open the file and find out what the variable holds.',
+          ur: 'File kholein aur dekhein ke variable mein kya hai.',
+        },
+        {
+          en: 'If it holds a secret, rotate it in Supabase, rename it without NEXT_PUBLIC_ or VITE_, and use it only in server code.',
+          ur: 'Agar isme secret hai to Supabase mein rotate karein, NEXT_PUBLIC_ ya VITE_ ke baghair naam rakhein, aur sirf server code mein use karein.',
+        },
+        {
+          en: 'If it is not a secret, rename it so the name does not say so.',
+          ur: 'Agar secret nahi hai to naam aisa rakhein jo secret na kahe.',
+        },
+        {
+          en: 'Run the audit again to check the file.',
+          ur: 'File dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('public-env-secret', item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
+  // A table a migration creates with no "enable row level security" in any
+  // migration (rule 1). The real database may differ, so it is a warning only
+  // (never critical), and it never changes the gate by itself. High, the same
+  // as a public variable name (rule 2): a table open to every visitor is the
+  // main thing this tool is about.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-migration' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const table = plain(item.table ?? undefined, 'a table');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check row level security for the table "${table}" in the migrations`,
+        ur: `Migrations mein table "${table}" ki row level security dekhein`,
+      },
+      why: {
+        en: 'A migration creates this table, and no migration turns on row level security for it. It may be enabled elsewhere, for example in the Supabase dashboard, so this could not be confirmed from the repository.',
+        ur: 'Ek migration ye table banati hai, aur koi migration iske liye row level security on nahi karti. Ho sakta hai ye kahin aur on ho, maslan Supabase dashboard mein, isliye repository se tasdeeq nahi ho saki.',
+      },
+      steps: [
+        {
+          en: 'In Supabase open the table and check whether row level security is on.',
+          ur: 'Supabase mein table kholein aur dekhein ke row level security on hai ya nahi.',
+        },
+        {
+          en: 'If it is off, add a migration with "enable row level security" for this table and the policies it needs.',
+          ur: 'Agar off hai to is table ke liye "enable row level security" aur zaroori policies wali migration lagayein.',
+        },
+        {
+          en: 'If it is on elsewhere, add the same line to a migration so the repository tells the truth.',
+          ur: 'Agar kahin aur on hai to wahi line kisi migration mein bhi likhein taake repository sach bataye.',
+        },
+        {
+          en: 'Run the audit again to check the migrations.',
+          ur: 'Migrations dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('migration-rls', item.table ?? undefined),
       refs: { checkId: REPO, evidenceIds: [item.id] },
     });
   }
@@ -418,6 +522,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
       title: advice.title,
       why: advice.why,
       steps: advice.steps,
+      ...fixPromptField(improveHeaderPrompt(item.subject)),
       refs: { checkId: HEADERS, evidenceIds: [item.id] },
     });
   }

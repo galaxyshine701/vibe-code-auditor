@@ -252,7 +252,23 @@ describe('the Report of the repo-only bundle', () => {
       { id: 't', check: 'data-access-prover', verdict: 'BLOCKED' },
       { id: 'b', check: 'bundle-secrets', kind: 'site-bundle', verdict: 'LEAKED' },
     ]);
-    expect(groups.map((g) => g.kind)).toEqual(['table', 'site-bundle', 'repo-file']);
+    // the three repo groups come last, in this order: a key, a variable name, a migration
+    expect(groups.map((g) => g.kind)).toEqual([
+      'table',
+      'site-bundle',
+      'repo-file',
+      'repo-env-name',
+      'repo-migration',
+    ]);
+    const name = evidence.items.find((i) => i.kind === 'repo-env-name');
+    expect(name).toMatchObject({ subject: '.env.example', line: 2, verdict: 'INCONCLUSIVE' });
+    const migration = evidence.items.find((i) => i.kind === 'repo-migration');
+    expect(migration).toMatchObject({
+      table: 'orders',
+      subject: 'supabase/migrations/001_init.sql',
+      line: 2,
+      verdict: 'INCONCLUSIVE',
+    });
     const item = evidence.items[0];
     expect(item).toMatchObject({ kind: 'repo-file', subject: 'src/lib/supabase.ts', line: 3, verdict: 'LEAKED' });
     expect(JSON.stringify(evidence)).not.toMatch(/sb_secret_[A-Za-z0-9_-]{16,}/);

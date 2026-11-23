@@ -42,6 +42,11 @@ export interface CheckResult {
    * goes into the coverage. This is not a failure and not a skip.
    */
   nothingToTest?: Text;
+  /**
+   * Extra lines for the coverage limits, from this run only (for example "the
+   * list is cut"). Not a failure and not "partial": the gate does not read it.
+   */
+  limitNotes?: Text[];
   /** For partial: what was not read (a name and a reason each). */
   notRead?: { name: string; reason: Text }[];
   /**
@@ -62,7 +67,11 @@ export type EvidenceKind =
   | 'site-bundle'
   | 'site-headers'
   /** a secret key in a file of the GitHub repository (Repo Scan) */
-  | 'repo-file';
+  | 'repo-file'
+  /** a NEXT_PUBLIC_ / VITE_ variable name with SECRET or SERVICE_ROLE in a file of the repository (Repo Scan, rule 2) */
+  | 'repo-env-name'
+  /** a table that a migration creates and no migration enables row level security for (Repo Scan, rule 1) */
+  | 'repo-migration';
 
 /** What the user gave for this run. A check needs one of them. */
 export interface Provided {
@@ -152,6 +161,12 @@ export interface RoadmapItem {
   why: Text;
   /** 1 to 4 steps */
   steps: Text[];
+  /**
+   * A fixed text to paste into the AI tool that built the app (English first,
+   * Roman Urdu as the second copy). Only on fix-finding, fix-site-secret,
+   * fix-repo-secret, improve-header and improve-repo. Never holds a key.
+   */
+  fixPrompt?: Text;
   refs: { checkId: string; findingIds?: string[]; evidenceIds?: string[] };
 }
 

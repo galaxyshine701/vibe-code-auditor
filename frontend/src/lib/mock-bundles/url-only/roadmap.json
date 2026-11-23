@@ -32,6 +32,10 @@
           "ur": "Audit dobara chalayein aur dekhein ke key ab nahi hai."
         }
       ],
+      "fixPrompt": {
+        "en": "A Supabase secret key was found in the script \"www.example-shop.com/assets/app.js\" that my website sends to every visitor. Find where my code uses the secret key. Move that work to server-side code (an API route or an edge function) so the browser never receives it. Read it only from a server environment variable, never one that starts with NEXT_PUBLIC_ or VITE_, and use only the publishable key in browser code. Remind me to rotate the key in the Supabase dashboard.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Mere website ke script \"www.example-shop.com/assets/app.js\" mein, jo har visitor ko jaata hai, Supabase secret key mili. Dhoondo ke mera code secret key kahan use karta hai. Woh kaam server-side code (API route ya edge function) mein le jao taake browser ko woh kabhi na mile. Use sirf server environment variable se parho, aisi variable se nahi jo NEXT_PUBLIC_ ya VITE_ se shuru ho, aur browser code mein sirf publishable key rakho. Mujhe yaad dilao ke Supabase dashboard mein key rotate karni hai.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
       "refs": {
         "checkId": "bundle-secrets",
         "evidenceIds": [
@@ -62,6 +66,10 @@
           "ur": "Header dekhne ke liye audit dobara chalayein."
         }
       ],
+      "fixPrompt": {
+        "en": "Add the Strict-Transport-Security response header to my website, with a long max-age, so browsers keep using https.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Meri website ke response mein Strict-Transport-Security header lagao, lambi max-age ke saath, taake browser https hi use karte rahein.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
       "refs": {
         "checkId": "tls-headers",
         "evidenceIds": [
@@ -92,6 +100,10 @@
           "ur": "Ise Content-Security-Policy header ke taur par bhejein, site test karein, phir audit dobara chalayein."
         }
       ],
+      "fixPrompt": {
+        "en": "Add a Content-Security-Policy response header to my website. Start with a policy that allows only the scripts, styles and connections my site really uses.\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Meri website ke response mein Content-Security-Policy header lagao. Aisi policy se shuru karo jo sirf wohi scripts, styles aur connections allow kare jo meri site sach mein use karti hai.\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
       "refs": {
         "checkId": "tls-headers",
         "evidenceIds": [
@@ -118,6 +130,10 @@
           "ur": "Apne host ya server se header \"Referrer-Policy: strict-origin-when-cross-origin\" bhejein."
         }
       ],
+      "fixPrompt": {
+        "en": "Add a Referrer-Policy response header to my website, for example \"strict-origin-when-cross-origin\".\n\nShow me the plan first: list every file and every change you will make, and wait. Apply nothing until I approve. Never print, ask for, or write any key or secret value.",
+        "ur": "Meri website ke response mein Referrer-Policy header lagao, maslan \"strict-origin-when-cross-origin\".\n\nPehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho."
+      },
       "refs": {
         "checkId": "tls-headers",
         "evidenceIds": [

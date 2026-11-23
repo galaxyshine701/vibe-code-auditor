@@ -151,6 +151,14 @@ export const REPO_CHECK: CheckDefinition = {
       ur: 'Sirf text files parhi jati hain (har file 1 MB tak; zip 15 MB tak, unpack hone par 40 MB, 3000 entries). node_modules aur dist jaise folders chhod diye jate hain, aur jo files parhi na ja sakin unka naam "not read" mein aata hai.',
     },
     {
+      en: 'Variable names that start with NEXT_PUBLIC_ or VITE_ and say SECRET or SERVICE_ROLE are checked in UPPERCASE only (a lowercase name is not seen), and .md and .txt files are skipped for this.',
+      ur: 'NEXT_PUBLIC_ ya VITE_ se shuru hone wale aur SECRET ya SERVICE_ROLE kehne wale variable naam sirf BADE (UPPERCASE) harfon mein check hote hain (chhote harf wala naam nazar nahi aata), aur is ke liye .md aur .txt files chhod di jati hain.',
+    },
+    {
+      en: 'Migrations: only .sql files in any folder called migrations (at any depth, for example supabase/migrations or db/migrations) are read, and only tables of the public schema. CREATE TABLE in any letter case, UNLOGGED, IF NOT EXISTS, PARTITION OF, (LIKE ...) and CREATE TABLE AS are read as tables of their own; temporary tables are skipped. A table with no "enable row level security" in them is only a warning sign (INCONCLUSIVE): row level security may be enabled elsewhere, for example in the Supabase dashboard. Renamed tables and SQL that is built by code are not followed.',
+      ur: 'Migrations: sirf kisi bhi "migrations" naam ke folder (kisi bhi gehrai par, maslan supabase/migrations ya db/migrations) ki .sql files parhi jati hain, aur sirf public schema ke tables. CREATE TABLE kisi bhi harf case mein, UNLOGGED, IF NOT EXISTS, PARTITION OF, (LIKE ...) aur CREATE TABLE AS har ek alag table maana jata hai; temporary tables chhod di jati hain. Jis table ke liye in mein "enable row level security" na ho wo sirf khatre ki nishani hai (INCONCLUSIVE): row level security kahin aur on ho sakti hai, maslan Supabase dashboard mein. Naam badle hue tables aur code se banayi gayi SQL follow nahi hoti.',
+    },
+    {
       en: 'A key that is found is reported as exposed. Whether it still works is not tested.',
       ur: 'Jo key milti hai use "exposed" likha jata hai. Wo ab bhi chalti hai ya nahi, ye test nahi hota.',
     },

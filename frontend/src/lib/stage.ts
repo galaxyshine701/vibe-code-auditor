@@ -203,7 +203,7 @@ export interface EvidenceGroup {
   items: EvidenceItem[];
 }
 
-const KIND_ORDER = ['table', 'site-headers', 'site-bundle', 'repo-file'];
+const KIND_ORDER = ['table', 'site-headers', 'site-bundle', 'repo-file', 'repo-env-name', 'repo-migration'];
 
 /** A missing `kind` is "table". The order of the items inside a group is kept. */
 export function kindOf(item: EvidenceItem): string {

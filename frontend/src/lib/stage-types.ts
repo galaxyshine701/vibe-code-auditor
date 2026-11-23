@@ -37,6 +37,8 @@ export type EvidenceKind =
   | 'site-bundle'
   | 'site-headers'
   | 'repo-file'
+  | 'repo-env-name'
+  | 'repo-migration'
   | string;
 
 export interface EvidenceItem {
@@ -99,6 +101,8 @@ export interface RoadmapItem {
   title?: Text;
   why?: Text;
   steps?: Text[];
+  /** A fixed text to paste into the AI tool that built the app (never holds a key). */
+  fixPrompt?: Text;
   refs?: {
     checkId?: string;
     findingIds?: string[];
