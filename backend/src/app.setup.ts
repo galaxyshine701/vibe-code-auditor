@@ -5,25 +5,46 @@ import { ApiExceptionFilter } from './common/api-exception.filter.js';
 export const DEFAULT_FRONTEND_ORIGIN = 'http://localhost:3000';
 
 /**
- * The one browser origin allowed to call this API (env FRONTEND_ORIGIN).
- * Must be a plain origin like https://app.example.com. "*" is refused.
+ * The browser origins allowed to call this API (env FRONTEND_ORIGIN): one
+ * origin, or several separated by commas. Each one is an exact origin such as
+ * https://app.example.com (spaces around it are trimmed, a path is dropped).
+ * Only https is accepted, and http only for localhost (development). "*" and
+ * any other pattern is refused. Empty = http://localhost:3000.
  */
-export function resolveAllowedOrigin(
+export function resolveAllowedOrigins(
   env: Record<string, string | undefined>,
-): string {
-  const raw = env.FRONTEND_ORIGIN?.trim() || DEFAULT_FRONTEND_ORIGIN;
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new Error(
-      'FRONTEND_ORIGIN must be a URL such as http://localhost:3000',
-    );
+): string[] {
+  const parts = (env.FRONTEND_ORIGIN ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+  if (parts.length === 0) return [DEFAULT_FRONTEND_ORIGIN];
+
+  const origins: string[] = [];
+  for (const raw of parts) {
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      throw new Error(
+        'FRONTEND_ORIGIN must be one or more origins such as https://app.example.com, separated by commas',
+      );
+    }
+    // a wildcard (or any odd character) in the host is never an exact origin
+    if (!/^[a-z0-9.-]+$/i.test(url.hostname)) {
+      throw new Error('FRONTEND_ORIGIN must list exact origins: no wildcard');
+    }
+    const allowed =
+      url.protocol === 'https:' ||
+      (url.protocol === 'http:' && url.hostname === 'localhost');
+    if (!allowed) {
+      throw new Error(
+        'FRONTEND_ORIGIN must use https:// (http:// only for localhost)',
+      );
+    }
+    if (!origins.includes(url.origin)) origins.push(url.origin);
   }
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    throw new Error('FRONTEND_ORIGIN must start with http:// or https://');
-  }
-  return url.origin;
+  return origins;
 }
 
 /** Settings shared by the real server and the tests. */
@@ -34,8 +55,11 @@ export function configureApp(
   // /health stays at the root; everything else lives under /api/v1
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
   app.useGlobalFilters(new ApiExceptionFilter());
+  const origins = resolveAllowedOrigins(env);
   app.enableCors({
-    origin: resolveAllowedOrigin(env),
+    // one origin: as before (always that origin in the answer); several: the
+    // caller's origin is answered only when it is in the list
+    origin: origins.length === 1 ? origins[0] : origins,
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'X-Access-Code'],
     exposedHeaders: ['Retry-After'],
