@@ -8,7 +8,7 @@ import { AppModule } from '../../src/app.module.js';
 import {
   DEFAULT_FRONTEND_ORIGIN,
   configureApp,
-  resolveAllowedOrigin,
+  resolveAllowedOrigins,
 } from '../../src/app.setup.js';
 import {
   GATEWAY_FACTORY,
@@ -550,17 +550,67 @@ describe('CORS', () => {
     expect(res.headers['access-control-allow-methods']).toContain('POST');
   });
 
-  it('resolveAllowedOrigin: default, plain origin, and refusals', () => {
-    expect(resolveAllowedOrigin({})).toBe(DEFAULT_FRONTEND_ORIGIN);
-    expect(resolveAllowedOrigin({ FRONTEND_ORIGIN: '  ' })).toBe(
-      DEFAULT_FRONTEND_ORIGIN,
+  it('answers each origin of a FRONTEND_ORIGIN list, and no other', async () => {
+    app = await buildApp(() => new FakeGateway(demoTables()), {
+      env: {
+        FRONTEND_ORIGIN:
+          ' https://app.example.com , https://preview.example.com ,http://localhost:3000',
+      },
+    });
+    for (const allowed of [
+      'https://app.example.com',
+      'https://preview.example.com',
+      'http://localhost:3000',
+    ]) {
+      const res = await request(app.getHttpServer())
+        .get('/health')
+        .set('Origin', allowed);
+      expect(origin(res)).toBe(allowed);
+    }
+    const evil = await request(app.getHttpServer())
+      .get('/health')
+      .set('Origin', 'https://evil.example');
+    expect(origin(evil)).toBeUndefined();
+    const pre = await request(app.getHttpServer())
+      .options('/api/v1/audits')
+      .set('Origin', 'https://preview.example.com')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type,x-access-code');
+    expect(pre.status).toBe(204);
+    expect(origin(pre)).toBe('https://preview.example.com');
+    expect(pre.headers['access-control-allow-methods']).toBe('GET,POST');
+    expect(pre.headers['access-control-allow-headers']).toBe(
+      'Content-Type,X-Access-Code',
     );
+  });
+
+  it('resolveAllowedOrigins: default, one origin, a list, and refusals', () => {
+    expect(resolveAllowedOrigins({})).toEqual([DEFAULT_FRONTEND_ORIGIN]);
+    expect(resolveAllowedOrigins({ FRONTEND_ORIGIN: '  ' })).toEqual([
+      DEFAULT_FRONTEND_ORIGIN,
+    ]);
     expect(
-      resolveAllowedOrigin({ FRONTEND_ORIGIN: 'https://app.example.com/x/' }),
-    ).toBe('https://app.example.com');
-    expect(() => resolveAllowedOrigin({ FRONTEND_ORIGIN: '*' })).toThrow();
-    expect(() =>
-      resolveAllowedOrigin({ FRONTEND_ORIGIN: 'ftp://app.example.com' }),
-    ).toThrow();
+      resolveAllowedOrigins({ FRONTEND_ORIGIN: 'https://app.example.com/x/' }),
+    ).toEqual(['https://app.example.com']);
+    expect(
+      resolveAllowedOrigins({
+        FRONTEND_ORIGIN:
+          ' https://a.example.com,https://b.example.com , https://a.example.com,',
+      }),
+    ).toEqual(['https://a.example.com', 'https://b.example.com']);
+    expect(
+      resolveAllowedOrigins({ FRONTEND_ORIGIN: 'http://localhost:3000' }),
+    ).toEqual(['http://localhost:3000']);
+    for (const bad of [
+      '*',
+      'https://app.example.com,*',
+      'https://*.example.com',
+      'ftp://app.example.com',
+      'http://app.example.com',
+      'http://127.0.0.1:3000',
+      'not a url',
+    ]) {
+      expect(() => resolveAllowedOrigins({ FRONTEND_ORIGIN: bad })).toThrow();
+    }
   });
 });
