@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import type { ClientReport, RoadmapItem } from '@/lib/stage-types';
 import { pick, topActionItems } from '@/lib/stage';
-import { t } from '@/lib/stage-copy';
+import { filesReadText, t } from '@/lib/stage-copy';
 import type { AuditSummary } from '@/lib/types';
 
 // The summary block of the client report (R80), above the details: the counts
@@ -75,6 +75,7 @@ export function ClientSummary({
   hasWebsite,
   hasSupabase,
   hasRepo = false,
+  repoFilesRead = null,
   lang,
 }: {
   report: ClientReport | null;
@@ -83,6 +84,8 @@ export function ClientSummary({
   hasWebsite: boolean;
   hasSupabase: boolean;
   hasRepo?: boolean;
+  /** the count the API sent for the Repo scan; null = none was sent */
+  repoFilesRead?: number | null;
   lang: Lang;
 }) {
   const { tables, site, repo } = countsFrom(
@@ -157,6 +160,11 @@ export function ClientSummary({
                   label={t(lang, 'repoKeys')}
                   index={5}
                 />
+                {repoFilesRead !== null ? (
+                  <p className="muted small files-read">
+                    {filesReadText(repoFilesRead, lang)}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className="muted small not-checked">{t(lang, 'notChecked')}</p>

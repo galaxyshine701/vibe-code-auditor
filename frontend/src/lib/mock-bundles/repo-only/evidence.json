@@ -126,6 +126,12 @@
         "en": "Migrations: only .sql files in any folder called migrations (at any depth, for example supabase/migrations or db/migrations) are read, and only tables of the public schema. CREATE TABLE in any letter case, UNLOGGED, IF NOT EXISTS, PARTITION OF, (LIKE ...) and CREATE TABLE AS are read as tables of their own; temporary tables are skipped. A table with no \"enable row level security\" in them is only a warning sign (INCONCLUSIVE): row level security may be enabled elsewhere, for example in the Supabase dashboard. Renamed tables and SQL that is built by code are not followed.",
         "ur": "Migrations: sirf kisi bhi \"migrations\" naam ke folder (kisi bhi gehrai par, maslan supabase/migrations ya db/migrations) ki .sql files parhi jati hain, aur sirf public schema ke tables. CREATE TABLE kisi bhi harf case mein, UNLOGGED, IF NOT EXISTS, PARTITION OF, (LIKE ...) aur CREATE TABLE AS har ek alag table maana jata hai; temporary tables chhod di jati hain. Jis table ke liye in mein \"enable row level security\" na ho wo sirf khatre ki nishani hai (INCONCLUSIVE): row level security kahin aur on ho sakti hai, maslan Supabase dashboard mein. Naam badle hue tables aur code se banayi gayi SQL follow nahi hoti."
       }
+    ],
+    "filesRead": [
+      {
+        "id": "repo-secrets",
+        "count": 4
+      }
     ]
   }
 }

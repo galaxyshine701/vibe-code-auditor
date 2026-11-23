@@ -133,6 +133,7 @@ describe('the repo inspector agent: name evidence', () => {
     expect(context.siteResults?.[REPO_CHECK_ID]).toEqual({
       id: REPO_CHECK_ID,
       status: 'completed',
+      filesRead: 1,
     });
     expect(context.siteEvidence).toMatchObject([
       {

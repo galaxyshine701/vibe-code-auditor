@@ -24,6 +24,17 @@ export function pick(text: Text | undefined | null, lang: Lang): string {
   return (lang === 'ur' ? text.ur : text.en) || text.en || '';
 }
 
+/**
+ * How many files the Repo scan read, exactly as the API sent it. null when the
+ * API sent no count (nothing is guessed or counted here).
+ */
+export function repoFilesRead(coverage: Coverage | null | undefined): number | null {
+  const entry = coverage?.filesRead?.find((item) => item.id === 'repo-secrets');
+  return entry && Number.isInteger(entry.count) && entry.count >= 0
+    ? entry.count
+    : null;
+}
+
 /** True when the audit has the stage fields (R72). A higher version: show what is known. */
 export function hasStages(audit: Pick<AuditStatusResponse, 'schemaVersion'>): boolean {
   return (audit.schemaVersion ?? 1) >= 2;

@@ -50,6 +50,11 @@ export interface CheckResult {
   /** For partial: what was not read (a name and a reason each). */
   notRead?: { name: string; reason: Text }[];
   /**
+   * How many files the check really read (whole number, 0 or more). Set only
+   * by a check that counts them (today: the Repo scan). Missing = unknown.
+   */
+  filesRead?: number;
+  /**
    * Things that are out of scope on purpose (for example a script of another
    * origin): listed by name in the coverage. This is NOT "partial".
    */
@@ -114,6 +119,11 @@ export interface Coverage {
   failedToRun: { id: string; reason: Text }[];
   /** completed checks that had nothing to test, with a note (for example zero tables) */
   nothingToTest: { id: string; note: Text }[];
+  /**
+   * How many files a check read, by check id. The key is missing when no check
+   * reported a count (never an invented number).
+   */
+  filesRead?: { id: string; count: number }[];
   /** what these checks can not tell, in plain words */
   limits: Text[];
 }

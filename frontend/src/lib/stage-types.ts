@@ -83,6 +83,8 @@ export interface Coverage {
   /** Reserved, always [] today: nothing is shown for it. */
   nothingToTest?: unknown[];
   limits?: Text[];
+  /** How many files a check read, by check id. Missing = no check gave a count. */
+  filesRead?: { id: string; count: number }[];
 }
 
 export interface EvidenceResponse {

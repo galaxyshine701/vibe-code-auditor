@@ -205,6 +205,7 @@ export function createRepoInspectorAgent(
         missed.length > 0
           ? {
               ...cut,
+              filesRead: outcome.filesScanned,
               id: REPO_INSPECTOR_ID,
               status: 'partial',
               reason: {
@@ -216,7 +217,12 @@ export function createRepoInspectorAgent(
                 reason: NOT_READ[n.reason]!,
               })),
             }
-          : { id: REPO_INSPECTOR_ID, status: 'completed', ...cut };
+          : {
+              id: REPO_INSPECTOR_ID,
+              status: 'completed',
+              filesRead: outcome.filesScanned,
+              ...cut,
+            };
       setProgress(100);
     },
   };
