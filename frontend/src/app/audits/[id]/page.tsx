@@ -363,9 +363,6 @@ export default function ProgressPage() {
                 >
                   View report
                 </Link>
-                <p className="muted small">
-                  Findings are read only after the audit is completed.
-                </p>
               </div>
             ) : null}
 
@@ -393,9 +390,9 @@ export default function ProgressPage() {
           ) : null}
 
           {isRunning ? (
-            <p className="muted center small">
-              You can leave this page. The report is available after the audit
-              completes.
+            <p className="muted center small" id="running-note">
+              You can leave this page. Findings are read only after the audit
+              is completed.
             </p>
           ) : null}
         </>

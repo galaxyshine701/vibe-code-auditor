@@ -62,14 +62,9 @@ function StateIcon({ state }: { state: OpState }) {
   if (state === 'allowed') {
     return (
       <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-        <path
-          d="m3.3 8.3 3 3L12.7 4.8"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        {/* allowed: a ring with a filled dot in it (a plain shape, no tick) */}
+        <circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="8" cy="8" r="2.4" fill="currentColor" />
       </svg>
     );
   }

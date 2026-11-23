@@ -386,9 +386,6 @@ export default function ReportPage() {
           <span className="spinner" aria-hidden="true" />
           <div>
             <strong>Reading the report…</strong>
-            <p className="muted">
-              Findings are read only after the audit is completed.
-            </p>
           </div>
         </div>
       </div>

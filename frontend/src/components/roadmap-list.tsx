@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import type { ClientReport, RoadmapResponse } from '@/lib/stage-types';
 import {
+  mergeSameSteps,
   pick,
   roadmapItems,
   roadmapUnavailable,
@@ -36,7 +37,8 @@ export function RoadmapList({
   // "Roadmap not available." in the limits: say so, show no steps (R80)
   const unavailable = roadmapUnavailable(report);
   if (!roadmap && !unavailable) return null;
-  const items = unavailable ? [] : roadmapItems(roadmap?.items);
+  // the same step is shown once (mergeSameSteps), in the order received
+  const items = unavailable ? [] : mergeSameSteps(roadmapItems(roadmap?.items));
   const truncated = roadmap?.truncated ?? 0;
 
   return (

@@ -64,16 +64,15 @@ const ATTACK_OPERATIONS = {
 
 function ChipIcon({ state }: { state: ChipState }) {
   if (state === 'allowed' || state === 'blocked') {
+    // plain shapes, no tick: allowed is a ring with a dot, blocked a ring with a bar
     return (
       <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-        <path
-          d="m3.4 8.2 3 3L12.6 4.9"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        {state === 'allowed' ? (
+          <circle cx="8" cy="8" r="2.4" fill="currentColor" />
+        ) : (
+          <path d="M5.2 8h5.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        )}
       </svg>
     );
   }
