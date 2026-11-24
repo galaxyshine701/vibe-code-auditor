@@ -260,9 +260,9 @@ describe('the Report of the repo-only bundle', () => {
       'repo-env-name',
       'repo-migration',
     ]);
-    const name = evidence.items.find((i) => i.kind === 'repo-env-name');
+    const name = evidence.items.find((i: { kind?: string }) => i.kind === 'repo-env-name');
     expect(name).toMatchObject({ subject: '.env.example', line: 2, verdict: 'INCONCLUSIVE' });
-    const migration = evidence.items.find((i) => i.kind === 'repo-migration');
+    const migration = evidence.items.find((i: { kind?: string }) => i.kind === 'repo-migration');
     expect(migration).toMatchObject({
       table: 'orders',
       subject: 'supabase/migrations/001_init.sql',

@@ -19,6 +19,7 @@ import {
 import { planChecks } from '../../src/stages/planner.js';
 import { buildRoadmap } from '../../src/stages/roadmap.js';
 import { buildClientReport } from '../../src/stages/client-report.js';
+import type { EvidenceItem } from '../../src/stages/types.js';
 import { buildZip, type TestEntry } from './zip-builder.js';
 
 // Rule 2 of Repo Scan: a variable named NEXT_PUBLIC_ or VITE_ that says SECRET
@@ -246,7 +247,7 @@ describe('roadmap, gate and report for a name', () => {
     proof: 'UNVERIFIED' as const,
     summary: { en: 'x', ur: 'x' },
   };
-  const roadmap = (evidence = [name]) => {
+  const roadmap = (evidence: EvidenceItem[] = [name]) => {
     const all = buildRoadmap({ plan, findings: [], evidence, coverage, cleanup: null, provided });
     // the optional checks that were not given add provide-input items: not under test here
     return { ...all, items: all.items.filter((i) => i.kind !== 'provide-input') };

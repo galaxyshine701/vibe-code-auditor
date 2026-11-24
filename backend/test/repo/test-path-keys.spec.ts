@@ -19,6 +19,7 @@ import {
 } from '../../src/stages/planner-config.js';
 import { planChecks } from '../../src/stages/planner.js';
 import { buildRoadmap } from '../../src/stages/roadmap.js';
+import type { EvidenceItem } from '../../src/stages/types.js';
 import { buildZip, type TestEntry } from './zip-builder.js';
 
 // C3: a key found in a test path is INCONCLUSIVE (kind repo-test-key), never
@@ -185,7 +186,7 @@ describe('roadmap, gate and report for a test-path key', () => {
     proof: 'UNVERIFIED' as const,
     summary: { en: 'x', ur: 'x' },
   };
-  const roadmap = (evidence = [testKey]) => {
+  const roadmap = (evidence: EvidenceItem[] = [testKey]) => {
     const all = buildRoadmap({
       plan,
       findings: [],
