@@ -1,4 +1,5 @@
-import { scanForKeys } from './site-rules.js';
+import { KEY_PROVIDERS, isSupabaseKind } from './key-providers.js';
+import { scanForKeys, type KeyKind } from './site-rules.js';
 import type { Text } from './types.js';
 
 /**
@@ -40,6 +41,8 @@ const FOOTER: Text = {
   ur: 'Pehle mujhe plan dikhao: har file aur har tabdeeli ki list do, aur ruko. Jab tak main approve na karun kuch apply mat karo. Koi key ya secret value kabhi print mat karo, na maango, na likho.',
 };
 
+const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 function build(en: string, ur: string): Text {
   return { en: `${en}\n\n${FOOTER.en}`, ur: `${ur}\n\n${FOOTER.ur}` };
 }
@@ -67,8 +70,18 @@ export function fixFindingPrompt(
 }
 
 /** A secret key found in a script of the site. */
-export function fixSiteSecretPrompt(scriptName: string | undefined): Text {
+export function fixSiteSecretPrompt(
+  scriptName: string | undefined,
+  kind: KeyKind = 'secret-key',
+): Text {
   const script = plain(scriptName, 'a script');
+  if (!isSupabaseKind(kind)) {
+    const { label, rotateWhere } = KEY_PROVIDERS[kind];
+    return build(
+      `${cap(label.en)} was found in the script "${script}" that my website sends to every visitor. Find where my code uses it. Move that work to server-side code (an API route or an edge function) so the browser never receives it, and read the key only from a server environment variable, never one that starts with NEXT_PUBLIC_ or VITE_. Remind me to rotate the key: ${rotateWhere.en}.`,
+      `Mere website ke script "${script}" mein, jo har visitor ko jaata hai, ${label.ur} mili. Dhoondo ke mera code ise kahan use karta hai. Woh kaam server-side code (API route ya edge function) mein le jao taake browser ko woh kabhi na mile, aur key sirf server environment variable se parho, aisi variable se nahi jo NEXT_PUBLIC_ ya VITE_ se shuru ho. Mujhe yaad dilao ke key rotate karni hai: ${rotateWhere.ur}.`,
+    );
+  }
   return build(
     `A Supabase secret key was found in the script "${script}" that my website sends to every visitor. Find where my code uses the secret key. Move that work to server-side code (an API route or an edge function) so the browser never receives it. Read it only from a server environment variable, never one that starts with NEXT_PUBLIC_ or VITE_, and use only the publishable key in browser code. Remind me to rotate the key in the Supabase dashboard.`,
     `Mere website ke script "${script}" mein, jo har visitor ko jaata hai, Supabase secret key mili. Dhoondo ke mera code secret key kahan use karta hai. Woh kaam server-side code (API route ya edge function) mein le jao taake browser ko woh kabhi na mile. Use sirf server environment variable se parho, aisi variable se nahi jo NEXT_PUBLIC_ ya VITE_ se shuru ho, aur browser code mein sirf publishable key rakho. Mujhe yaad dilao ke Supabase dashboard mein key rotate karni hai.`,
@@ -76,8 +89,18 @@ export function fixSiteSecretPrompt(scriptName: string | undefined): Text {
 }
 
 /** A secret key found in a file of the repository. */
-export function fixRepoSecretPrompt(filePath: string | undefined): Text {
+export function fixRepoSecretPrompt(
+  filePath: string | undefined,
+  kind: KeyKind = 'secret-key',
+): Text {
   const file = plain(filePath, 'a file');
+  if (!isSupabaseKind(kind)) {
+    const { label, rotateWhere } = KEY_PROVIDERS[kind];
+    return build(
+      `${cap(label.en)} was found in the file "${file}" of my repository. Take it out of that file and read it from an environment variable instead. Make sure the env files are listed in .gitignore. Remind me that the old commits keep the key, so I must rotate it: ${rotateWhere.en}.`,
+      `Mere repository ki file "${file}" mein ${label.ur} mili. Use us file se nikalo aur uski jagah environment variable se parho. Dekho ke env files .gitignore mein hain. Mujhe yaad dilao ke purane commits mein key rehti hai, is liye mujhe use rotate karna hai: ${rotateWhere.ur}.`,
+    );
+  }
   return build(
     `A Supabase secret key was found in the file "${file}" of my repository. Take it out of that file and read it from an environment variable instead. Make sure the env files are listed in .gitignore. Remind me that the old commits keep the key, so I must rotate it in the Supabase dashboard.`,
     `Mere repository ki file "${file}" mein Supabase secret key mili. Use us file se nikalo aur uski jagah environment variable se parho. Dekho ke env files .gitignore mein hain. Mujhe yaad dilao ke purane commits mein key rehti hai, is liye mujhe Supabase dashboard mein use rotate karna hai.`,

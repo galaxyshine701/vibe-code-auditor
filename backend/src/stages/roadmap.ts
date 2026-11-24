@@ -1,4 +1,10 @@
 import type { Finding, Severity } from '../prover/types.js';
+import {
+  KEY_PROVIDERS,
+  isSupabaseKind,
+  kindOrDefault,
+  rotateStep,
+} from './key-providers.js';
 import { CHECKS } from './planner-config.js';
 import {
   fixFindingPrompt,
@@ -53,6 +59,8 @@ export const KIND_RANK: readonly RoadmapKind[] = [
   'provide-input',
   'retest',
 ];
+
+const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const SEVERITY_RANK: readonly Severity[] = [
   'critical',
@@ -349,6 +357,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   for (const item of evidence) {
     if (item.kind !== 'site-bundle' || item.verdict !== 'LEAKED') continue;
     const subject = plain(item.subject, 'a script');
+    const keyKind = kindOrDefault(item.keyKind);
     drafts.push({
       kind: 'fix-site-secret',
       severity: 'critical',
@@ -357,15 +366,17 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
         en: `Remove the secret key from the script "${subject}"`,
         ur: `Script "${subject}" se secret key hatayein`,
       },
-      why: {
-        en: 'A Supabase secret key was found in a script that any visitor can download. Anyone who reads it can use the key.',
-        ur: 'Ek Supabase secret key aisi script mein mili jise har visitor download kar sakta hai. Jo bhi use parhe wo key istemal kar sakta hai.',
-      },
+      why: isSupabaseKind(keyKind)
+        ? {
+            en: 'A Supabase secret key was found in a script that any visitor can download. Anyone who reads it can use the key.',
+            ur: 'Ek Supabase secret key aisi script mein mili jise har visitor download kar sakta hai. Jo bhi use parhe wo key istemal kar sakta hai.',
+          }
+        : {
+            en: `${cap(KEY_PROVIDERS[keyKind].label.en)} was found in a script that any visitor can download. Anyone who reads it can use the key.`,
+            ur: `${KEY_PROVIDERS[keyKind].label.ur} aisi script mein mili jise har visitor download kar sakta hai. Jo bhi use parhe wo key istemal kar sakta hai.`,
+          },
       steps: [
-        {
-          en: 'Rotate the key now: in Supabase go to API keys, create a new secret key and delete the old one.',
-          ur: 'Key abhi rotate karein: Supabase -> API keys mein nayi secret key banayein aur purani delete karein.',
-        },
+        rotateStep(keyKind),
         {
           en: 'Remove the key from your code and from any env file that is built into the site. Use it only on a server.',
           ur: 'Key ko apne code se aur us env file se hatayein jo site mein build hoti hai. Ise sirf server par istemal karein.',
@@ -379,7 +390,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab nahi hai.',
         },
       ],
-      fixPrompt: fixSiteSecretPrompt(item.subject),
+      fixPrompt: fixSiteSecretPrompt(item.subject, keyKind),
       refs: { checkId: BUNDLE, evidenceIds: [item.id] },
     });
   }
@@ -389,6 +400,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   for (const item of evidence) {
     if (item.kind !== 'repo-file' || item.verdict !== 'LEAKED') continue;
     const subject = plain(item.subject, 'a file');
+    const keyKind = kindOrDefault(item.keyKind);
     drafts.push({
       kind: 'fix-repo-secret',
       severity: 'critical',
@@ -397,15 +409,17 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
         en: `Remove the secret key from the file "${subject}" and rotate it`,
         ur: `File "${subject}" se secret key hatayein aur use rotate karein`,
       },
-      why: {
-        en: 'A Supabase secret key was found in a file of the public repository. Anyone can read it there, and the old commits keep it even after the file is changed.',
-        ur: 'Ek Supabase secret key public repository ki file mein mili. Wahan jo bhi chahe parh sakta hai, aur file badalne ke baad bhi purane commits mein rehti hai.',
-      },
+      why: isSupabaseKind(keyKind)
+        ? {
+            en: 'A Supabase secret key was found in a file of the public repository. Anyone can read it there, and the old commits keep it even after the file is changed.',
+            ur: 'Ek Supabase secret key public repository ki file mein mili. Wahan jo bhi chahe parh sakta hai, aur file badalne ke baad bhi purane commits mein rehti hai.',
+          }
+        : {
+            en: `${cap(KEY_PROVIDERS[keyKind].label.en)} was found in a file of the public repository. Anyone can read it there, and the old commits keep it even after the file is changed.`,
+            ur: `Public repository ki file mein ${KEY_PROVIDERS[keyKind].label.ur} mili. Wahan jo bhi chahe parh sakta hai, aur file badalne ke baad bhi purane commits mein rehti hai.`,
+          },
       steps: [
-        {
-          en: 'Rotate the key now: in Supabase go to API keys, create a new secret key and delete the old one.',
-          ur: 'Key abhi rotate karein: Supabase -> API keys mein nayi secret key banayein aur purani delete karein.',
-        },
+        rotateStep(keyKind),
         {
           en: 'Take the key out of the file, keep it only in an env file that is not committed, and add that file to .gitignore.',
           ur: 'Key ko file se nikalein, use sirf aisi env file mein rakhein jo commit nahi hoti, aur us file ko .gitignore mein daalein.',
@@ -415,7 +429,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab files mein nahi hai.',
         },
       ],
-      fixPrompt: fixRepoSecretPrompt(item.subject),
+      fixPrompt: fixRepoSecretPrompt(item.subject, keyKind),
       refs: { checkId: REPO, evidenceIds: [item.id] },
     });
   }

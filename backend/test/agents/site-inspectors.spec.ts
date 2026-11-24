@@ -8,6 +8,7 @@ import {
   type SafeFetchOptions,
   type SafeFetchResult,
 } from '../../src/net/safe-fetch.js';
+import { KEY_FORMATS_LIMIT } from '../../src/stages/key-providers.js';
 import { BUNDLE_SCAN_LIMITS } from '../../src/stages/planner-config.js';
 
 const SITE = 'https://www.example-shop.com';
@@ -287,6 +288,7 @@ describe('Bundle inspector', () => {
     expect(context.siteResults!['bundle-secrets']).toEqual({
       id: 'bundle-secrets',
       status: 'completed',
+      limitNotes: [KEY_FORMATS_LIMIT],
     });
     expect(context.siteEvidence).toEqual([]);
   });

@@ -1,5 +1,6 @@
 import { REPO_CHECK, REPO_CHECK_ID, notProvidedReason } from '../stages/planner-config.js';
-import { KEY_LABEL, type KeyKind } from '../stages/site-rules.js';
+import { KEY_PROVIDERS, foundInRepo } from '../stages/key-providers.js';
+import type { KeyKind } from '../stages/site-rules.js';
 import type { EvidenceItem, Text } from '../stages/types.js';
 import { MAX_ENV_FILE_HITS } from '../repo/env-file-rules.js';
 import { MAX_MIGRATION_HITS } from '../repo/migration-rules.js';
@@ -18,23 +19,12 @@ import { RUN_STOPPED } from './site-agent-kit.js';
 
 export const REPO_INSPECTOR_ID = REPO_CHECK_ID;
 
-const WHAT_FOUND: Record<KeyKind, Text> = {
-  'secret-key': {
-    en: 'A Supabase secret key (sb_secret_...) is in this file of the repository. Anyone who opens the repository can read it, and old commits keep it. Rotate the key and remove it from the file.',
-    ur: 'Repository ki is file mein Supabase ki secret key (sb_secret_...) maujood hai. Jo bhi repository kholta hai use parh sakta hai, aur purane commits mein bhi rehti hai. Key rotate karein aur file se hatayein.',
-  },
-  'service-role-jwt': {
-    en: 'A Supabase service_role key is in this file of the repository. Anyone who opens the repository can read it, and old commits keep it. Rotate the key and remove it from the file.',
-    ur: 'Repository ki is file mein Supabase ki service_role key maujood hai. Jo bhi repository kholta hai use parh sakta hai, aur purane commits mein bhi rehti hai. Key rotate karein aur file se hatayein.',
-  },
-};
-
 /** A key-like value in a test path: not proven, so a warning only. */
 function whatTestKey(kind: KeyKind): Text {
-  const label = KEY_LABEL[kind];
+  const label = KEY_PROVIDERS[kind].label;
   return {
-    en: `This file is in a test path and holds ${label}. Test files often hold fake values, so this is not proven to be a real leak. If the key is real, anyone who opens the repository can read it and old commits keep it: rotate it and remove it from the file.`,
-    ur: `Ye file test ke path mein hai aur isme ${label} jaisi value hai. Test files mein aksar nakli values hoti hain, isliye ye sabit shuda leak nahi. Agar key asli hai to jo bhi repository kholta hai use parh sakta hai aur purane commits mein rehti hai: use rotate karein aur file se hatayein.`,
+    en: `This file is in a test path and holds ${label.en}. Test files often hold fake values, so this is not proven to be a real leak. If the key is real, anyone who opens the repository can read it and old commits keep it: rotate it and remove it from the file.`,
+    ur: `Ye file test ke path mein hai aur isme ${label.ur} jaisi value hai. Test files mein aksar nakli values hoti hain, isliye ye sabit shuda leak nahi. Agar key asli hai to jo bhi repository kholta hai use parh sakta hai aur purane commits mein rehti hai: use rotate karein aur file se hatayein.`,
   };
 }
 
@@ -191,9 +181,10 @@ export function createRepoInspectorAgent(
         subject: hit.path,
         line: hit.line,
         kind: 'repo-file' as const,
+        keyKind: hit.kind,
         verdict: 'LEAKED' as const,
         proof: 'PROVEN' as const,
-        summary: WHAT_FOUND[hit.kind],
+        summary: foundInRepo(hit.kind),
       }));
       const testItems: EvidenceItem[] = testKeys.map((hit, index) => ({
         id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + index + 1}`,
@@ -203,6 +194,7 @@ export function createRepoInspectorAgent(
         subject: hit.path,
         line: hit.line,
         kind: 'repo-test-key' as const,
+        keyKind: hit.kind,
         verdict: 'INCONCLUSIVE' as const,
         proof: 'UNVERIFIED' as const,
         summary: whatTestKey(hit.kind),

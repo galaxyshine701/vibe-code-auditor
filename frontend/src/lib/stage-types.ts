@@ -46,6 +46,8 @@ export type EvidenceKind =
 export interface EvidenceItem {
   id: string;
   check: string;
+  /** For a key item: which kind of key (never the key). Missing = a Supabase key. */
+  keyKind?: string;
   /** null for a site item. */
   findingId?: string | null;
   /** null for a site item. */

@@ -115,6 +115,10 @@
       "ur": "Sirf text files parhi jati hain (har file 1 MB tak; zip 15 MB tak, unpack hone par 40 MB, 3000 entries). node_modules aur dist jaise folders chhod diye jate hain, aur jo files parhi na ja sakin unka naam \"not read\" mein aata hai."
     },
     {
+      "en": "The keys that are looked for: a Supabase secret key or service_role key, and the secret keys of OpenAI (sk-), Stripe (sk_live_, rk_live_), AWS (access key id AKIA), GitHub (ghp_, github_pat_), Slack (xoxb-), Anthropic (sk-ant-) and Groq (gsk_), each by its fixed prefix and a minimum length. Google keys (AIza) and Stripe publishable keys (pk_) are meant to be public and are not reported. Values that are only examples (xxxx, your_..., example, changeme) are skipped.",
+      "ur": "Jin keys ko dhoonda jata hai: Supabase ki secret key ya service_role key, aur OpenAI (sk-), Stripe (sk_live_, rk_live_), AWS (access key id AKIA), GitHub (ghp_, github_pat_), Slack (xoxb-), Anthropic (sk-ant-) aur Groq (gsk_) ki secret keys, har ek apne tay shuda prefix aur kam az kam lambai se. Google keys (AIza) aur Stripe ki publishable keys (pk_) public hone ke liye hoti hain, unhein report nahi kiya jata. Jo values sirf misal hain (xxxx, your_..., example, changeme) chhod di jati hain."
+    },
+    {
       "en": "A key found in a test path (a folder called test, tests, __tests__, fixtures, __mocks__ or e2e, or a file called *.test.* or *.spec.*) is only a warning sign (INCONCLUSIVE), because test files often hold fake values.",
       "ur": "Test path mein mili hui key (test, tests, __tests__, fixtures, __mocks__ ya e2e naam ka folder, ya *.test.* ya *.spec.* file) sirf khatre ki nishani hai (INCONCLUSIVE), kyunke test files mein aksar nakli values hoti hain."
     },

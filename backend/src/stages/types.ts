@@ -1,4 +1,5 @@
 import type { Severity } from '../prover/types.js';
+import type { KeyKind } from './site-rules.js';
 
 /** A sentence in both languages, as everywhere else in the API. */
 export interface Text {
@@ -102,6 +103,12 @@ export interface EvidenceItem {
   /** For a file of a repository: the 1-based line. Never the text of the line. */
   line?: number;
   kind?: EvidenceKind;
+  /**
+   * For an item about a secret key (repo-file, repo-test-key, site-bundle):
+   * which kind of key. Never the key. Missing = a Supabase key (items made
+   * before other providers were looked for).
+   */
+  keyKind?: KeyKind;
   verdict: 'LEAKED' | 'BLOCKED' | 'INCONCLUSIVE';
   /** PROVEN = seen directly by the check. UNVERIFIED = the check could not tell. */
   proof: Proof;
