@@ -420,6 +420,45 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
     });
   }
 
+  // A committed env file with a secret-looking variable that has a value. The
+  // value was not tested, so it is a warning (high, never critical), but the
+  // file is public: rotate what is real, and take the file out of the repo.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-env-file' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const subject = plain(item.subject, 'an env file');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Take the env file "${subject}" out of the repository and rotate its secrets`,
+        ur: `Env file "${subject}" ko repository se hatayein aur uski secrets rotate karein`,
+      },
+      why: {
+        en: 'An env file with secret-looking variables is committed to the public repository. Anyone can read it, and the old commits keep it. The values were not checked.',
+        ur: 'Secret jaisi variables wali env file public repository mein commit hai. Jo bhi chahe parh sakta hai, aur purane commits mein rehti hai. Values check nahi hui.',
+      },
+      steps: [
+        {
+          en: 'Rotate every real secret that is in the file, at the service that issued it.',
+          ur: 'File mein jo bhi asli secret hai use us service par rotate karein jis ne di hai.',
+        },
+        {
+          en: 'Stop tracking the file (git rm --cached) and add it to .gitignore. Keep a .env.example with empty values.',
+          ur: 'File ki tracking band karein (git rm --cached) aur use .gitignore mein daalein. Khali values wali .env.example rakhein.',
+        },
+        {
+          en: 'Run the audit again to check the file is gone.',
+          ur: 'Audit dobara chalayein aur dekhein ke file ab nahi hai.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('committed-env', item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
   // A key-like value in a test path. It may be a fake one, so it is only a
   // warning: high, never critical, and it never changes the gate by itself.
   for (const item of evidence) {

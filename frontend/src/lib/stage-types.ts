@@ -38,6 +38,7 @@ export type EvidenceKind =
   | 'site-headers'
   | 'repo-file'
   | 'repo-test-key'
+  | 'repo-env-file'
   | 'repo-env-name'
   | 'repo-migration'
   | string;

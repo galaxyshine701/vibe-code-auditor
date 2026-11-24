@@ -101,6 +101,7 @@ export const COPY = {
   kindRepo: { en: 'Repository files', ur: 'Repository ki files' },
   kindRepoMigration: { en: 'Repository migrations', ur: 'Repository ki migrations' },
   kindRepoTestKey: { en: 'Repository test files', ur: 'Repository ki test files' },
+  kindRepoEnvFile: { en: 'Repository env files', ur: 'Repository ki env files' },
   kindRepoName: { en: 'Repository variable names', ur: 'Repository ki variable ke naam' },
   repoKeyHidden: {
     en: 'The key is hidden. Only its place is shown.',

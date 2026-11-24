@@ -75,6 +75,8 @@ export type EvidenceKind =
   | 'repo-file'
   /** a secret key in a test path of the repository: not proven, INCONCLUSIVE (Repo Scan) */
   | 'repo-test-key'
+  /** a committed env file with a secret-looking variable that has a value (Repo Scan, rule 3) */
+  | 'repo-env-file'
   /** a NEXT_PUBLIC_ / VITE_ variable name with SECRET or SERVICE_ROLE in a file of the repository (Repo Scan, rule 2) */
   | 'repo-env-name'
   /** a table that a migration creates and no migration enables row level security for (Repo Scan, rule 1) */

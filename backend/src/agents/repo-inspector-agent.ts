@@ -1,6 +1,7 @@
 import { REPO_CHECK, REPO_CHECK_ID, notProvidedReason } from '../stages/planner-config.js';
 import { KEY_LABEL, type KeyKind } from '../stages/site-rules.js';
 import type { EvidenceItem, Text } from '../stages/types.js';
+import { MAX_ENV_FILE_HITS } from '../repo/env-file-rules.js';
 import { MAX_MIGRATION_HITS } from '../repo/migration-rules.js';
 import { createGithubTransport } from '../repo/github-transport.js';
 import { REPO_SCAN_LIMITS } from '../repo/repo-limits.js';
@@ -41,6 +42,22 @@ function whatTestKey(kind: KeyKind): Text {
 const TEST_LIST_CUT: Text = {
   en: `The list of keys found in test paths is not complete: only the first ${MAX_TEST_KEY_HITS} are listed.`,
   ur: `Test paths mein milne wali keys ki list mukammal nahi: sirf pehli ${MAX_TEST_KEY_HITS} likhi gayi hain.`,
+};
+
+/** A committed env file with secret-looking variables. Names only, never a value. */
+function whatEnvFile(names: string[], more: number): Text {
+  const list = names.join(', ') + (more > 0 ? ` and ${more} more` : '');
+  const listUr = names.join(', ') + (more > 0 ? ` aur ${more} aur` : '');
+  return {
+    en: `This env file is committed to the repository and has variables with secret-looking names and a value: ${list}. Anyone who opens the repository can read the file, and old commits keep it. The values were not checked, so this is a warning sign, not a proven leak.`,
+    ur: `Ye env file repository mein commit hai aur isme secret jaise naam wali variables hain jin ki value likhi hai: ${listUr}. Jo bhi repository kholta hai file parh sakta hai, aur purane commits mein rehti hai. Values check nahi hui, isliye ye khatre ki nishani hai, sabit shuda leak nahi.`,
+  };
+}
+
+/** Said in the limits when more env files than the list holds. */
+const ENV_LIST_CUT: Text = {
+  en: `The list of committed env files with secret-looking variables is not complete: only the first ${MAX_ENV_FILE_HITS} files are listed.`,
+  ur: `Secret jaisi variables wali committed env files ki list mukammal nahi: sirf pehli ${MAX_ENV_FILE_HITS} files likhi gayi hain.`,
 };
 
 const WHAT_NAME: Text = {
@@ -190,10 +207,24 @@ export function createRepoInspectorAgent(
         proof: 'UNVERIFIED' as const,
         summary: whatTestKey(hit.kind),
       }));
+      // Rule 3: a committed env file with a secret-looking variable and a value.
+      // Names and path only. The value is not tested: INCONCLUSIVE, never LEAKED.
+      const envItems: EvidenceItem[] = outcome.envHits.map((hit, index) => ({
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + index + 1}`,
+        check: REPO_INSPECTOR_ID,
+        findingId: null,
+        table: null,
+        subject: hit.path,
+        line: hit.line,
+        kind: 'repo-env-file' as const,
+        verdict: 'INCONCLUSIVE' as const,
+        proof: 'UNVERIFIED' as const,
+        summary: whatEnvFile(hit.names, hit.more),
+      }));
       // Rule 2: a public variable name that says SECRET or SERVICE_ROLE. The
       // check can not see the value's use, so it is INCONCLUSIVE, never LEAKED.
       const nameItems: EvidenceItem[] = outcome.nameHits.map((hit, index) => ({
-        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + index + 1}`,
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + envItems.length + index + 1}`,
         check: REPO_INSPECTOR_ID,
         findingId: null,
         table: null,
@@ -208,7 +239,7 @@ export function createRepoInspectorAgent(
       // in any migration. The real database may differ: INCONCLUSIVE only.
       const migrationItems: EvidenceItem[] = outcome.migrationHits.map(
         (hit, index) => ({
-          id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + nameItems.length + index + 1}`,
+          id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + envItems.length + nameItems.length + index + 1}`,
           check: REPO_INSPECTOR_ID,
           findingId: null,
           table: hit.table,
@@ -223,6 +254,7 @@ export function createRepoInspectorAgent(
       (context.siteEvidence ??= []).push(
         ...items,
         ...testItems,
+        ...envItems,
         ...nameItems,
         ...migrationItems,
       );
@@ -231,6 +263,7 @@ export function createRepoInspectorAgent(
       const missed = outcome.notRead.filter((n) => NOT_READ[n.reason]);
       const notes = [
         ...(outcome.testHitsCut ? [TEST_LIST_CUT] : []),
+        ...(outcome.envHitsCut ? [ENV_LIST_CUT] : []),
         ...(outcome.nameHitsCut ? [NAME_LIST_CUT] : []),
         ...(outcome.migrationHitsCut ? [MIGRATION_LIST_CUT] : []),
       ];
