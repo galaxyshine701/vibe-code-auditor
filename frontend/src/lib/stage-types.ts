@@ -37,6 +37,7 @@ export type EvidenceKind =
   | 'site-bundle'
   | 'site-headers'
   | 'repo-file'
+  | 'repo-test-key'
   | 'repo-env-name'
   | 'repo-migration'
   | string;

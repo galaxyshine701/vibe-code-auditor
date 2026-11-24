@@ -1,11 +1,12 @@
 import { REPO_CHECK, REPO_CHECK_ID, notProvidedReason } from '../stages/planner-config.js';
-import type { KeyKind } from '../stages/site-rules.js';
+import { KEY_LABEL, type KeyKind } from '../stages/site-rules.js';
 import type { EvidenceItem, Text } from '../stages/types.js';
 import { MAX_MIGRATION_HITS } from '../repo/migration-rules.js';
 import { createGithubTransport } from '../repo/github-transport.js';
 import { REPO_SCAN_LIMITS } from '../repo/repo-limits.js';
 import {
   MAX_NAME_HITS,
+  MAX_TEST_KEY_HITS,
   scanRepo,
   type RepoNotReadReason,
   type RepoTransport,
@@ -25,6 +26,21 @@ const WHAT_FOUND: Record<KeyKind, Text> = {
     en: 'A Supabase service_role key is in this file of the repository. Anyone who opens the repository can read it, and old commits keep it. Rotate the key and remove it from the file.',
     ur: 'Repository ki is file mein Supabase ki service_role key maujood hai. Jo bhi repository kholta hai use parh sakta hai, aur purane commits mein bhi rehti hai. Key rotate karein aur file se hatayein.',
   },
+};
+
+/** A key-like value in a test path: not proven, so a warning only. */
+function whatTestKey(kind: KeyKind): Text {
+  const label = KEY_LABEL[kind];
+  return {
+    en: `This file is in a test path and holds ${label}. Test files often hold fake values, so this is not proven to be a real leak. If the key is real, anyone who opens the repository can read it and old commits keep it: rotate it and remove it from the file.`,
+    ur: `Ye file test ke path mein hai aur isme ${label} jaisi value hai. Test files mein aksar nakli values hoti hain, isliye ye sabit shuda leak nahi. Agar key asli hai to jo bhi repository kholta hai use parh sakta hai aur purane commits mein rehti hai: use rotate karein aur file se hatayein.`,
+  };
+}
+
+/** Said in the limits when more keys than the list holds were found in test paths. */
+const TEST_LIST_CUT: Text = {
+  en: `The list of keys found in test paths is not complete: only the first ${MAX_TEST_KEY_HITS} are listed.`,
+  ur: `Test paths mein milne wali keys ki list mukammal nahi: sirf pehli ${MAX_TEST_KEY_HITS} likhi gayi hain.`,
 };
 
 const WHAT_NAME: Text = {
@@ -146,7 +162,11 @@ export function createRepoInspectorAgent(
         );
       }
 
-      const items: EvidenceItem[] = outcome.hits.map((hit, index) => ({
+      // A key in a normal file is a proven leak. The same key in a test path
+      // may be a fake one: INCONCLUSIVE, never LEAKED, never a gate reason.
+      const leaks = outcome.hits.filter((hit) => !hit.testPath);
+      const testKeys = outcome.hits.filter((hit) => hit.testPath);
+      const items: EvidenceItem[] = leaks.map((hit, index) => ({
         id: `ev_site_${REPO_INSPECTOR_ID}_${index + 1}`,
         check: REPO_INSPECTOR_ID,
         findingId: null,
@@ -158,10 +178,22 @@ export function createRepoInspectorAgent(
         proof: 'PROVEN' as const,
         summary: WHAT_FOUND[hit.kind],
       }));
+      const testItems: EvidenceItem[] = testKeys.map((hit, index) => ({
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + index + 1}`,
+        check: REPO_INSPECTOR_ID,
+        findingId: null,
+        table: null,
+        subject: hit.path,
+        line: hit.line,
+        kind: 'repo-test-key' as const,
+        verdict: 'INCONCLUSIVE' as const,
+        proof: 'UNVERIFIED' as const,
+        summary: whatTestKey(hit.kind),
+      }));
       // Rule 2: a public variable name that says SECRET or SERVICE_ROLE. The
       // check can not see the value's use, so it is INCONCLUSIVE, never LEAKED.
       const nameItems: EvidenceItem[] = outcome.nameHits.map((hit, index) => ({
-        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + index + 1}`,
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + index + 1}`,
         check: REPO_INSPECTOR_ID,
         findingId: null,
         table: null,
@@ -176,7 +208,7 @@ export function createRepoInspectorAgent(
       // in any migration. The real database may differ: INCONCLUSIVE only.
       const migrationItems: EvidenceItem[] = outcome.migrationHits.map(
         (hit, index) => ({
-          id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + nameItems.length + index + 1}`,
+          id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + nameItems.length + index + 1}`,
           check: REPO_INSPECTOR_ID,
           findingId: null,
           table: hit.table,
@@ -190,6 +222,7 @@ export function createRepoInspectorAgent(
       );
       (context.siteEvidence ??= []).push(
         ...items,
+        ...testItems,
         ...nameItems,
         ...migrationItems,
       );
@@ -197,6 +230,7 @@ export function createRepoInspectorAgent(
       // A binary file is not a miss. A big file or a link is.
       const missed = outcome.notRead.filter((n) => NOT_READ[n.reason]);
       const notes = [
+        ...(outcome.testHitsCut ? [TEST_LIST_CUT] : []),
         ...(outcome.nameHitsCut ? [NAME_LIST_CUT] : []),
         ...(outcome.migrationHitsCut ? [MIGRATION_LIST_CUT] : []),
       ];

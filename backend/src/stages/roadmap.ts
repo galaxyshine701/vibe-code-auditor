@@ -420,6 +420,48 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
     });
   }
 
+  // A key-like value in a test path. It may be a fake one, so it is only a
+  // warning: high, never critical, and it never changes the gate by itself.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-test-key' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const subject = plain(item.subject, 'a test file');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check the key-like value in the test file "${subject}"`,
+        ur: `Test file "${subject}" ki key jaisi value dekhein`,
+      },
+      why: {
+        en: 'A value that looks like a secret key is in a test file of the public repository. Test files often hold fake values, so this could not be confirmed as a real key.',
+        ur: 'Public repository ki test file mein secret key jaisi value hai. Test files mein aksar nakli values hoti hain, isliye ye asli key hone ki tasdeeq nahi ho saki.',
+      },
+      steps: [
+        {
+          en: 'Open the file and find out whether the value is a real key or a fake one made for the test.',
+          ur: 'File kholein aur dekhein ke value asli key hai ya test ke liye nakli.',
+        },
+        {
+          en: 'If it is real, rotate it now, take it out of the file and keep it only in an env file that is not committed.',
+          ur: 'Agar asli hai to use abhi rotate karein, file se nikalein aur sirf aisi env file mein rakhein jo commit nahi hoti.',
+        },
+        {
+          en: 'If it is fake, change it to an obvious placeholder, so it no longer looks like a real key.',
+          ur: 'Agar nakli hai to use saaf placeholder bana dein, taake wo asli key jaisi na lage.',
+        },
+        {
+          en: 'Run the audit again to check the file.',
+          ur: 'File dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('test-key', item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
   // A public variable name that says SECRET or SERVICE_ROLE (rule 2). Only a
   // warning: the value was not looked at, so it is high, never critical, and
   // it never changes the gate by itself.

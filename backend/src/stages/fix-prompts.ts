@@ -132,7 +132,10 @@ export function sqlName(table: string): string {
     : `"${table.replace(/"/g, '""')}"`;
 }
 
-export type ImproveRepoRule = 'migration-rls' | 'public-env-secret';
+export type ImproveRepoRule =
+  | 'migration-rls'
+  | 'public-env-secret'
+  | 'test-key';
 
 export function improveRepoPrompt(
   rule: ImproveRepoRule,
@@ -143,6 +146,13 @@ export function improveRepoPrompt(
     return build(
       `My repository has a migration that creates the table "${table}" but no migration that runs "enable row level security" for it. It may be turned on elsewhere (for example in the Supabase dashboard). First check the other migrations. If it is not turned on, add a new migration with "alter table public.${sqlName(table)} enable row level security", and show me the policies you propose before anything else.`,
       `Mere repository ki ek migration table "${table}" banati hai, lekin koi migration is ke liye "enable row level security" nahi chalati. Ho sakta hai woh kahin aur (maslan Supabase dashboard mein) on ho. Pehle baaki migrations dekho. Agar on nahi hai to nayi migration lagao jis mein "alter table public.${sqlName(table)} enable row level security" ho, aur sab se pehle mujhe woh policies dikhao jo tum suggest karte ho.`,
+    );
+  }
+  if (rule === 'test-key') {
+    const file = plain(subject, 'a test file');
+    return build(
+      `In the test file "${file}" of my repository there is a value that looks like a secret key. Find out whether it is a real key or a fake one made for the test. If it is real, take it out of the file, rotate it in the service that issued it, and read it from an environment variable that is not committed. If it is fake, change it to an obvious placeholder (for example "test-key-not-real") or build it inside the test from several parts, so that it no longer looks like a real key.`,
+      `Mere repository ki test file "${file}" mein ek aisi value hai jo secret key jaisi lagti hai. Dekho ke ye asli key hai ya test ke liye banayi hui nakli. Agar asli hai to use file se nikalo, jis service ne di hai wahan rotate karo, aur aisi environment variable se parho jo commit na ho. Agar nakli hai to use saaf placeholder (maslan "test-key-not-real") bana do, ya test ke andar kai hisson se banao, taake wo asli key jaisi na lage.`,
     );
   }
   const file = plain(subject, 'a file');

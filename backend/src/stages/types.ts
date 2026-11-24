@@ -73,6 +73,8 @@ export type EvidenceKind =
   | 'site-headers'
   /** a secret key in a file of the GitHub repository (Repo Scan) */
   | 'repo-file'
+  /** a secret key in a test path of the repository: not proven, INCONCLUSIVE (Repo Scan) */
+  | 'repo-test-key'
   /** a NEXT_PUBLIC_ / VITE_ variable name with SECRET or SERVICE_ROLE in a file of the repository (Repo Scan, rule 2) */
   | 'repo-env-name'
   /** a table that a migration creates and no migration enables row level security for (Repo Scan, rule 1) */

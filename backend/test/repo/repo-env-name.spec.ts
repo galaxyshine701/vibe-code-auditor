@@ -87,7 +87,9 @@ describe('scanRepo: public secret names', () => {
       zip({ name: 'o-r-1/.env', data: `NEXT_PUBLIC_SECRET=${SECRET}` }),
       REPO,
     );
-    expect(outcome.hits).toEqual([{ path: '.env', kind: 'secret-key', line: 1 }]);
+    expect(outcome.hits).toEqual([
+      { path: '.env', kind: 'secret-key', line: 1, testPath: false },
+    ]);
     expect(outcome.nameHits).toEqual([]);
   });
   it('lists at most MAX_NAME_HITS files', async () => {

@@ -169,6 +169,12 @@ export function extractScriptUrls(
 
 export type KeyKind = 'secret-key' | 'service-role-jwt';
 
+/** How a key kind is named in a sentence (never the key itself). */
+export const KEY_LABEL: Record<KeyKind, string> = {
+  'secret-key': 'a Supabase secret key (sb_secret_...)',
+  'service-role-jwt': 'a Supabase service_role key',
+};
+
 const MAX_JWT_CHECKS = 200;
 
 /**

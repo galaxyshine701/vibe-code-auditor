@@ -100,6 +100,7 @@ export const COPY = {
   kindBundle: { en: 'Scripts of the site', ur: 'Site ki scripts' },
   kindRepo: { en: 'Repository files', ur: 'Repository ki files' },
   kindRepoMigration: { en: 'Repository migrations', ur: 'Repository ki migrations' },
+  kindRepoTestKey: { en: 'Repository test files', ur: 'Repository ki test files' },
   kindRepoName: { en: 'Repository variable names', ur: 'Repository ki variable ke naam' },
   repoKeyHidden: {
     en: 'The key is hidden. Only its place is shown.',
