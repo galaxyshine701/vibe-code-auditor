@@ -18,6 +18,10 @@ const KIND_TITLE: Record<string, CopyKey> = {
   'site-headers': 'kindHeaders',
   'site-bundle': 'kindBundle',
   'repo-file': 'kindRepo',
+  'repo-test-key': 'kindRepoTestKey',
+  'repo-env-file': 'kindRepoEnvFile',
+  'repo-env-name': 'kindRepoName',
+  'repo-migration': 'kindRepoMigration',
 };
 
 const VERDICTS: readonly string[] = ['LEAKED', 'BLOCKED', 'INCONCLUSIVE'];
@@ -35,7 +39,23 @@ function Subject({ item, lang }: { item: EvidenceItem; lang: Lang }) {
   if (kind === 'table') {
     return <code className="evidence-subject">{item.table ?? item.subject ?? item.check}</code>;
   }
-  if (kind === 'repo-file') {
+  if (kind === 'repo-migration') {
+    // the table, and where the migration creates it (path:line)
+    return (
+      <code className="evidence-subject">
+        {item.table ?? item.check}
+        {item.subject
+          ? ` (${item.subject}${typeof item.line === 'number' ? `:${item.line}` : ''})`
+          : ''}
+      </code>
+    );
+  }
+  if (
+    kind === 'repo-file' ||
+    kind === 'repo-test-key' ||
+    kind === 'repo-env-file' ||
+    kind === 'repo-env-name'
+  ) {
     // a path and a line, as the API gave them; never the text of the line
     return (
       <code className="evidence-subject">
@@ -107,7 +127,7 @@ export function EvidenceGroups({
                           : t(lang, 'headerWeak')}
                       </p>
                     ) : null}
-                    {kind === 'repo-file' ? (
+                    {kind === 'repo-file' || kind === 'repo-test-key' ? (
                       <p className="evidence-meaning">{t(lang, 'repoKeyHidden')}</p>
                     ) : null}
                     {item.summary ? (

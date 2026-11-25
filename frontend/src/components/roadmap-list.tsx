@@ -9,6 +9,7 @@ import {
   showsRequiredLabel,
 } from '@/lib/stage';
 import { kindLabel, moreSteps, t } from '@/lib/stage-copy';
+import { FixPrompt } from './fix-prompt';
 
 // The roadmap (R81): the next steps, already in the order to follow, so they are
 // never sorted again. Each item is a step on a line: its number, the kind and
@@ -99,6 +100,9 @@ export function RoadmapList({
                           ))}
                         </ol>
                       </div>
+                    ) : null}
+                    {item.fixPrompt?.en ? (
+                      <FixPrompt prompt={item.fixPrompt} lang={lang} />
                     ) : null}
                     {findingLinks.length > 0 || evidenceLinks.length > 0 ? (
                       <p className="roadmap-links">

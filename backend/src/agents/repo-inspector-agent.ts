@@ -1,9 +1,14 @@
 import { REPO_CHECK, REPO_CHECK_ID, notProvidedReason } from '../stages/planner-config.js';
+import { KEY_PROVIDERS, foundInRepo } from '../stages/key-providers.js';
 import type { KeyKind } from '../stages/site-rules.js';
 import type { EvidenceItem, Text } from '../stages/types.js';
+import { MAX_ENV_FILE_HITS } from '../repo/env-file-rules.js';
+import { MAX_MIGRATION_HITS } from '../repo/migration-rules.js';
 import { createGithubTransport } from '../repo/github-transport.js';
 import { REPO_SCAN_LIMITS } from '../repo/repo-limits.js';
 import {
+  MAX_NAME_HITS,
+  MAX_TEST_KEY_HITS,
   scanRepo,
   type RepoNotReadReason,
   type RepoTransport,
@@ -14,15 +19,57 @@ import { RUN_STOPPED } from './site-agent-kit.js';
 
 export const REPO_INSPECTOR_ID = REPO_CHECK_ID;
 
-const WHAT_FOUND: Record<KeyKind, Text> = {
-  'secret-key': {
-    en: 'A Supabase secret key (sb_secret_...) is in this file of the repository. Anyone who opens the repository can read it, and old commits keep it. Rotate the key and remove it from the file.',
-    ur: 'Repository ki is file mein Supabase ki secret key (sb_secret_...) maujood hai. Jo bhi repository kholta hai use parh sakta hai, aur purane commits mein bhi rehti hai. Key rotate karein aur file se hatayein.',
-  },
-  'service-role-jwt': {
-    en: 'A Supabase service_role key is in this file of the repository. Anyone who opens the repository can read it, and old commits keep it. Rotate the key and remove it from the file.',
-    ur: 'Repository ki is file mein Supabase ki service_role key maujood hai. Jo bhi repository kholta hai use parh sakta hai, aur purane commits mein bhi rehti hai. Key rotate karein aur file se hatayein.',
-  },
+/** A key-like value in a test path: not proven, so a warning only. */
+function whatTestKey(kind: KeyKind): Text {
+  const label = KEY_PROVIDERS[kind].label;
+  return {
+    en: `This file is in a test path and holds ${label.en}. Test files often hold fake values, so this is not proven to be a real leak. If the key is real, anyone who opens the repository can read it and old commits keep it: rotate it and remove it from the file.`,
+    ur: `Ye file test ke path mein hai aur isme ${label.ur} jaisi value hai. Test files mein aksar nakli values hoti hain, isliye ye sabit shuda leak nahi. Agar key asli hai to jo bhi repository kholta hai use parh sakta hai aur purane commits mein rehti hai: use rotate karein aur file se hatayein.`,
+  };
+}
+
+/** Said in the limits when more keys than the list holds were found in test paths. */
+const TEST_LIST_CUT: Text = {
+  en: `The list of keys found in test paths is not complete: only the first ${MAX_TEST_KEY_HITS} are listed.`,
+  ur: `Test paths mein milne wali keys ki list mukammal nahi: sirf pehli ${MAX_TEST_KEY_HITS} likhi gayi hain.`,
+};
+
+/** A committed env file with secret-looking variables. Names only, never a value. */
+function whatEnvFile(names: string[], more: number): Text {
+  const list = names.join(', ') + (more > 0 ? ` and ${more} more` : '');
+  const listUr = names.join(', ') + (more > 0 ? ` aur ${more} aur` : '');
+  return {
+    en: `This env file is committed to the repository and has variables with secret-looking names and a value: ${list}. Anyone who opens the repository can read the file, and old commits keep it. The values were not checked, so this is a warning sign, not a proven leak.`,
+    ur: `Ye env file repository mein commit hai aur isme secret jaise naam wali variables hain jin ki value likhi hai: ${listUr}. Jo bhi repository kholta hai file parh sakta hai, aur purane commits mein rehti hai. Values check nahi hui, isliye ye khatre ki nishani hai, sabit shuda leak nahi.`,
+  };
+}
+
+/** Said in the limits when more env files than the list holds. */
+const ENV_LIST_CUT: Text = {
+  en: `The list of committed env files with secret-looking variables is not complete: only the first ${MAX_ENV_FILE_HITS} files are listed.`,
+  ur: `Secret jaisi variables wali committed env files ki list mukammal nahi: sirf pehli ${MAX_ENV_FILE_HITS} files likhi gayi hain.`,
+};
+
+const WHAT_NAME: Text = {
+  en: 'A variable in this file starts with NEXT_PUBLIC_ or VITE_ and has SECRET or SERVICE_ROLE in its name. A browser build publishes such variables to every visitor. The value was not checked: this is a warning sign, not a proven leak.',
+  ur: 'Is file ki ek variable NEXT_PUBLIC_ ya VITE_ se shuru hoti hai aur uske naam mein SECRET ya SERVICE_ROLE hai. Browser build aisi variables har visitor ko publish kar deta hai. Value check nahi hui: ye khatre ki nishani hai, sabit shuda leak nahi.',
+};
+
+const WHAT_MIGRATION: Text = {
+  en: 'A migration creates this table, and no migration in the repository turns on row level security for it. It may be enabled elsewhere (for example in the Supabase dashboard), so this is a warning sign, not a proven leak.',
+  ur: 'Ek migration ye table banati hai, aur repository ki koi migration iske liye row level security on nahi karti. Ho sakta hai ye kahin aur (maslan Supabase dashboard mein) on ho, isliye ye khatre ki nishani hai, sabit shuda leak nahi.',
+};
+
+/** Said in the limits when more tables than the list holds. */
+const MIGRATION_LIST_CUT: Text = {
+  en: `The list of tables without row level security in the migrations is not complete: only the first ${MAX_MIGRATION_HITS} tables are listed.`,
+  ur: `Migrations mein row level security ke baghair tables ki list mukammal nahi: sirf pehle ${MAX_MIGRATION_HITS} tables likhe gaye hain.`,
+};
+
+/** Said in the limits when more files had such a name than the list holds. */
+const NAME_LIST_CUT: Text = {
+  en: `The list of variable names that say SECRET or SERVICE_ROLE is not complete: only the first ${MAX_NAME_HITS} files are listed.`,
+  ur: `SECRET ya SERVICE_ROLE kehne wali variable ke naamon ki list mukammal nahi: sirf pehli ${MAX_NAME_HITS} files likhi gayi hain.`,
 };
 
 /** One fixed sentence for each reason the repository could not be read. */
@@ -122,7 +169,11 @@ export function createRepoInspectorAgent(
         );
       }
 
-      const items: EvidenceItem[] = outcome.hits.map((hit, index) => ({
+      // A key in a normal file is a proven leak. The same key in a test path
+      // may be a fake one: INCONCLUSIVE, never LEAKED, never a gate reason.
+      const leaks = outcome.hits.filter((hit) => !hit.testPath);
+      const testKeys = outcome.hits.filter((hit) => hit.testPath);
+      const items: EvidenceItem[] = leaks.map((hit, index) => ({
         id: `ev_site_${REPO_INSPECTOR_ID}_${index + 1}`,
         check: REPO_INSPECTOR_ID,
         findingId: null,
@@ -130,17 +181,90 @@ export function createRepoInspectorAgent(
         subject: hit.path,
         line: hit.line,
         kind: 'repo-file' as const,
+        keyKind: hit.kind,
         verdict: 'LEAKED' as const,
         proof: 'PROVEN' as const,
-        summary: WHAT_FOUND[hit.kind],
+        summary: foundInRepo(hit.kind),
       }));
-      (context.siteEvidence ??= []).push(...items);
+      const testItems: EvidenceItem[] = testKeys.map((hit, index) => ({
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + index + 1}`,
+        check: REPO_INSPECTOR_ID,
+        findingId: null,
+        table: null,
+        subject: hit.path,
+        line: hit.line,
+        kind: 'repo-test-key' as const,
+        keyKind: hit.kind,
+        verdict: 'INCONCLUSIVE' as const,
+        proof: 'UNVERIFIED' as const,
+        summary: whatTestKey(hit.kind),
+      }));
+      // Rule 3: a committed env file with a secret-looking variable and a value.
+      // Names and path only. The value is not tested: INCONCLUSIVE, never LEAKED.
+      const envItems: EvidenceItem[] = outcome.envHits.map((hit, index) => ({
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + index + 1}`,
+        check: REPO_INSPECTOR_ID,
+        findingId: null,
+        table: null,
+        subject: hit.path,
+        line: hit.line,
+        kind: 'repo-env-file' as const,
+        verdict: 'INCONCLUSIVE' as const,
+        proof: 'UNVERIFIED' as const,
+        summary: whatEnvFile(hit.names, hit.more),
+      }));
+      // Rule 2: a public variable name that says SECRET or SERVICE_ROLE. The
+      // check can not see the value's use, so it is INCONCLUSIVE, never LEAKED.
+      const nameItems: EvidenceItem[] = outcome.nameHits.map((hit, index) => ({
+        id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + envItems.length + index + 1}`,
+        check: REPO_INSPECTOR_ID,
+        findingId: null,
+        table: null,
+        subject: hit.path,
+        line: hit.line,
+        kind: 'repo-env-name' as const,
+        verdict: 'INCONCLUSIVE' as const,
+        proof: 'UNVERIFIED' as const,
+        summary: WHAT_NAME,
+      }));
+      // Rule 1: a table a migration creates, with no "enable row level security"
+      // in any migration. The real database may differ: INCONCLUSIVE only.
+      const migrationItems: EvidenceItem[] = outcome.migrationHits.map(
+        (hit, index) => ({
+          id: `ev_site_${REPO_INSPECTOR_ID}_${items.length + testItems.length + envItems.length + nameItems.length + index + 1}`,
+          check: REPO_INSPECTOR_ID,
+          findingId: null,
+          table: hit.table,
+          subject: hit.path,
+          line: hit.line,
+          kind: 'repo-migration' as const,
+          verdict: 'INCONCLUSIVE' as const,
+          proof: 'UNVERIFIED' as const,
+          summary: WHAT_MIGRATION,
+        }),
+      );
+      (context.siteEvidence ??= []).push(
+        ...items,
+        ...testItems,
+        ...envItems,
+        ...nameItems,
+        ...migrationItems,
+      );
 
       // A binary file is not a miss. A big file or a link is.
       const missed = outcome.notRead.filter((n) => NOT_READ[n.reason]);
+      const notes = [
+        ...(outcome.testHitsCut ? [TEST_LIST_CUT] : []),
+        ...(outcome.envHitsCut ? [ENV_LIST_CUT] : []),
+        ...(outcome.nameHitsCut ? [NAME_LIST_CUT] : []),
+        ...(outcome.migrationHitsCut ? [MIGRATION_LIST_CUT] : []),
+      ];
+      const cut = notes.length > 0 ? { limitNotes: notes } : {};
       results[REPO_INSPECTOR_ID] =
         missed.length > 0
           ? {
+              ...cut,
+              filesRead: outcome.filesScanned,
               id: REPO_INSPECTOR_ID,
               status: 'partial',
               reason: {
@@ -152,7 +276,12 @@ export function createRepoInspectorAgent(
                 reason: NOT_READ[n.reason]!,
               })),
             }
-          : { id: REPO_INSPECTOR_ID, status: 'completed' };
+          : {
+              id: REPO_INSPECTOR_ID,
+              status: 'completed',
+              filesRead: outcome.filesScanned,
+              ...cut,
+            };
       setProgress(100);
     },
   };

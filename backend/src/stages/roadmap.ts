@@ -1,5 +1,19 @@
 import type { Finding, Severity } from '../prover/types.js';
+import {
+  KEY_PROVIDERS,
+  isSupabaseKind,
+  kindOrDefault,
+  rotateStep,
+} from './key-providers.js';
 import { CHECKS } from './planner-config.js';
+import {
+  fixFindingPrompt,
+  fixRepoSecretPrompt,
+  fixSiteSecretPrompt,
+  improveHeaderPrompt,
+  improveRepoPrompt,
+  plain,
+} from './fix-prompts.js';
 import type {
   Coverage,
   EvidenceItem,
@@ -46,6 +60,8 @@ export const KIND_RANK: readonly RoadmapKind[] = [
   'retest',
 ];
 
+const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 const SEVERITY_RANK: readonly Severity[] = [
   'critical',
   'high',
@@ -68,6 +84,10 @@ export interface RoadmapInput {
 }
 
 type Draft = Omit<RoadmapItem, 'id'>;
+
+/** `fixPrompt` only when there is one (a key that is absent, not undefined). */
+const fixPromptField = (text: Text | undefined) =>
+  text ? { fixPrompt: text } : {};
 
 const DATA_ACCESS = 'data-access-prover';
 const HEADERS = 'tls-headers';
@@ -286,6 +306,8 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: '"Re-test" dabayein aur dekhein ke table ab leak nahi raha.',
         },
       ],
+      // A finding that has a fix SQL had an owner column; one without does not.
+      fixPrompt: fixFindingPrompt(table, found?.fix != null),
       refs: {
         checkId: DATA_ACCESS,
         findingIds: [item.findingId],
@@ -334,7 +356,8 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   // A secret key in a script of the site: the most urgent thing there is.
   for (const item of evidence) {
     if (item.kind !== 'site-bundle' || item.verdict !== 'LEAKED') continue;
-    const subject = item.subject ?? 'a script';
+    const subject = plain(item.subject, 'a script');
+    const keyKind = kindOrDefault(item.keyKind);
     drafts.push({
       kind: 'fix-site-secret',
       severity: 'critical',
@@ -343,15 +366,17 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
         en: `Remove the secret key from the script "${subject}"`,
         ur: `Script "${subject}" se secret key hatayein`,
       },
-      why: {
-        en: 'A Supabase secret key was found in a script that any visitor can download. Anyone who reads it can use the key.',
-        ur: 'Ek Supabase secret key aisi script mein mili jise har visitor download kar sakta hai. Jo bhi use parhe wo key istemal kar sakta hai.',
-      },
+      why: isSupabaseKind(keyKind)
+        ? {
+            en: 'A Supabase secret key was found in a script that any visitor can download. Anyone who reads it can use the key.',
+            ur: 'Ek Supabase secret key aisi script mein mili jise har visitor download kar sakta hai. Jo bhi use parhe wo key istemal kar sakta hai.',
+          }
+        : {
+            en: `${cap(KEY_PROVIDERS[keyKind].label.en)} was found in a script that any visitor can download. Anyone who reads it can use the key.`,
+            ur: `${KEY_PROVIDERS[keyKind].label.ur} aisi script mein mili jise har visitor download kar sakta hai. Jo bhi use parhe wo key istemal kar sakta hai.`,
+          },
       steps: [
-        {
-          en: 'Rotate the key now: in Supabase go to API keys, create a new secret key and delete the old one.',
-          ur: 'Key abhi rotate karein: Supabase -> API keys mein nayi secret key banayein aur purani delete karein.',
-        },
+        rotateStep(keyKind),
         {
           en: 'Remove the key from your code and from any env file that is built into the site. Use it only on a server.',
           ur: 'Key ko apne code se aur us env file se hatayein jo site mein build hoti hai. Ise sirf server par istemal karein.',
@@ -365,6 +390,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab nahi hai.',
         },
       ],
+      fixPrompt: fixSiteSecretPrompt(item.subject, keyKind),
       refs: { checkId: BUNDLE, evidenceIds: [item.id] },
     });
   }
@@ -373,7 +399,8 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
   // of the repository too, so removing the file is not enough: rotate it.
   for (const item of evidence) {
     if (item.kind !== 'repo-file' || item.verdict !== 'LEAKED') continue;
-    const subject = item.subject ?? 'a file';
+    const subject = plain(item.subject, 'a file');
+    const keyKind = kindOrDefault(item.keyKind);
     drafts.push({
       kind: 'fix-repo-secret',
       severity: 'critical',
@@ -382,15 +409,17 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
         en: `Remove the secret key from the file "${subject}" and rotate it`,
         ur: `File "${subject}" se secret key hatayein aur use rotate karein`,
       },
-      why: {
-        en: 'A Supabase secret key was found in a file of the public repository. Anyone can read it there, and the old commits keep it even after the file is changed.',
-        ur: 'Ek Supabase secret key public repository ki file mein mili. Wahan jo bhi chahe parh sakta hai, aur file badalne ke baad bhi purane commits mein rehti hai.',
-      },
+      why: isSupabaseKind(keyKind)
+        ? {
+            en: 'A Supabase secret key was found in a file of the public repository. Anyone can read it there, and the old commits keep it even after the file is changed.',
+            ur: 'Ek Supabase secret key public repository ki file mein mili. Wahan jo bhi chahe parh sakta hai, aur file badalne ke baad bhi purane commits mein rehti hai.',
+          }
+        : {
+            en: `${cap(KEY_PROVIDERS[keyKind].label.en)} was found in a file of the public repository. Anyone can read it there, and the old commits keep it even after the file is changed.`,
+            ur: `Public repository ki file mein ${KEY_PROVIDERS[keyKind].label.ur} mili. Wahan jo bhi chahe parh sakta hai, aur file badalne ke baad bhi purane commits mein rehti hai.`,
+          },
       steps: [
-        {
-          en: 'Rotate the key now: in Supabase go to API keys, create a new secret key and delete the old one.',
-          ur: 'Key abhi rotate karein: Supabase -> API keys mein nayi secret key banayein aur purani delete karein.',
-        },
+        rotateStep(keyKind),
         {
           en: 'Take the key out of the file, keep it only in an env file that is not committed, and add that file to .gitignore.',
           ur: 'Key ko file se nikalein, use sirf aisi env file mein rakhein jo commit nahi hoti, aur us file ko .gitignore mein daalein.',
@@ -400,6 +429,176 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
           ur: 'Audit dobara chalayein aur dekhein ke key ab files mein nahi hai.',
         },
       ],
+      fixPrompt: fixRepoSecretPrompt(item.subject, keyKind),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
+  // A committed env file with a secret-looking variable that has a value. The
+  // value was not tested, so it is a warning (high, never critical), but the
+  // file is public: rotate what is real, and take the file out of the repo.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-env-file' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const subject = plain(item.subject, 'an env file');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Take the env file "${subject}" out of the repository and rotate its secrets`,
+        ur: `Env file "${subject}" ko repository se hatayein aur uski secrets rotate karein`,
+      },
+      why: {
+        en: 'An env file with secret-looking variables is committed to the public repository. Anyone can read it, and the old commits keep it. The values were not checked.',
+        ur: 'Secret jaisi variables wali env file public repository mein commit hai. Jo bhi chahe parh sakta hai, aur purane commits mein rehti hai. Values check nahi hui.',
+      },
+      steps: [
+        {
+          en: 'Rotate every real secret that is in the file, at the service that issued it.',
+          ur: 'File mein jo bhi asli secret hai use us service par rotate karein jis ne di hai.',
+        },
+        {
+          en: 'Stop tracking the file (git rm --cached) and add it to .gitignore. Keep a .env.example with empty values.',
+          ur: 'File ki tracking band karein (git rm --cached) aur use .gitignore mein daalein. Khali values wali .env.example rakhein.',
+        },
+        {
+          en: 'Run the audit again to check the file is gone.',
+          ur: 'Audit dobara chalayein aur dekhein ke file ab nahi hai.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('committed-env', item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
+  // A key-like value in a test path. It may be a fake one, so it is only a
+  // warning: high, never critical, and it never changes the gate by itself.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-test-key' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const subject = plain(item.subject, 'a test file');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check the key-like value in the test file "${subject}"`,
+        ur: `Test file "${subject}" ki key jaisi value dekhein`,
+      },
+      why: {
+        en: 'A value that looks like a secret key is in a test file of the public repository. Test files often hold fake values, so this could not be confirmed as a real key.',
+        ur: 'Public repository ki test file mein secret key jaisi value hai. Test files mein aksar nakli values hoti hain, isliye ye asli key hone ki tasdeeq nahi ho saki.',
+      },
+      steps: [
+        {
+          en: 'Open the file and find out whether the value is a real key or a fake one made for the test.',
+          ur: 'File kholein aur dekhein ke value asli key hai ya test ke liye nakli.',
+        },
+        {
+          en: 'If it is real, rotate it now, take it out of the file and keep it only in an env file that is not committed.',
+          ur: 'Agar asli hai to use abhi rotate karein, file se nikalein aur sirf aisi env file mein rakhein jo commit nahi hoti.',
+        },
+        {
+          en: 'If it is fake, change it to an obvious placeholder, so it no longer looks like a real key.',
+          ur: 'Agar nakli hai to use saaf placeholder bana dein, taake wo asli key jaisi na lage.',
+        },
+        {
+          en: 'Run the audit again to check the file.',
+          ur: 'File dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('test-key', item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
+  // A public variable name that says SECRET or SERVICE_ROLE (rule 2). Only a
+  // warning: the value was not looked at, so it is high, never critical, and
+  // it never changes the gate by itself.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-env-name' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const subject = plain(item.subject, 'a file');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check the secret-looking variable in the file "${subject}"`,
+        ur: `File "${subject}" ki secret jaisi variable dekhein`,
+      },
+      why: {
+        en: 'A variable that starts with NEXT_PUBLIC_ or VITE_ is sent to every visitor by the browser build, and its name says it is a secret. The value was not checked.',
+        ur: 'NEXT_PUBLIC_ ya VITE_ se shuru hone wali variable browser build har visitor ko bhej deta hai, aur uska naam kehta hai ke ye secret hai. Value check nahi hui.',
+      },
+      steps: [
+        {
+          en: 'Open the file and find out what the variable holds.',
+          ur: 'File kholein aur dekhein ke variable mein kya hai.',
+        },
+        {
+          en: 'If it holds a secret, rotate it in Supabase, rename it without NEXT_PUBLIC_ or VITE_, and use it only in server code.',
+          ur: 'Agar isme secret hai to Supabase mein rotate karein, NEXT_PUBLIC_ ya VITE_ ke baghair naam rakhein, aur sirf server code mein use karein.',
+        },
+        {
+          en: 'If it is not a secret, rename it so the name does not say so.',
+          ur: 'Agar secret nahi hai to naam aisa rakhein jo secret na kahe.',
+        },
+        {
+          en: 'Run the audit again to check the file.',
+          ur: 'File dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('public-env-secret', item.subject),
+      refs: { checkId: REPO, evidenceIds: [item.id] },
+    });
+  }
+
+  // A table a migration creates with no "enable row level security" in any
+  // migration (rule 1). The real database may differ, so it is a warning only
+  // (never critical), and it never changes the gate by itself. High, the same
+  // as a public variable name (rule 2): a table open to every visitor is the
+  // main thing this tool is about.
+  for (const item of evidence) {
+    if (item.kind !== 'repo-migration' || item.verdict !== 'INCONCLUSIVE') {
+      continue;
+    }
+    const table = plain(item.table ?? undefined, 'a table');
+    drafts.push({
+      kind: 'improve-repo',
+      severity: 'high',
+      fromRequiredCheck: required(plan, REPO),
+      title: {
+        en: `Check row level security for the table "${table}" in the migrations`,
+        ur: `Migrations mein table "${table}" ki row level security dekhein`,
+      },
+      why: {
+        en: 'A migration creates this table, and no migration turns on row level security for it. It may be enabled elsewhere, for example in the Supabase dashboard, so this could not be confirmed from the repository.',
+        ur: 'Ek migration ye table banati hai, aur koi migration iske liye row level security on nahi karti. Ho sakta hai ye kahin aur on ho, maslan Supabase dashboard mein, isliye repository se tasdeeq nahi ho saki.',
+      },
+      steps: [
+        {
+          en: 'In Supabase open the table and check whether row level security is on.',
+          ur: 'Supabase mein table kholein aur dekhein ke row level security on hai ya nahi.',
+        },
+        {
+          en: 'If it is off, add a migration with "enable row level security" for this table and the policies it needs.',
+          ur: 'Agar off hai to is table ke liye "enable row level security" aur zaroori policies wali migration lagayein.',
+        },
+        {
+          en: 'If it is on elsewhere, add the same line to a migration so the repository tells the truth.',
+          ur: 'Agar kahin aur on hai to wahi line kisi migration mein bhi likhein taake repository sach bataye.',
+        },
+        {
+          en: 'Run the audit again to check the migrations.',
+          ur: 'Migrations dekhne ke liye audit dobara chalayein.',
+        },
+      ],
+      fixPrompt: improveRepoPrompt('migration-rls', item.table ?? undefined),
       refs: { checkId: REPO, evidenceIds: [item.id] },
     });
   }
@@ -418,6 +617,7 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
       title: advice.title,
       why: advice.why,
       steps: advice.steps,
+      ...fixPromptField(improveHeaderPrompt(item.subject)),
       refs: { checkId: HEADERS, evidenceIds: [item.id] },
     });
   }

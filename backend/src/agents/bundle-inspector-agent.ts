@@ -11,6 +11,7 @@ import {
   type KeyKind,
 } from '../stages/site-rules.js';
 import type { CheckResult, EvidenceItem, Text } from '../stages/types.js';
+import { KEY_FORMATS_LIMIT, foundInScript } from '../stages/key-providers.js';
 import type { Agent } from './agent.js';
 import type { RunContext } from './run-context.js';
 import {
@@ -26,17 +27,6 @@ const FRONT_PAGE = 'front page (inline script)';
 const OTHER_ORIGIN: Text = {
   en: 'A script of another origin is not scanned.',
   ur: 'Doosre origin ki script scan nahi hoti.',
-};
-
-const WHAT_FOUND: Record<KeyKind, Text> = {
-  'secret-key': {
-    en: 'A Supabase secret key (sb_secret_...) is in this script. Anyone who opens the site can read it. Remove it from the site and create a new key.',
-    ur: 'Is script mein Supabase ki secret key (sb_secret_...) maujood hai. Jo bhi site kholta hai use parh sakta hai. Use site se hatayein aur nayi key banayein.',
-  },
-  'service-role-jwt': {
-    en: 'A Supabase service_role key is in this script. Anyone who opens the site can read it. Remove it from the site and create a new key.',
-    ur: 'Is script mein Supabase ki service_role key maujood hai. Jo bhi site kholta hai use parh sakta hai. Use site se hatayein aur nayi key banayein.',
-  },
 };
 
 const notRead = (name: string, reason: Text) => ({ name, reason });
@@ -173,9 +163,10 @@ export function createBundleInspectorAgent(
         table: null,
         subject: hit.subject,
         kind: 'site-bundle' as const,
+        keyKind: hit.kind,
         verdict: 'LEAKED' as const,
         proof: 'PROVEN' as const,
-        summary: WHAT_FOUND[hit.kind],
+        summary: foundInScript(hit.kind),
       }));
       (context.siteEvidence ??= []).push(...items);
 
@@ -189,11 +180,13 @@ export function createBundleInspectorAgent(
                 ur: 'Kuch scripts parhi nahi gayin, isliye ye check mukammal nahi.',
               },
               notRead: missed,
+              limitNotes: [KEY_FORMATS_LIMIT],
               ...(outOfScope.length > 0 ? { outOfScope } : {}),
             }
           : {
               id: BUNDLE_INSPECTOR_ID,
               status: 'completed',
+              limitNotes: [KEY_FORMATS_LIMIT],
               ...(outOfScope.length > 0 ? { outOfScope } : {}),
             };
       results[BUNDLE_INSPECTOR_ID] = result;

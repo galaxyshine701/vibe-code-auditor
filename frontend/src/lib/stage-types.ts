@@ -37,11 +37,17 @@ export type EvidenceKind =
   | 'site-bundle'
   | 'site-headers'
   | 'repo-file'
+  | 'repo-test-key'
+  | 'repo-env-file'
+  | 'repo-env-name'
+  | 'repo-migration'
   | string;
 
 export interface EvidenceItem {
   id: string;
   check: string;
+  /** For a key item: which kind of key (never the key). Missing = a Supabase key. */
+  keyKind?: string;
   /** null for a site item. */
   findingId?: string | null;
   /** null for a site item. */
@@ -81,6 +87,8 @@ export interface Coverage {
   /** Reserved, always [] today: nothing is shown for it. */
   nothingToTest?: unknown[];
   limits?: Text[];
+  /** How many files a check read, by check id. Missing = no check gave a count. */
+  filesRead?: { id: string; count: number }[];
 }
 
 export interface EvidenceResponse {
@@ -99,6 +107,8 @@ export interface RoadmapItem {
   title?: Text;
   why?: Text;
   steps?: Text[];
+  /** A fixed text to paste into the AI tool that built the app (never holds a key). */
+  fixPrompt?: Text;
   refs?: {
     checkId?: string;
     findingIds?: string[];

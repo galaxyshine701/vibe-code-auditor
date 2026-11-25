@@ -69,8 +69,25 @@ export function buildCoverage(
       default:
         coverage.skipped.push({ id: definition.id, reason });
     }
+    // a count is passed on only when the check gave a real one
+    if (
+      result?.filesRead !== undefined &&
+      Number.isInteger(result.filesRead) &&
+      result.filesRead >= 0
+    ) {
+      (coverage.filesRead ??= []).push({
+        id: definition.id,
+        count: result.filesRead,
+      });
+    }
     // named things that were left out on purpose (not "partial")
     coverage.outOfScope.push(...(result?.outOfScope ?? []));
+    for (const note of result?.limitNotes ?? []) {
+      if (!seenLimits.has(note.en)) {
+        seenLimits.add(note.en);
+        coverage.limits.push(note);
+      }
+    }
     for (const limit of definition.limits) {
       if (!seenLimits.has(limit.en)) {
         seenLimits.add(limit.en);

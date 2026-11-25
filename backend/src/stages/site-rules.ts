@@ -167,40 +167,141 @@ export function extractScriptUrls(
   return { srcs: [...srcs], inline };
 }
 
-export type KeyKind = 'secret-key' | 'service-role-jwt';
+export type KeyKind =
+  | 'secret-key'
+  | 'service-role-jwt'
+  | 'sk-key'
+  | 'stripe-secret-key'
+  | 'aws-access-key-id'
+  | 'github-token'
+  | 'slack-token'
+  | 'sk-ant-key'
+  | 'gsk-key';
 
 const MAX_JWT_CHECKS = 200;
 
+/** Not a key: an example, a filler or a run of one character. */
+const PLACEHOLDER =
+  /x{4,}|your[_-]|example|changeme|change[_-]me|placeholder|\.{3}|([A-Za-z0-9])\1{9,}/i;
+
+/** True when a text that matched a key format is only an example. */
+export function looksLikePlaceholder(token: string): boolean {
+  return PLACEHOLDER.test(token);
+}
+
+interface TokenFormat {
+  kind: KeyKind;
+  /** a fixed prefix and a minimum length; never a loose pattern */
+  pattern: RegExp;
+  /** a further test on the matched text */
+  accept?: (token: string) => boolean;
+}
+
+// A key must not be the tail of a longer word: it starts after a character that
+// can not be part of one.
+const START = '(?<![A-Za-z0-9_-])';
+
+/** Real keys of this kind mix letters and digits; a long hyphenated word does not. */
+const mixed = (token: string) =>
+  /\d/.test(token) && /[a-z]/.test(token) && /[A-Z]/.test(token);
+
 /**
- * Which kinds of Supabase secret are in this text: a new-style secret key
- * (sb_secret_...) or a JWT whose role is service_role. A publishable key and
- * an anon key are meant to be public and are not reported. Returns the KINDS,
- * each once, never the key.
+ * The formats of secret keys the audit looks for, in the order their kinds are
+ * reported. Google keys (AIza...) and Stripe publishable keys (pk_...) are
+ * meant to be public and are NOT here. The two Supabase JWT checks are below.
  */
-export function scanForKeys(text: string): KeyKind[] {
-  const kinds = new Set<KeyKind>();
-  if (/sb_secret_[A-Za-z0-9_-]{16,}/.test(text)) kinds.add('secret-key');
+const TOKEN_FORMATS: TokenFormat[] = [
+  { kind: 'secret-key', pattern: /sb_secret_[A-Za-z0-9_-]{16,}/g },
+  {
+    kind: 'sk-key',
+    pattern: new RegExp(`${START}sk-(?!ant-)[A-Za-z0-9_-]{32,}`, 'g'),
+    accept: mixed,
+  },
+  {
+    kind: 'stripe-secret-key',
+    pattern: new RegExp(`${START}(?:sk|rk)_live_[A-Za-z0-9]{16,}`, 'g'),
+  },
+  {
+    kind: 'aws-access-key-id',
+    pattern: /(?<![A-Za-z0-9])AKIA[0-9A-Z]{16}(?![A-Za-z0-9])/g,
+  },
+  {
+    kind: 'github-token',
+    pattern: new RegExp(
+      `${START}(?:ghp_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{50,})`,
+      'g',
+    ),
+  },
+  {
+    kind: 'slack-token',
+    pattern: new RegExp(`${START}xoxb-[0-9A-Za-z-]{24,}`, 'g'),
+    accept: (token) => /\d/.test(token),
+  },
+  {
+    kind: 'sk-ant-key',
+    pattern: new RegExp(`${START}sk-ant-[A-Za-z0-9_-]{20,}`, 'g'),
+  },
+  {
+    kind: 'gsk-key',
+    pattern: new RegExp(`${START}gsk_[A-Za-z0-9]{40,}`, 'g'),
+  },
+];
+
+const JWT_PATTERN =
+  /eyJ[A-Za-z0-9_-]{8,}\.(eyJ[A-Za-z0-9_-]{8,})\.[A-Za-z0-9_-]{8,}/g;
+
+function isServiceRoleJwt(payloadPart: string): boolean {
+  try {
+    const payload: unknown = JSON.parse(
+      Buffer.from(payloadPart, 'base64url').toString('utf8'),
+    );
+    return (
+      !!payload &&
+      typeof payload === 'object' &&
+      (payload as { role?: unknown }).role === 'service_role'
+    );
+  } catch {
+    return false; // not a JWT after all
+  }
+}
+
+/** The first key of each kind in the text: its kind and where it starts. Never the key. */
+function findKeys(text: string): { kind: KeyKind; index: number }[] {
+  const found: { kind: KeyKind; index: number }[] = [];
+  const first = (format: TokenFormat) => {
+    for (const match of text.matchAll(format.pattern)) {
+      if (looksLikePlaceholder(match[0])) continue;
+      if (format.accept && !format.accept(match[0])) continue;
+      return match.index;
+    }
+    return -1;
+  };
+  const supabase = TOKEN_FORMATS[0];
+  const secret = first(supabase);
+  if (secret !== -1) found.push({ kind: supabase.kind, index: secret });
   let checked = 0;
-  for (const match of text.matchAll(
-    /eyJ[A-Za-z0-9_-]{8,}\.(eyJ[A-Za-z0-9_-]{8,})\.[A-Za-z0-9_-]{8,}/g,
-  )) {
+  for (const match of text.matchAll(JWT_PATTERN)) {
     if (++checked > MAX_JWT_CHECKS) break;
-    try {
-      const payload: unknown = JSON.parse(
-        Buffer.from(match[1], 'base64url').toString('utf8'),
-      );
-      if (
-        payload &&
-        typeof payload === 'object' &&
-        (payload as { role?: unknown }).role === 'service_role'
-      ) {
-        kinds.add('service-role-jwt');
-      }
-    } catch {
-      // not a JWT after all
+    if (isServiceRoleJwt(match[1])) {
+      found.push({ kind: 'service-role-jwt', index: match.index });
+      break;
     }
   }
-  return [...kinds];
+  for (const format of TOKEN_FORMATS.slice(1)) {
+    const index = first(format);
+    if (index !== -1) found.push({ kind: format.kind, index });
+  }
+  return found;
+}
+
+/**
+ * Which kinds of secret key are in this text: a Supabase secret key or
+ * service_role JWT, or the secret key of another provider (see TOKEN_FORMATS).
+ * A publishable key, an anon key and example values are not reported. Returns
+ * the KINDS, each once, never the key.
+ */
+export function scanForKeys(text: string): KeyKind[] {
+  return findKeys(text).map((hit) => hit.kind);
 }
 
 /**
@@ -217,31 +318,7 @@ export function scanForKeyHits(
     }
     return line;
   };
-  const hits: { kind: KeyKind; line: number }[] = [];
-  const secret = /sb_secret_[A-Za-z0-9_-]{16,}/.exec(text);
-  if (secret) hits.push({ kind: 'secret-key', line: lineOf(secret.index) });
-  let checked = 0;
-  for (const match of text.matchAll(
-    /eyJ[A-Za-z0-9_-]{8,}\.(eyJ[A-Za-z0-9_-]{8,})\.[A-Za-z0-9_-]{8,}/g,
-  )) {
-    if (++checked > MAX_JWT_CHECKS) break;
-    try {
-      const payload: unknown = JSON.parse(
-        Buffer.from(match[1], 'base64url').toString('utf8'),
-      );
-      if (
-        payload &&
-        typeof payload === 'object' &&
-        (payload as { role?: unknown }).role === 'service_role'
-      ) {
-        hits.push({ kind: 'service-role-jwt', line: lineOf(match.index) });
-        break;
-      }
-    } catch {
-      // not a JWT after all
-    }
-  }
-  return hits;
+  return findKeys(text).map((hit) => ({ kind: hit.kind, line: lineOf(hit.index) }));
 }
 
 /** How a script is named in a result: host and path, never the query or the hash. */

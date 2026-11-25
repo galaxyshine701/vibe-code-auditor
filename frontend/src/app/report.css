@@ -910,3 +910,52 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+/* The fix prompt of a roadmap item: English first, Roman Urdu second. */
+.fix-prompt {
+  display: grid;
+  gap: 8px;
+}
+
+.fix-prompt-block {
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.fix-prompt-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.fix-prompt-copy {
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.fix-prompt-text {
+  margin: 0;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.files-read {
+  width: 100%;
+  margin: 2px 0 0;
+}

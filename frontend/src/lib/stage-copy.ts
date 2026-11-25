@@ -59,6 +59,16 @@ export const COPY = {
   limitsHeading: { en: 'Limits of these checks', ur: 'In checks ki hadein' },
   emptyBucket: { en: 'Nothing here.', ur: 'Yahan kuch nahi.' },
 
+  // the fix prompt of a roadmap item
+  fixPromptHeading: { en: 'Fix prompt for your AI tool', ur: 'Aapke AI tool ke liye fix prompt' },
+  fixPromptHint: {
+    en: 'Paste it into the AI tool that built your app. It shows the plan first and changes nothing until you approve.',
+    ur: 'Ise us AI tool mein paste karein jis ne aapki app banayi. Woh pehle plan dikhata hai aur aap ke approve karne tak kuch nahi badalta.',
+  },
+  copyPrompt: { en: 'Copy', ur: 'Copy karein' },
+  copiedPrompt: { en: 'Copied', ur: 'Copy ho gaya' },
+  copyFailed: { en: 'Could not copy: select the text and copy it by hand.', ur: 'Copy nahi hua: text select karke haath se copy karein.' },
+
   // the roadmap (R81)
   roadmapHeading: { en: 'Next steps', ur: 'Agle qadam' },
   roadmapIntro: {
@@ -89,6 +99,10 @@ export const COPY = {
   kindHeaders: { en: 'Site headers', ur: 'Site ke headers' },
   kindBundle: { en: 'Scripts of the site', ur: 'Site ki scripts' },
   kindRepo: { en: 'Repository files', ur: 'Repository ki files' },
+  kindRepoMigration: { en: 'Repository migrations', ur: 'Repository ki migrations' },
+  kindRepoTestKey: { en: 'Repository test files', ur: 'Repository ki test files' },
+  kindRepoEnvFile: { en: 'Repository env files', ur: 'Repository ki env files' },
+  kindRepoName: { en: 'Repository variable names', ur: 'Repository ki variable ke naam' },
   repoKeyHidden: {
     en: 'The key is hidden. Only its place is shown.',
     ur: 'Key chhupi hui hai. Sirf uski jagah dikhai gayi hai.',
@@ -158,4 +172,11 @@ export function moreSteps(count: number, lang: Lang): string {
   return lang === 'ur'
     ? `${count} aur qadam dikhaye nahi gaye.`
     : `${count} more ${count === 1 ? 'step is' : 'steps are'} not shown.`;
+}
+
+/** "N files read" next to the repository tile; only called with a number the API sent. */
+export function filesReadText(count: number, lang: Lang): string {
+  return lang === 'ur'
+    ? `${count} files parhi gayin`
+    : `${count} ${count === 1 ? 'file' : 'files'} read`;
 }
