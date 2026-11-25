@@ -14,6 +14,7 @@ import {
   WebsiteGroup,
 } from '@/components/connect-groups';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
+import { WhatItChecks } from '@/components/what-it-checks';
 import { startAudit } from '@/lib/api';
 import { ApiError, NetworkError } from '@/lib/errors';
 import {
@@ -30,6 +31,7 @@ import {
 import {
   ADVANCED,
   FORM,
+  KICKER,
   MEANING,
   PROBLEM,
   SCENE_NOTE,
@@ -137,9 +139,12 @@ export default function ConnectPage() {
 
   return (
     <div className="shell page-stack">
+      {/* wide screens: the words and the form on the left, the example result on
+          the right; narrower: one column, the form first */}
       <section className="hero hero-stage">
         <div className="hero-copy">
           <div className="hero-copy-top">
+            <p className="hero-kicker">{pickText(KICKER, lang)}</p>
             <LangToggle lang={lang} onChange={setLang} />
           </div>
           <h1
@@ -218,12 +223,9 @@ export default function ConnectPage() {
           </div>
         </div>
 
-        {/* the example result, under the form: a beam resolves its rows, then the gate */}
+        {/* the example result, in one place only: beside the form, or under it on a narrow screen */}
         <div className="hero-card-wrap">
           <HeroCard lang={lang} />
-        </div>
-
-        <div className="hero-gate">
           <button
             type="button"
             className="button button-ghost button-small hero-replay"
@@ -233,6 +235,8 @@ export default function ConnectPage() {
           </button>
         </div>
       </section>
+
+      <WhatItChecks lang={lang} />
 
       <ol className="hero-steps" aria-label={pickText({ en: 'How it works', ur: 'Kaise kaam karta hai' }, lang)}>
         {STEPS.map((step, index) => (

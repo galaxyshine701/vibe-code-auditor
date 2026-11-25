@@ -21,6 +21,12 @@ export function headlineWords(lang: Lang): string[] {
   return HEADLINE[lang].split(' ');
 }
 
+/** The small label above the headline. */
+export const KICKER: Pair = {
+  en: 'Checks for apps built with AI tools',
+  ur: 'AI tools se bani apps ke liye checks',
+};
+
 /** The one line under the headline: the problem, in one plain sentence, no figures. */
 export const PROBLEM: Pair = {
   en: 'An app built with AI tools can go live with its database or keys open to anyone.',
@@ -134,6 +140,102 @@ export const TILES_LABEL: Pair = {
   en: 'Verdicts of the example run',
   ur: 'Misaal ke run ke verdicts',
 };
+
+/**
+ * The strip under the hero. Each part of the "Not checked" line is a limit the
+ * checks themselves report (backend/src/stages/planner-config.ts, sent with
+ * every report as coverage limits): `limit` quotes the words it comes from, and
+ * a test looks for them there. Nothing else may be added to the line.
+ */
+export const WHAT_IT_CHECKS = {
+  title: { en: 'What it checks', ur: 'Ye kya check karta hai' },
+  items: [
+    {
+      icon: 'files',
+      title: { en: 'Secret keys in files', ur: 'Files mein secret keys' },
+      body: {
+        en: 'Known key formats, such as Supabase, OpenAI, Stripe and AWS, in the text files of a public GitHub repo.',
+        ur: 'Public GitHub repo ki text files mein jaani pehchani keys, maslan Supabase, OpenAI, Stripe aur AWS.',
+      },
+    },
+    {
+      icon: 'env',
+      title: { en: 'Committed .env files', ur: 'Commit ki hui .env files' },
+      body: {
+        en: 'Secret-looking names that have a value. Only names and path are shown, as a warning sign.',
+        ur: 'Secret jaise naam jin ki value likhi hai. Sirf naam aur path dikhte hain, khatre ki nishani ke taur par.',
+      },
+    },
+    {
+      icon: 'migrations',
+      title: {
+        en: 'Database rules (RLS) in migrations',
+        ur: 'Migrations mein database rules (RLS)',
+      },
+      body: {
+        en: 'A table with no row level security in the migration files is a warning sign.',
+        ur: 'Jis table ki row level security migration files mein na ho wo khatre ki nishani hai.',
+      },
+    },
+    {
+      icon: 'site',
+      title: {
+        en: 'Site headers and keys in site scripts',
+        ur: 'Site ke headers aur scripts mein keys',
+      },
+      body: {
+        en: 'For a live website: the headers of the front page, and keys in its own scripts.',
+        ur: 'Live website ke liye: pehle page ke headers, aur us ki apni scripts mein keys.',
+      },
+    },
+  ],
+  notCheckedLead: {
+    en: 'Not checked by these checks:',
+    ur: 'In checks mein check nahi hota:',
+  },
+  notChecked: [
+    {
+      en: 'private repos',
+      ur: 'private repos',
+      limit: 'Only a public GitHub repository is read',
+    },
+    {
+      en: 'other branches and old commits',
+      ur: 'doosri branches aur purane commits',
+      limit: 'its default branch, as it is now. The history of old commits is not read',
+    },
+    {
+      en: 'files over 1 MB and folders such as node_modules and dist',
+      ur: '1 MB se bari files aur node_modules, dist jaise folders',
+      limit: 'at most 1 MB each',
+    },
+    {
+      en: 'whether a found key still works',
+      ur: 'mili hui key ab bhi chalti hai ya nahi',
+      limit: 'Whether it still works is not tested',
+    },
+    {
+      en: 'website pages other than the front page (for headers)',
+      ur: 'pehle page ke ilawa website ke pages (headers ke liye)',
+      limit: 'Only the front page is read',
+    },
+    {
+      en: 'cookie settings and TLS versions',
+      ur: 'cookie settings aur TLS versions',
+      limit: 'Cookie settings, TLS versions and other pages are not checked',
+    },
+    {
+      en: 'scripts from other origins',
+      ur: 'doosre origin ki scripts',
+      limit: 'Scripts from other origins are not scanned',
+    },
+    {
+      en: 'active probes sent to your site',
+      ur: 'aap ki site par bheje jane wale active probes',
+      limit: 'No active check is built yet',
+    },
+  ],
+} as const;
 
 export const STEPS = [
   {

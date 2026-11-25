@@ -65,13 +65,19 @@ describe('one background for the whole page', () => {
     }
   });
 
-  it('the headline is at most 1100px, the form and the example result 760px, all in the middle', () => {
-    expect(rule('.hero-stage > .hero-copy')).toContain('max-width: 1100px');
+  it('wide screens: two columns in a 1200px container in the middle; narrower: one column of 760px', () => {
+    const base = rule('.hero.hero-stage');
+    expect(base).toContain('grid-template-columns: minmax(0, 1fr);');
+    expect(base).toContain('max-width: 1200px');
+    expect(base).toContain('margin-inline: auto');
+    expect(base).toContain('justify-items: center');
     expect(css).toMatch(
-      /\.hero-stage \.start-wrap,\s*\.hero-stage > \.hero-card-wrap,\s*\.hero-stage > \.hero-gate \{[^}]*max-width: 760px;[^}]*margin: 0 auto;/,
+      /\.hero-stage > \.hero-copy,\s*\.hero-stage > \.hero-card-wrap \{\s*width: 100%;\s*max-width: 760px;/,
     );
-    expect(rule('.hero.hero-stage')).toContain('justify-items: center');
-    expect(rule('.hero-stage > .hero-copy')).toContain('text-align: center');
+    const wide = /@media \(min-width: 1100px\) \{\s*\.hero\.hero-stage \{([^}]*)\}/.exec(css)![1];
+    expect(wide).toMatch(/grid-template-columns: minmax\(0, 1fr\) minmax\(0, \d+rem\);/);
+    // the card keeps its place when the left column grows
+    expect(base).toContain('align-items: start');
   });
 
   it('an anchor never leaves the top of the page under the sticky header', () => {

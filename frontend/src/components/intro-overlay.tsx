@@ -7,7 +7,6 @@ import {
   INTRO_GRACE_MS,
   INTRO_STORY_MS,
   remainingMs,
-  type IntroMode,
 } from '@/lib/intro';
 import { IntroScene } from './intro-scene';
 
@@ -19,17 +18,17 @@ type IntroWindow = Window & {
 
 // The intro of the home page (R70): a scene on the whole screen, once per tab.
 // The <head> script (lib/intro.ts) has already decided and set
-// `data-intro="pending"` (and `data-intro-mode`) on <html> before the first
-// paint; the CSS shows this overlay only then.
+// `data-intro="pending"` on <html> before the first
+// paint; the CSS shows this overlay only then. With reduced motion there is no
+// intro: the head script never says "pending", and a replay does nothing.
 //
 //   pending  the scene runs; the headline waits (CSS)
 //   opening  the gate splits open by CSS; the headline starts to rise
-//   leaving  the overlay fades out: after a skip, and with reduced motion
+//   leaving  the overlay fades out after a skip
 //   done     the overlay is gone
 //
-// With reduced motion (data-intro-mode="reduced") the scene is only the name,
-// still, for a short time. A skip (tap, click, Esc, the Skip button) works in
-// both modes.//
+// A tap, a click, Esc or the Skip button ends it at any moment.
+//
 // This component sits directly in <body> (layout.tsx), never inside the page:
 // the page's wrapper has an animation with a `transform`, and a `position:
 // fixed` child of such an element is fixed to the wrapper, not to the screen
@@ -62,9 +61,6 @@ export function IntroOverlay() {
   }, []);
 
   const root = () => document.documentElement;
-  const modeNow = (): IntroMode =>
-    root().getAttribute('data-intro-mode') === 'reduced' ? 'reduced' : 'full';
-
   /** Ends the intro with a fade (the scene ended, or the user skipped it). */
   const close = useCallback(() => {
     if (!active.current) return;
@@ -98,8 +94,8 @@ export function IntroOverlay() {
 
   /**
    * Starts (or restarts) the intro. The end is counted from when the scene
-   * started (the head script, or now for a replay), and this code now owns the
-   * time limit.
+   * was first on the screen (its CSS starts at the first paint; for a replay:
+   * now), and this code now owns the time limit.
    */
   const begin = useCallback(
     (replay: boolean) => {
@@ -112,28 +108,31 @@ export function IntroOverlay() {
       }
       clearTimers();
       const now = window.performance.now();
-      if (replay || scoped.__vcaIntroAt === undefined) scoped.__vcaIntroAt = now;
-      const mode = modeNow();
+      if (replay || scoped.__vcaIntroAt === undefined) {
+        scoped.__vcaIntroAt = now;
+      } else {
+        // a slow first paint must not cut the end of the scene
+        const painted = window.performance.getEntriesByType('paint')[0];
+        if (painted) {
+          scoped.__vcaIntroAt = Math.max(scoped.__vcaIntroAt, painted.startTime);
+        }
+      }
       const elapsed = now - scoped.__vcaIntroAt;
-      const left = remainingMs(elapsed, mode);
+      const left = remainingMs(elapsed);
       active.current = true;
       root().setAttribute('data-intro', 'pending');
       setMounted(true);
-      if (mode === 'full') {
-        // the gate opens at the end of the story, and the scene is over a moment later
-        timers.current.push(
-          window.setTimeout(
-            () => {
-              if (active.current) root().setAttribute('data-intro', 'opening');
-            },
-            Math.max(0, INTRO_STORY_MS - elapsed),
-          ),
-        );
-        timers.current.push(window.setTimeout(finish, left));
-      } else {
-        timers.current.push(window.setTimeout(close, left));
-      }
-      // the limit: the normal end plus 1.5 s, then it is gone whatever happened
+      // the gate opens at the end of the story, and the scene is over a moment later
+      timers.current.push(
+        window.setTimeout(
+          () => {
+            if (active.current) root().setAttribute('data-intro', 'opening');
+          },
+          Math.max(0, INTRO_STORY_MS - elapsed),
+        ),
+      );
+      timers.current.push(window.setTimeout(finish, left));
+      // the limit: never more than 3 s from here, then it is gone whatever happened
       timers.current.push(
         window.setTimeout(
           () => {
@@ -148,7 +147,7 @@ export function IntroOverlay() {
         skipButton.current?.focus({ preventScroll: true }),
       );
     },
-    [clearTimers, close, finish],
+    [clearTimers, finish],
   );
 
   useEffect(() => {
@@ -157,13 +156,7 @@ export function IntroOverlay() {
 
     const replay = () => {
       if (active.current) return;
-      // reduced motion replays the still name, not the scene
-      root().setAttribute(
-        'data-intro-mode',
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches
-          ? 'reduced'
-          : 'full',
-      );
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       const focused = document.activeElement;
       returnFocus.current =
         focused instanceof HTMLElement && focused !== document.body ? focused : null;

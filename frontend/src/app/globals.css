@@ -3289,10 +3289,10 @@ html[data-intro="leaving"] .intro-overlay {
 }
 
 /* The way out if the page's own code never ends the intro: it hides itself
-   after 5 s, with no script (the app is never blocked). */
+   after 3 s, with no script (the app is never blocked). */
 html[data-intro="pending"] .intro-overlay,
 html[data-intro="opening"] .intro-overlay {
-  animation: introGone 0.01s linear 5s forwards;
+  animation: introGone 0.01s linear 3s forwards;
 }
 
 @keyframes introGone {
@@ -3321,6 +3321,7 @@ html[data-intro="opening"] .intro-overlay {
 
 /* the headline waits for the intro: the two never run together */
 html[data-intro="pending"] .hero-word,
+html[data-intro="opening"] .hero-word,
 html[data-intro="leaving"] .hero-word {
   animation-play-state: paused;
 }

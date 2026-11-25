@@ -357,9 +357,11 @@
   font-weight: 600;
 }
 
-/* the card waits for the intro, like the headline: it starts when the gate opens */
+/* the card waits for the intro, like the headline: it starts when the intro is over */
 html[data-intro="pending"] .hero-card,
 html[data-intro="pending"] .hero-card *,
+html[data-intro="opening"] .hero-card,
+html[data-intro="opening"] .hero-card *,
 html[data-intro="leaving"] .hero-card,
 html[data-intro="leaving"] .hero-card * {
   animation-play-state: paused;

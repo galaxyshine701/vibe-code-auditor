@@ -169,7 +169,7 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
         else await sleep(50);
       }
       expect(seen, 'the intro did not start on the first load').not.toBeNull();
-      await sleep(700); // still running: the intro ends at 2.6 s
+      await sleep(700); // still running: the intro ends under 3 s
       const m = (await tab.evaluate(MEASURE)) ?? seen;
 
       expect(m.intro).toBe('pending');
@@ -190,7 +190,7 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
       expect(m.scene.bottom).toBeLessThanOrEqual(m.vh);
       expect(m.scene.right).toBeLessThanOrEqual(m.vw);
 
-      // it ends by itself in 5 s, and a reload in the same tab does not repeat it
+      // it ends by itself, and a reload in the same tab does not repeat it
       let done = false;
       for (let i = 0; i < 80 && !done; i++) {
         done =
@@ -226,7 +226,7 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
     return -1;
   }
 
-  it('the Skip button ends the scene at once (a fade, then done), long before 3.3 s', async () => {
+  it('the Skip button ends the scene at once (a fade, then done), before its own end', async () => {
     const tab = await freshTab(1366, 768);
     await tab.open();
     expect(
@@ -241,15 +241,15 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
       'done after skip: ' + (await tab.evaluate(STATE)),
     ).toBeGreaterThanOrEqual(0);
     expect(took).toBeLessThan(1000);
-    // the page is there: the headline is on the screen and the scroll is free
+    // the page is there: the overlay is not shown and the scroll is free
     expect(
       await tab.evaluate(
-        "!document.querySelector('.intro-overlay') && getComputedStyle(document.documentElement).overflow !== 'hidden'",
+        "(() => { const o = document.querySelector('.intro-overlay'); return (!o || getComputedStyle(o).display === 'none') && getComputedStyle(document.documentElement).overflow !== 'hidden'; })()",
       ),
     ).toBe(true);
   }, 20000);
 
-  it('the scene runs about 3.3 s and the gate opens by itself (the state goes pending, opening, done)', async () => {
+  it('the scene runs under 3 s and the gate opens by itself (the state goes pending, opening, done)', async () => {
     const tab = await freshTab(1366, 768);
     await tab.open();
     expect(await waitFor(tab, 'pending', 5000)).toBeGreaterThanOrEqual(0);
@@ -259,28 +259,27 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
         "!!document.querySelector('.scan-beam') && document.querySelectorAll('.intro-callout').length >= 3",
       ),
     ).toBe(true);
-    const start = Date.now();
-    expect(await waitFor(tab, 'opening', 4000)).toBeGreaterThanOrEqual(0);
+    expect(await waitFor(tab, 'opening', 8000)).toBeGreaterThanOrEqual(0);
     expect(await waitFor(tab, 'done', 4000)).toBeGreaterThanOrEqual(0);
-    expect(Date.now() - start).toBeLessThan(4500);
+    // on the screen for 3 s or less, counted from the first paint
+    const shown = await tab.evaluate(
+      "performance.now() - performance.getEntriesByType('paint')[0].startTime",
+    );
+    expect(shown).toBeLessThan(3400);
   }, 20000);
 
-  it('with reduced motion it is a still wordmark that ends by itself in about a second', async () => {
+  it('with reduced motion there is no intro', async () => {
     const tab = await freshTab(375, 667);
     await tab.send('Emulation.setEmulatedMedia', {
       features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
     });
     await tab.open();
-    expect(await waitFor(tab, 'pending', 5000)).toBeGreaterThanOrEqual(0);
-    const info = await tab.evaluate(
-      "(() => ({ mode: document.documentElement.getAttribute('data-intro-mode'), stage: getComputedStyle(document.querySelector('.intro-stage')).display, name: getComputedStyle(document.querySelector('.intro-name')).opacity, anim: getComputedStyle(document.querySelector('.intro-word')).animationName }))()",
-    );
-    expect(info.mode).toBe('reduced');
-    expect(info.stage).toBe('none');
-    expect(info.name).toBe('1');
-    expect(info.anim).toBe('none');
-    const took = await waitFor(tab, 'done', 4000);
-    expect(took).toBeGreaterThanOrEqual(0);
-    expect(took).toBeLessThan(2500);
+    await sleep(800);
+    expect(await tab.evaluate(STATE)).toBeNull();
+    expect(
+      await tab.evaluate(
+        "(() => { const o = document.querySelector('.intro-overlay'); return !o || getComputedStyle(o).display === 'none'; })()",
+      ),
+    ).toBe(true);
   }, 20000);
 });

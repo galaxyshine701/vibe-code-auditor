@@ -95,14 +95,13 @@ describe('the one line under the headline, and the order of the hero', () => {
     }
   });
 
-  it('is one column: the form, then the example result, never side by side', () => {
-    const css = read('app', 'glass.css').replace(/\r\n/g, '\n');
-    expect(css).toMatch(
-      /\.hero\.hero-stage \{\s*grid-template-columns: minmax\(0, 1fr\);/,
-    );
-    expect(css).toMatch(
-      /\.hero-stage \.start-wrap,\s*\.hero-stage > \.hero-card-wrap,\s*\.hero-stage > \.hero-gate \{\s*width: 100%;\s*max-width: 760px;/,
-    );
+  it('has the form first and the example result after it in the page, once, beside it on a wide screen', () => {
+    const page = read('app', 'page.tsx');
+    expect(page.match(/<HeroCard\b/g)).toHaveLength(1);
+    expect(page.indexOf('<HeroCard')).toBeGreaterThan(page.indexOf('</form>'));
+    expect(page.indexOf('pickText(KICKER, lang)')).toBeLessThan(page.indexOf('<h1'));
+    expect(copy.KICKER.ur.length).toBeGreaterThan(5);
+    expect(read('app', 'glass.css')).toMatch(/@media \(min-width: 1100px\)/);
   });
 });
 
@@ -240,12 +239,15 @@ describe('the example run card', () => {
     }
   });
 
-  it('waits for the intro like the headline: paused while the intro runs, then it starts', () => {
-    const css = read('app', 'hero.css');
+  it('waits for the intro like the headline: paused until the intro is over, gate included', () => {
+    const css = read('app', 'hero.css').replace(/\r\n/g, '\n');
+    for (const state of ['pending', 'opening', 'leaving']) {
+      expect(css).toContain(`html[data-intro="${state}"] .hero-card,`);
+      expect(css).toContain(`html[data-intro="${state}"] .hero-card *`);
+    }
     expect(css).toMatch(
-      /html\[data-intro="pending"\] \.hero-card,\s*html\[data-intro="pending"\] \.hero-card \*,\s*html\[data-intro="leaving"\] \.hero-card,\s*html\[data-intro="leaving"\] \.hero-card \* \{\s*animation-play-state: paused/,
+      /html\[data-intro="leaving"\] \.hero-card \* \{\s*animation-play-state: paused/,
     );
-    expect(css).not.toMatch(/data-intro="opening"\] \.hero-card/);
   });
 
   it('with reduced motion it is the final state, no motion', () => {
@@ -277,7 +279,8 @@ describe('the example run card', () => {
   });
 
   it('no rule of the hero is wider than a phone', () => {
-    const css = read('app', 'hero.css') + read('app', 'glass.css');
+    // (the query of the two columns is not a width of a rule)
+    const css = (read('app', 'hero.css') + read('app', 'glass.css')).replace(/@media[^{]*/g, '');
     expect(css).not.toMatch(/(?<![\w-])(?:min-)?width: (?:[4-9]\d\d|\d{4,})px/);
   });
 
