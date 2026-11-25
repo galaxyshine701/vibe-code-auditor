@@ -79,17 +79,6 @@
   background: var(--canary-soft);
 }
 
-.source-note {
-  margin: 0;
-  padding: 10px 13px;
-  border-left: 3px solid var(--canary);
-  border-radius: 8px;
-  color: var(--ink-soft);
-  background: var(--canary-soft);
-  font-size: 0.8rem;
-  line-height: 1.45;
-}
-
 .field .field-problem {
   color: var(--ink-soft);
   font-weight: 600;
@@ -109,7 +98,7 @@
   }
 }
 
-/* ---- Home: the one main box and "Add more checks" (A1) ---- */
+/* ---- Home: the start box ---- */
 .start-box {
   display: flex;
   flex-direction: column;
@@ -126,57 +115,6 @@
 .start-box .fine-print,
 .start-box > p {
   margin: 0;
-}
-
-.more-checks {
-  min-inline-size: 0;
-}
-
-.more-checks-summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 6px 2px;
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.more-checks-summary::after {
-  content: "+";
-  margin-left: auto;
-  color: var(--ink-soft);
-  font-size: 1.25rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.more-checks[open] > .more-checks-summary::after {
-  content: "-";
-}
-
-.more-checks-summary em {
-  color: var(--muted-2);
-  font-size: 0.72rem;
-  font-style: normal;
-  font-weight: 500;
-}
-
-.more-checks-summary:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
-
-.more-checks[open] > .more-checks-summary {
-  margin-bottom: 10px;
-}
-
-.start-code {
-  display: grid;
-  gap: 10px;
 }
 
 @media (max-width: 520px) {

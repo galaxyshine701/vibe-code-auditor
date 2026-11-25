@@ -1,38 +1,41 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroCard } from '@/components/hero-card';
 import { LangToggle } from '@/components/lang-toggle';
-import { GroupsNote, MoreChecks, RepoGroup } from '@/components/connect-groups';
-import { SecretInput } from '@/components/secret-input';
+import {
+  RepoGroup,
+  SupabaseGroup,
+  WebsiteGroup,
+} from '@/components/connect-groups';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { startAudit } from '@/lib/api';
-import { PROJECT_TAGLINE } from '@/lib/brand';
 import { ApiError, NetworkError } from '@/lib/errors';
 import {
   EMPTY_FIELDS,
   buildStartBody,
   checkConnect,
   clearKeys,
+  startButtonLabel,
   startHintOf,
   startNote,
+  willCheckLine,
   type ConnectFields,
 } from '@/lib/form';
 import {
-  CHIPS,
-  CHIP_TARGET,
+  ADVANCED,
+  FORM,
+  MEANING,
   PROBLEM,
   STEPS,
-  WHAT_IT_DOES,
+  TABLE_STEPS,
   headlineWords,
   honestyLine,
   pickText,
-  subLine,
-  type ChipId,
 } from '@/lib/hero-copy';
 import { useApiError } from '@/lib/use-api-error';
 import { useLang } from '@/lib/use-lang';
@@ -43,6 +46,8 @@ export default function ConnectPage() {
   const {
     accessCode,
     setAccessCode,
+    accessDraft,
+    setAccessDraft,
     clearAccessCode,
     rateLimitSecondsLeft,
   } = useApp();
@@ -51,41 +56,11 @@ export default function ConnectPage() {
   const HEADLINE = headlineWords(lang);
   const HEADLINE_TEXT = HEADLINE.join(' ');
 
-  // A chip points at the group of the Connect form it is named after (All: at
-  // every group). The website and Supabase groups are inside "Add more checks":
-  // the chip opens it first, and the group says "here" for a moment once it is
-  // on the screen.
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [pendingChip, setPendingChip] = useState<ChipId | null>(null);
-
-  function pickSource(chip: ChipId) {
-    if (CHIP_TARGET[chip].opensMore) setMoreOpen(true);
-    setPendingChip(chip);
-  }
-
-  useEffect(() => {
-    if (!pendingChip) return;
-    const target = CHIP_TARGET[pendingChip];
-    const first = document.getElementById(target.field);
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    first?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
-    first?.focus({ preventScroll: true });
-    const groups = [...document.querySelectorAll<HTMLElement>('.source-group')];
-    const wanted =
-      target.group === null
-        ? groups
-        : groups.filter((group) => group.dataset.group === target.group);
-    for (const group of wanted) {
-      group.classList.remove('is-nudged');
-      void group.offsetWidth;
-      group.classList.add('is-nudged');
-      window.setTimeout(() => group.classList.remove('is-nudged'), 1500);
-    }
-    setPendingChip(null);
-  }, [pendingChip]);
-
+  // the website part (under the button) and the Supabase part (at the bottom)
+  // are closed at first
+  const [websiteAsked, setWebsiteAsked] = useState(false);
+  const [advancedAsked, setAdvancedAsked] = useState(false);
   const [fields, setFields] = useState<ConnectFields>(EMPTY_FIELDS);
-  const [accessCodeInput, setAccessCodeInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [canRetry, setCanRetry] = useState(false);
@@ -94,7 +69,7 @@ export default function ConnectPage() {
     setFields((current) => ({ ...current, ...patch }));
   }
 
-  const effectiveAccessCode = accessCode || accessCodeInput;
+  const effectiveAccessCode = accessCode || accessDraft;
   // R76: at least one group complete, and no group half filled.
   const check = checkConnect(fields);
   const startDisabled =
@@ -105,33 +80,27 @@ export default function ConnectPage() {
   // Say what is missing, but not while submitting or rate-limited.
   const startHint =
     !submitting && rateLimitSecondsLeft === 0
-      ? startHintOf(check, Boolean(effectiveAccessCode))
+      ? startHintOf(check, Boolean(effectiveAccessCode), lang)
       : '';
-  // "Add more checks" is closed at first. It stays open while anything is
-  // typed in it: a half-filled group must never be hidden.
-  const moreOpenNow =
-    moreOpen ||
-    check.website.state !== 'empty' ||
-    check.supabase.state !== 'empty';
-  // A run with only a repository reads only the files of that repository.
-  const repoOnly =
-    check.repo.state === 'complete' &&
-    check.website.state === 'empty' &&
-    check.supabase.state === 'empty';
+  // A part stays open while anything is typed in it: a half-filled group must
+  // never be hidden, because the start button waits for it.
+  const websiteOpen = websiteAsked || check.website.state !== 'empty';
+  const advancedOpen = advancedAsked || check.supabase.state !== 'empty';
+  const willCheck = willCheckLine(check, lang);
 
   async function runAudit() {
     if (!check.canStart) {
-      setError(startNote(check));
+      setError(startNote(check, lang));
       setCanRetry(false);
       return;
     }
     if (!effectiveAccessCode) {
-      setError('Enter the access code above the Start button first.');
+      setError(pickText(FORM.needCode, lang));
       setCanRetry(false);
       return;
     }
-    if (!accessCode && accessCodeInput) {
-      setAccessCode(accessCodeInput);
+    if (!accessCode && accessDraft) {
+      setAccessCode(accessDraft);
     }
 
     setSubmitting(true);
@@ -145,10 +114,11 @@ export default function ConnectPage() {
       );
       // after a 202 the keys are cleared; the website address may stay (R76)
       setFields(clearKeys);
+      setAccessDraft('');
       router.push(`/audits/${created.id}`);
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
-        setAccessCodeInput('');
+        setAccessDraft('');
         clearAccessCode();
       }
       setError(handleApiError(caught));
@@ -163,17 +133,11 @@ export default function ConnectPage() {
     void runAudit();
   }
 
-  function changeAccessCode() {
-    clearAccessCode();
-    setAccessCodeInput('');
-  }
-
   return (
     <div className="shell page-stack">
       <section className="hero hero-stage">
         <div className="hero-copy">
           <div className="hero-copy-top">
-            <p className="hero-kicker">{PROJECT_TAGLINE}</p>
             <LangToggle lang={lang} onChange={setLang} />
           </div>
           <h1
@@ -193,58 +157,17 @@ export default function ConnectPage() {
             ))}
           </h1>
           <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
-          <p className="hero-lede">{subLine(lang)}</p>
 
-          {/* the one main box: a public repository, the access code, Start; the rest is under "Add more checks" */}
+          {/* one field, one box, one button; the website opens under the button */}
           <div className="start-wrap">
           <form
             id="start-box"
             className="start-box"
-            aria-label="Start"
+            aria-label={pickText(FORM.start, lang)}
             onSubmit={submit}
             noValidate
           >
-            <RepoGroup fields={fields} check={check} onChange={change} />
-
-            <MoreChecks
-              fields={fields}
-              check={check}
-              onChange={change}
-              open={moreOpenNow}
-              onOpenChange={setMoreOpen}
-            />
-            <GroupsNote check={check} />
-
-            <div className="start-code" id="access-gate">
-              {!accessCode ? (
-                <label className="field field-code">
-                  <span>Access code</span>
-                  <SecretInput
-                    id="access-code"
-                    value={accessCodeInput}
-                    onChange={(event) => setAccessCodeInput(event.target.value)}
-                    placeholder="Enter the door"
-                    maxLength={4096}
-                  />
-                  <small>
-                    Kept in this page’s memory only. It is sent as a header,
-                    never in the URL. Nothing is checked until you enter it.
-                  </small>
-                </label>
-              ) : (
-                <div className="memory-chip">
-                  <span className="memory-dot" aria-hidden="true" />
-                  <span>Access code held for this page only.</span>
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={changeAccessCode}
-                  >
-                    Change
-                  </button>
-                </div>
-              )}
-            </div>
+            <RepoGroup fields={fields} check={check} onChange={change} lang={lang} />
 
             <RateLimitNotice />
             {error ? (
@@ -260,64 +183,52 @@ export default function ConnectPage() {
               disabled={startDisabled}
               aria-describedby={startHint ? 'start-hint' : undefined}
             >
-              {submitting ? 'Starting…' : 'Start'}
+              {submitting
+                ? pickText(FORM.starting, lang)
+                : startButtonLabel(check, websiteOpen, lang)}
             </button>
+            {willCheck ? (
+              <p className="will-check" id="will-check" role="status">
+                {willCheck}
+              </p>
+            ) : null}
             {startHint ? (
               <p className="muted small" id="start-hint" role="status">
                 {startHint}
               </p>
             ) : null}
-            {repoOnly ? (
-              <p className="muted small" id="repo-only-note" role="status">
-                Repository checks only: only the files of this repository are
-                read. The website and Supabase are not checked.
-              </p>
-            ) : null}
-            <p className="fine-print">
-              Keys stay in memory only. They are cleared from the form after the
-              server accepts the run. Refreshing the page clears the access
-              code. Table names and check results (never keys) are sent to Groq
-              to write the explanation.
-            </p>
-          </form>
-          </div>
 
-          <div className="hero-chips" role="group" aria-label={pickText({ en: 'Add a check', ur: 'Aur check jodein' }, lang)}>
-            {CHIPS.map((chip) => (
-              <button
-                key={chip.id}
-                type="button"
-                className="hero-chip-btn"
-                data-chip={chip.id}
-                onClick={() => pickSource(chip.id)}
-              >
-                {pickText(chip.label, lang)}
-              </button>
-            ))}
-          </div>
-          <ul className="hero-does" aria-label={pickText({ en: 'What it does', ur: 'Ye kya karta hai' }, lang)}>
-            {WHAT_IT_DOES.map((line) => (
-              <li key={line.id} data-does={line.id}>
-                <strong>{pickText(line.title, lang)}</strong>
-                <span>{pickText(line.body, lang)}</span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="hero-gate">
             <button
               type="button"
-              className="button button-ghost button-small hero-replay"
-              onClick={() => window.dispatchEvent(new Event('vca:replay-hero'))}
+              className="text-button website-toggle"
+              aria-expanded={websiteOpen}
+              aria-controls="website-more"
+              onClick={() => setWebsiteAsked((open) => !open)}
             >
-              Replay intro
+              {pickText(FORM.addWebsite, lang)}
             </button>
+            <div id="website-more" hidden={!websiteOpen}>
+              <WebsiteGroup fields={fields} check={check} onChange={change} lang={lang} />
+            </div>
+
+            <p className="fine-print">{pickText(FORM.noAi, lang)}</p>
+          </form>
           </div>
         </div>
 
-        {/* the example run: a beam resolves three evidence rows, then the gate */}
+        {/* the example result, under the form: a beam resolves its rows, then the gate */}
         <div className="hero-card-wrap">
           <HeroCard lang={lang} />
+        </div>
+
+        <div className="hero-gate">
+          <button
+            type="button"
+            className="button button-ghost button-small hero-replay"
+            onClick={() => window.dispatchEvent(new Event('vca:replay-hero'))}
+          >
+            Replay intro
+          </button>
         </div>
       </section>
 
@@ -334,74 +245,59 @@ export default function ConnectPage() {
       </ol>
       <p className="hero-honesty">{honestyLine(lang)}</p>
 
-      <div className="connect-grid">
-          <section className="card info-card">
-            <h2>How the table check works</h2>
-            <ol className="steps">
-              <li>
-                <span>1</span>
-                <div>
-                  <strong>Two temporary users</strong>
-                  <p>
-                    The auditor signs up user A and user B in your project.
-                  </p>
-                </div>
-              </li>
-              <li>
-                <span>2</span>
-                <div>
-                  <strong>A canary row</strong>
-                  <p>
-                    User A owns a new row. User B and a visitor try to read,
-                    change and delete it.
-                  </p>
-                </div>
-              </li>
-              <li>
-                <span>3</span>
-                <div>
-                  <strong>Evidence you can check</strong>
-                  <p>
-                    Every finding shows what the API answered and a reproducer
-                    with placeholders.
-                  </p>
-                </div>
-              </li>
-            </ol>
-          </section>
+      <section className="card truth-card">
+        <h2>{pickText(MEANING.title, lang)}</h2>
+        <p>
+          {pickText(MEANING.cleanLead, lang)}{' '}
+          <strong>{pickText(MEANING.clean, lang)}</strong>.
+        </p>
+        <CoverageNotes summary={pickText(MEANING.covers, lang)} />
+        <dl className="truth-legend">
+          {(['leaked', 'inconclusive', 'blocked'] as const).map((kind) => (
+            <div key={kind}>
+              <dt className={`legend-dot legend-${kind}`} />
+              <dd>
+                <strong>{pickText(MEANING[kind].word, lang)}</strong>
+                <span>{pickText(MEANING[kind].body, lang)}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
 
-          <section className="card truth-card">
-            <h2>What this means</h2>
-            <p>
-              A clean result means <strong>no leak found by these checks</strong>
-              .
-            </p>
-            <CoverageNotes summary="See what they cover." />
-            <dl className="truth-legend">
-              <div>
-                <dt className="legend-dot legend-leaked" />
-                <dd>
-                  <strong>Leaked</strong>
-                  <span>Another user reached the canary row.</span>
-                </dd>
-              </div>
-              <div>
-                <dt className="legend-dot legend-inconclusive" />
-                <dd>
-                  <strong>Inconclusive</strong>
-                  <span>A person should confirm the intent.</span>
-                </dd>
-              </div>
-              <div>
-                <dt className="legend-dot legend-blocked" />
-                <dd>
-                  <strong>Blocked</strong>
-                  <span>The row stayed private in these checks.</span>
-                </dd>
-              </div>
-            </dl>
-          </section>
-      </div>
+      {/* the Supabase test project: the last thing on the page, closed at first */}
+      <details
+        className="card advanced"
+        id="advanced-supabase"
+        open={advancedOpen}
+        onToggle={(event) => setAdvancedAsked(event.currentTarget.open)}
+      >
+        <summary className="advanced-summary">
+          {pickText(ADVANCED.link, lang)}
+        </summary>
+        <div className="advanced-body">
+          <SupabaseGroup fields={fields} check={check} onChange={change} lang={lang} />
+          <p className="fine-print">{pickText(ADVANCED.keys, lang)}</p>
+          <p className="fine-print">{pickText(ADVANCED.groq, lang)}</p>
+          <p>
+            <a className="text-link" href="#start-box">
+              {pickText(ADVANCED.back, lang)}
+            </a>
+          </p>
+          <h2>{pickText(ADVANCED.howTitle, lang)}</h2>
+          <ol className="steps">
+            {TABLE_STEPS.map((step, index) => (
+              <li key={index}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{pickText(step.title, lang)}</strong>
+                  <p>{pickText(step.body, lang)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </details>
     </div>
   );
 }

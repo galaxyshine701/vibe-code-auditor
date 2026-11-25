@@ -7,6 +7,8 @@ import type { Lang } from './check-labels';
 // the Report screen agree. Storage can be blocked: then it is English and the
 // choice lasts for the page only.
 const KEY = 'vca-lang';
+// tells every other user of this hook (the header's access bar) about a change
+const CHANGE = 'vca:lang';
 
 export function useLang(): [Lang, (lang: Lang) => void] {
   const [lang, setLangState] = useState<Lang>('en');
@@ -18,6 +20,12 @@ export function useLang(): [Lang, (lang: Lang) => void] {
     } catch {
       // blocked storage: stay in English
     }
+    const follow = (event: Event) => {
+      const next = (event as CustomEvent).detail;
+      if (next === 'en' || next === 'ur') setLangState(next);
+    };
+    window.addEventListener(CHANGE, follow);
+    return () => window.removeEventListener(CHANGE, follow);
   }, []);
 
   const setLang = useCallback((next: Lang) => {
@@ -27,6 +35,7 @@ export function useLang(): [Lang, (lang: Lang) => void] {
     } catch {
       // not kept: fine
     }
+    window.dispatchEvent(new CustomEvent(CHANGE, { detail: next }));
   }, []);
 
   return [lang, setLang];

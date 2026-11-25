@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // The hero of the home page: its words (frontend/src/lib/hero-copy.ts) and how
-// the example run, the chips, the steps and the honesty line are built. The
+// the example result, the steps and the honesty line are built. The
 // frontend has no test runner of its own, so the files are loaded or read here.
 const FRONTEND = join(__dirname, '..', '..', '..', 'frontend');
 const read = (...parts: string[]) =>
@@ -17,11 +17,12 @@ const copy = (await import(
 )) as {
   HEADLINE: Pair;
   headlineWords: (lang: 'en' | 'ur') => string[];
-  subLine: (lang: 'en' | 'ur') => string;
   PROBLEM: Pair;
-  WHAT_IT_DOES: { id: string; title: Pair; body: Pair }[];
-  CHIP_TARGET: Record<string, { field: string; group: number | null }>;
-  CHIPS: { id: string; label: Pair }[];
+  FORM: Record<string, Pair>;
+  ACCESS: Record<string, Pair>;
+  ADVANCED: Record<string, Pair>;
+  MEANING: Record<string, any>;
+  TABLE_STEPS: { title: Pair; body: Pair }[];
   CARD: Record<string, any>;
   STEPS: { title: Pair; body: Pair }[];
   honestyLine: (lang: 'en' | 'ur') => string;
@@ -30,12 +31,13 @@ const copy = (await import(
 const ALL_TEXT = JSON.stringify([
   copy.HEADLINE,
   copy.PROBLEM,
-  copy.WHAT_IT_DOES,
-  copy.CHIPS,
   copy.CARD,
   copy.STEPS,
-  copy.subLine('en'),
-  copy.subLine('ur'),
+  copy.FORM,
+  copy.ACCESS,
+  copy.ADVANCED,
+  copy.MEANING,
+  copy.TABLE_STEPS,
   copy.honestyLine('en'),
   copy.honestyLine('ur'),
 ]);
@@ -63,8 +65,8 @@ describe('the headline', () => {
   });
 });
 
-describe('the lede: the problem first, then what Gatecheck is', () => {
-  it('starts with the problem, in one plain sentence, in both languages', () => {
+describe('the one line under the headline, and the order of the hero', () => {
+  it('is the problem, in one plain sentence, in both languages', () => {
     expect(copy.PROBLEM.en).toBe(
       'An app built with AI tools can go live with its database or keys open to anyone.',
     );
@@ -74,112 +76,32 @@ describe('the lede: the problem first, then what Gatecheck is', () => {
     expect(copy.PROBLEM.en + copy.PROBLEM.ur).not.toMatch(/\d|%/);
   });
 
-  it('then says what it checks and what it gives: a gate result, by these checks, with the evidence', () => {
-    expect(copy.subLine('en')).toBe(
-      'Gatecheck checks a live site, a Supabase project and a public GitHub repo, then gives one gate result, by these checks, with the evidence.',
-    );
-    expect(copy.subLine('ur')).toContain('Gatecheck ek live site');
-    expect(copy.subLine('ur')).toContain('public GitHub repo');
-    expect(copy.subLine('ur')).toContain('in checks ke hisaab se');
-    expect(copy.subLine('ur')).toContain('saboot');
-  });
-
-  it('is shown in this order: problem, lede, the main box, chips, four lines', () => {
+  it('is shown in this order: headline, line, the form, then the example result under it', () => {
     const page = read('app', 'page.tsx');
     const at = (text: string) => page.indexOf(text);
-    expect(at('hero-problem')).toBeGreaterThan(-1);
-    expect(at('hero-problem')).toBeLessThan(at('subLine(lang)'));
-    expect(at('subLine(lang)')).toBeLessThan(at('id="start-box"'));
-    expect(at('id="start-box"')).toBeLessThan(at('hero-chips'));
-    expect(at('hero-chips')).toBeLessThan(at('hero-does'));
+    expect(at('hero-title')).toBeLessThan(at('hero-problem'));
+    expect(at('hero-problem')).toBeLessThan(at('id="start-box"'));
+    expect(at('id="start-box"')).toBeLessThan(at('hero-card-wrap'));
     expect(page).toContain('pickText(PROBLEM, lang)');
   });
-});
 
-describe('the four lines of what it does', () => {
-  it('say plainly: a live site, Supabase tables by replaying two test users (RLS), a public GitHub repo, and a gate with evidence', () => {
-    expect(copy.WHAT_IT_DOES.map((l) => l.id)).toEqual([
-      'site',
-      'supabase',
-      'repo',
-      'gate',
-    ]);
-    const by = (id: string) => copy.WHAT_IT_DOES.find((l) => l.id === id)!;
-    expect(by('site').body.en).toContain('headers');
-    expect(by('site').body.en).toContain('scripts');
-    expect(by('supabase').body.en).toContain('two test users');
-    expect(by('supabase').body.en).toContain('row level security (RLS)');
-    expect(by('repo').body.en).toContain('secret keys');
-    expect(by('repo').body.en).toContain('no RLS');
-    expect(by('gate').body.en).toContain('by these checks');
-    expect(by('gate').body.en).toContain('evidence');
-    expect(by('gate').body.ur).toMatch(/in checks ke hisaab se/i);
-  });
-
-  it('every line has English and Roman Urdu', () => {
-    for (const line of copy.WHAT_IT_DOES) {
-      expect(line.title.en).not.toBe('');
-      expect(line.title.ur).not.toBe('');
-      expect(line.body.en.length).toBeGreaterThan(20);
-      expect(line.body.ur.length).toBeGreaterThan(20);
-    }
-  });
-});
-
-describe('the four chips: the three groups of the Connect form, and all', () => {
-  it('are Website, Supabase, GitHub repo and All, with a Roman Urdu name', () => {
-    expect(copy.CHIPS.map((c) => c.label.en)).toEqual([
-      'Website',
-      'Supabase',
-      'GitHub repo',
-      'All',
-    ]);
-    expect(copy.CHIPS.map((c) => c.id)).toEqual([
-      'website',
-      'supabase',
-      'repo',
-      'all',
-    ]);
-    expect(copy.CHIPS[3].label.ur).toBe('Sab');
-  });
-
-  it('there are exactly 4 chips, and "Both" is nowhere in the hero (copy, targets, styles, page)', () => {
-    expect(copy.CHIPS).toHaveLength(4);
-    expect(Object.keys(copy.CHIP_TARGET).sort()).toEqual(
-      ['all', 'repo', 'supabase', 'website'],
-    );
+  it('has no chips, no tabs and no list of what it does', () => {
     for (const file of [
       read('lib', 'hero-copy.ts'),
       read('app', 'hero.css'),
       read('app', 'page.tsx'),
     ]) {
-      expect(file).not.toMatch(/\bBoth\b|data-chip="both"|id: 'both'|'both'|\bDono\b/);
+      expect(file).not.toMatch(/CHIPS|CHIP_TARGET|hero-chips|hero-does|WHAT_IT_DOES|role="tab/);
     }
   });
 
-  it('point at the first field of their group, which has that id; All points at every group', () => {
-    // the groups are found by name (data-group), not by their place: the repo
-    // is the main box, the other two are inside "Add more checks", which a chip opens
-    expect(copy.CHIP_TARGET).toEqual({
-      website: { field: 'website-url', group: 'website', opensMore: true },
-      supabase: { field: 'project-url', group: 'supabase', opensMore: true },
-      repo: { field: 'repo-url', group: 'repo', opensMore: false },
-      all: { field: 'repo-url', group: null, opensMore: true },
-    });
-    const page = read('app', 'page.tsx');
-    expect(page).toContain('CHIP_TARGET[chip]');
-    expect(page).toContain('target.group === null');
-    expect(page).toContain('group.dataset.group === target.group');
-    const groups = read('components', 'connect-groups.tsx');
-    for (const target of Object.values(copy.CHIP_TARGET)) {
-      expect(groups).toContain(`id="${target.field}"`);
-    }
-    for (const name of ['website', 'supabase', 'repo']) {
-      expect(groups).toContain(`data-group="${name}"`);
-    }
-    // they sit under the main box
-    expect(page.indexOf('id="start-box"')).toBeLessThan(
-      page.indexOf('hero-chips'),
+  it('is one column: the form, then the example result, never side by side', () => {
+    const css = read('app', 'glass.css').replace(/\r\n/g, '\n');
+    expect(css).toMatch(
+      /\.hero\.hero-stage \{\s*grid-template-columns: minmax\(0, 1fr\);/,
+    );
+    expect(css).toMatch(
+      /\.hero-stage > \.hero-copy,\s*\.hero-stage > \.hero-card-wrap,\s*\.hero-stage > \.hero-gate \{\s*width: 100%;\s*max-width: 640px;/,
     );
   });
 });
@@ -233,9 +155,9 @@ describe('the example run card', () => {
     );
   });
 
-  it('says "Example, not a real audit" in English and Roman Urdu, with made-up numbers, in the card head and its label', () => {
-    expect(copy.CARD.tag.en).toBe('Example, not a real audit');
-    expect(copy.CARD.tag.ur).toBe('Misaal, asli audit nahi');
+  it('says "Example result, not a real audit" in English and Roman Urdu, with made-up numbers, in the card head and its label', () => {
+    expect(copy.CARD.tag.en).toBe('Example result, not a real audit');
+    expect(copy.CARD.tag.ur).toBe('Misaal ka nateeja, asli audit nahi');
     expect(copy.CARD.tagNote.en).toBe('Made-up numbers');
     expect(copy.CARD.tagNote.ur).toBe('Farzi ankre');
     // the tag is the visible head of the card and also its accessible name
@@ -260,8 +182,11 @@ describe('the example run card', () => {
     };
     walk(copy.CARD, 'CARD');
     walk(copy.STEPS, 'STEPS');
-    walk(copy.CHIPS, 'CHIPS');
-    walk(copy.WHAT_IT_DOES, 'WHAT_IT_DOES');
+    walk(copy.FORM, 'FORM');
+    walk(copy.ACCESS, 'ACCESS');
+    walk(copy.ADVANCED, 'ADVANCED');
+    walk(copy.MEANING, 'MEANING');
+    walk(copy.TABLE_STEPS, 'TABLE_STEPS');
     walk(copy.PROBLEM, 'PROBLEM');
   });
 
@@ -335,17 +260,9 @@ describe('the example run card', () => {
     );
   });
 
-  it('at 375 px the four lines of what it does stack (title above its text), and the four chips wrap', () => {
-    const css = read('app', 'hero.css');
-    const block = css.slice(css.indexOf('@media (max-width: 480px)'));
-    expect(block).toMatch(
-      /\.hero-does li \{\s*grid-template-columns: minmax\(0, 1fr\)/,
-    );
-    expect(css).toMatch(/\.hero-chips \{[^}]*flex-wrap: wrap/);
-    // no fixed width wider than a phone in the hero rules
+  it('no rule of the hero is wider than a phone', () => {
+    const css = read('app', 'hero.css') + read('app', 'glass.css');
     expect(css).not.toMatch(/(?<![\w-])(?:min-)?width: (?:[4-9]\d\d|\d{4,})px/);
-    // long words (Roman Urdu) wrap instead of pushing the page sideways
-    expect(css).toMatch(/\.hero-does span \{[^}]*overflow-wrap: break-word/);
   });
 
   it('the canary scene is made small: three tries, a policy line, one canary row', () => {
@@ -367,7 +284,7 @@ describe('the three steps and the honesty line', () => {
       page.indexOf('hero-steps'),
     );
     expect(page.indexOf('hero-steps')).toBeLessThan(
-      page.indexOf('connect-grid'),
+      page.indexOf('truth-card'),
     );
   });
 

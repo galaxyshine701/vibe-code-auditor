@@ -1,4 +1,4 @@
-/* The hero of the home page: the chips, the example run, the three steps and the
+/* The hero of the home page: the example result, the three steps and the
    honesty line. The tokens of the theme only. The example run is resolved by the
    scan beam (scan-beam.tsx, styled in intro.css): each row shows its result when
    the beam has passed it (--at). The words are always in the page; only the
@@ -23,98 +23,13 @@
   line-height: 1.12;
 }
 
-/* ---- the lede: the problem, what it is, and what it does in four short lines ---- */
+/* ---- the one line under the headline ---- */
 .hero-problem {
-  margin: 0 0 10px;
+  margin: 0 0 18px;
   color: var(--ink);
   font-size: 1.08rem;
   font-weight: 600;
   line-height: 1.45;
-}
-
-.hero-does {
-  display: grid;
-  gap: 10px;
-  margin: 0 0 20px;
-  padding: 0;
-  list-style: none;
-}
-
-.hero-does li {
-  display: grid;
-  grid-template-columns: 8.6rem minmax(0, 1fr);
-  gap: 2px 14px;
-  align-items: baseline;
-  padding-left: 12px;
-  border-left: 2px solid var(--line-strong);
-  color: var(--ink-soft);
-  font-size: 0.88rem;
-  line-height: 1.45;
-}
-
-.hero-does strong {
-  color: var(--ink);
-  font-size: 0.84rem;
-  font-weight: 650;
-}
-
-.hero-does span {
-  min-width: 0;
-  overflow-wrap: break-word;
-}
-
-/* ---- the four chips: the three groups of the Connect form, and all ---- */
-.hero-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 26px;
-}
-
-.hero-chip-btn {
-  min-height: 2.4rem;
-  padding: 6px 16px;
-  border: 1px solid var(--control-border);
-  border-radius: 999px;
-  color: var(--ink-soft);
-  background: transparent;
-  font-size: 0.84rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
-}
-
-.hero-chip-btn:hover {
-  border-color: var(--ink);
-  color: var(--ink);
-  background: var(--surface-soft);
-}
-
-.hero-chip-btn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.hero-chip-btn[data-chip="all"] {
-  border-style: dashed;
-}
-
-/* a group of the Connect form says "here" when a chip points at it */
-.source-group.is-nudged {
-  animation: sourceNudge 1.4s ease-out;
-}
-
-@keyframes sourceNudge {
-  0% {
-    box-shadow: 0 0 0 0 var(--canary-glow);
-  }
-  35% {
-    box-shadow: 0 0 0 6px var(--canary-glow);
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
 }
 
 /* ---- the example run ---- */
@@ -574,20 +489,6 @@ html[data-intro="leaving"] .hero-card * {
     padding: 14px 12px;
   }
 
-  /* the four lines of what it does: the title above its text, so nothing is squeezed at 375 px */
-  .hero-does li {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1px;
-  }
-
-  .hero-chips {
-    gap: 6px;
-  }
-
-  .hero-chip-btn {
-    padding: 6px 13px;
-  }
-
   .hero-beam-layer,
   .hero-mini,
   .hero-wait,
@@ -673,10 +574,6 @@ html[data-intro="leaving"] .hero-card * {
   .hero-result,
   .hero-gate-line {
     opacity: 1;
-    animation: none;
-  }
-
-  .source-group.is-nudged {
     animation: none;
   }
 }

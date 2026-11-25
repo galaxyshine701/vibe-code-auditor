@@ -9,6 +9,7 @@
 //    scan its files" (confirmRepoAccess).
 // A half-filled group blocks the start (the backend would answer 400) and the
 // note names what is missing. The UI never sends a half group.
+import type { Lang } from './check-labels';
 import type { StartAuditInput } from './types';
 
 export interface ConnectFields {
@@ -107,9 +108,13 @@ export function isValidRepoUrl(value: string): boolean {
   );
 }
 
+const REPO_URL_PROBLEM_UR =
+  'Bilkul https://github.com/owner/repo likhein: sirf https, sirf github.com, naam ke baad koi path nahi, aur ?query ya #hissa nahi.';
+
 /** The inline message for the field: empty while it is empty or valid. */
-export function repoUrlProblem(value: string): string {
-  return filled(value) && !isValidRepoUrl(value) ? REPO_URL_PROBLEM : '';
+export function repoUrlProblem(value: string, lang: Lang = 'en'): string {
+  if (!filled(value) || isValidRepoUrl(value)) return '';
+  return lang === 'ur' ? REPO_URL_PROBLEM_UR : REPO_URL_PROBLEM;
 }
 
 export function checkConnect(fields: ConnectFields): ConnectCheck {
@@ -142,36 +147,100 @@ export function checkConnect(fields: ConnectFields): ConnectCheck {
   return { website, supabase, repo, canStart: oneComplete && nonePartial };
 }
 
+// The Roman Urdu names of what a group can miss (checkConnect names them in English).
+const MISSING_UR: Record<string, string> = {
+  'Website address': 'Website ka address',
+  'the box "I may test this site"': 'site test karne ki ijazat wala box',
+  'Project URL': 'Project URL',
+  'Publishable key': 'Publishable key',
+  'Secret key': 'Secret key',
+  'the TEST project box': 'TEST project wala box',
+  'Repository address': 'Repository ka address',
+  'the box "This repository is public and I may scan its files"':
+    'files scan karne ki ijazat wala box',
+  'a valid repository address (https://github.com/owner/repo)':
+    'sahi repository address (https://github.com/owner/repo)',
+};
+
 /**
  * A short note for the start button: what to do next. Empty when nothing is
  * missing. It names fields only, never a value.
  */
-export function startNote(check: ConnectCheck): string {
+export function startNote(check: ConnectCheck, lang: Lang = 'en'): string {
+  const list = (missing: string[]) =>
+    (lang === 'ur' ? missing.map((m) => MISSING_UR[m] ?? m) : missing).join(', ');
   const notes: string[] = [];
   if (check.website.state === 'partial') {
-    notes.push(`Website: ${check.website.missing.join(', ')}`);
+    notes.push(`Website: ${list(check.website.missing)}`);
   }
   if (check.supabase.state === 'partial') {
-    notes.push(`Supabase: ${check.supabase.missing.join(', ')}`);
+    notes.push(`Supabase: ${list(check.supabase.missing)}`);
   }
   if (check.repo.state === 'partial') {
-    notes.push(`Repository: ${check.repo.missing.join(', ')}`);
+    notes.push(`Repository: ${list(check.repo.missing)}`);
   }
-  if (notes.length > 0) return `Finish or clear a group: ${notes.join('. ')}.`;
+  if (notes.length > 0) {
+    return lang === 'ur'
+      ? `Ye hissa poora karein ya khali karein: ${notes.join('. ')}.`
+      : `Finish or clear a group: ${notes.join('. ')}.`;
+  }
   if (!check.canStart) {
     // The repository box is the first thing on the page, so it is named first;
-    // the groups under "Add more checks" are the other way in.
-    return 'Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.';
+    // a live website is the other way in.
+    return lang === 'ur'
+      ? 'Public GitHub repo ka link paste karein aur files scan karne ki ijazat wala box lagayein, ya live website jodein.'
+      : 'Paste a public GitHub repo link and tick the box "This repository is public and I may scan its files", or add a live website.';
   }
   return '';
 }
 
 /** The line under the start button: the access code and what a group still needs. */
-export function startHintOf(check: ConnectCheck, hasAccessCode: boolean): string {
-  const parts = [hasAccessCode ? '' : 'enter the access code', startNote(check)]
+export function startHintOf(
+  check: ConnectCheck,
+  hasAccessCode: boolean,
+  lang: Lang = 'en',
+): string {
+  const code =
+    lang === 'ur' ? 'access code likhein' : 'enter the access code';
+  const parts = [hasAccessCode ? '' : code, startNote(check, lang)]
     .filter(Boolean)
     .map((part) => part.replace(/\.$/, ''));
-  return parts.length > 0 ? `To start: ${parts.join('. ')}.` : '';
+  if (parts.length === 0) return '';
+  const lead = lang === 'ur' ? 'Shuru karne ke liye' : 'To start';
+  return `${lead}: ${parts.join('. ')}.`;
+}
+
+/**
+ * "Will check: repo + website": built from the groups that are complete, which
+ * are exactly the ones buildStartBody sends. Empty when none is complete.
+ */
+export function willCheckLine(check: ConnectCheck, lang: Lang = 'en'): string {
+  const names = [
+    check.repo.state === 'complete' ? 'repo' : '',
+    check.website.state === 'complete' ? 'website' : '',
+    check.supabase.state === 'complete' ? 'Supabase test project' : '',
+  ].filter(Boolean);
+  if (names.length === 0) return '';
+  return `${lang === 'ur' ? 'Ye check honge' : 'Will check'}: ${names.join(' + ')}`;
+}
+
+/**
+ * The words of the one start button. It names the repository alone until the
+ * website part is opened; with anything typed in the Supabase part it names
+ * neither, and the "Will check" line says what will run.
+ */
+export function startButtonLabel(
+  check: ConnectCheck,
+  websiteOpen: boolean,
+  lang: Lang = 'en',
+): string {
+  if (check.supabase.state !== 'empty') {
+    return lang === 'ur' ? 'Ye checks chalayein' : 'Run these checks';
+  }
+  if (websiteOpen) {
+    return lang === 'ur' ? 'Repo + website check karein' : 'Check repo + website';
+  }
+  return lang === 'ur' ? 'Ye repo check karein' : 'Check this repo';
 }
 
 /**

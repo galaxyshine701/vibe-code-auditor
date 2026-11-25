@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { MouseEvent } from 'react';
 import { PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
 import { USE_MOCK } from '@/lib/config';
+import { AccessBar } from './access-bar';
 import { ThemeToggle } from './theme-toggle';
 
 export function AppHeader() {
@@ -33,6 +34,8 @@ export function AppHeader() {
             <span className="brand-sub">{PROJECT_TAGLINE}</span>
           </span>
         </Link>
+        {/* the home page starts a run, so it asks for the code here */}
+        {pathname === '/' ? <AccessBar /> : null}
         <div className="header-actions">
           {USE_MOCK ? <span className="pill pill-muted">Sample data</span> : null}
           <ThemeToggle />

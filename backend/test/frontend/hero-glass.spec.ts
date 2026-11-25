@@ -301,12 +301,12 @@ describe('the scene', () => {
     expect(out.match(/<(circle|rect|path|ellipse)\b/g)!.length).toBeLessThan(60);
   });
 
-  it('is in the example card, which still says "Example, not a real audit" and the gate "Not ready by these checks"', () => {
+  it('is in the example card, which still says "Example result, not a real audit" and the gate "Not ready by these checks"', () => {
     const out = renderToStaticMarkup(
       React.createElement(cardModule.HeroCard as never, { lang: 'en' }),
     );
     expect(out).toContain('hero-scene');
-    expect(out).toContain('Example, not a real audit');
+    expect(out).toContain('Example result, not a real audit');
     expect(out).toContain('Not ready by these checks');
     expect(out.indexOf('hero-scene')).toBeLessThan(out.indexOf('hero-rows'));
     expect(out.indexOf('hero-tiles')).toBeGreaterThan(out.indexOf('hero-rows'));

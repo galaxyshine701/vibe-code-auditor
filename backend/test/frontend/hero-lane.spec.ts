@@ -98,14 +98,14 @@ describe('the lane in the card', () => {
 });
 
 describe('the card, rendered for real', () => {
-  it('says "Example, not a real audit" in both languages, and has 4 checkpoints, 1 gate bar and 1 dot', async () => {
+  it('says "Example result, not a real audit" in both languages, and has 4 checkpoints, 1 gate bar and 1 dot', async () => {
     const { HeroCard } = (await import(
       /* @vite-ignore */ pathToFileURL(join(FRONTEND, 'src', 'components', 'hero-card.tsx')).href
     )) as { HeroCard: (p: { lang: 'en' | 'ur' }) => unknown };
     const en = html(React.createElement(HeroCard as never, { lang: 'en' }));
     const ur = html(React.createElement(HeroCard as never, { lang: 'ur' }));
-    expect(en).toContain('Example, not a real audit');
-    expect(ur).toContain('Misaal, asli audit nahi');
+    expect(en).toContain('Example result, not a real audit');
+    expect(ur).toContain('Misaal ka nateeja, asli audit nahi');
     for (const out of [en, ur]) {
       expect(out.match(/class="hero-node hero-node-(?:bar|open|dashed)"/g)).toHaveLength(4);
       expect(out.match(/hero-node-gate/g)).toHaveLength(1);

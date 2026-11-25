@@ -132,7 +132,7 @@ describe('the Connect form: the third group', () => {
   it('the hint names the repo box first (it is the first box of the page), and never a value', () => {
     const hint = form.startHintOf(form.checkConnect(fields()), false);
     expect(hint).toBe(
-      'To start: enter the access code. Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.',
+      'To start: enter the access code. Paste a public GitHub repo link and tick the box "This repository is public and I may scan its files", or add a live website.',
     );
     const partial = form.startHintOf(
       form.checkConnect(fields({ repoUrl: 'https://github.com/SECRET-OWNER/b' })),
@@ -308,14 +308,13 @@ describe('the Connect form screen', () => {
     const groups = read('components', 'connect-groups.tsx');
     expect(groups).toContain('Public GitHub repo');
     expect(groups).toContain('This repository is public and I may scan its files.');
-    // the repo is the main box: it comes before the two groups under "Add more checks"
+    // the repo is the one field of the hero: its group comes first
     expect(groups.indexOf('export function RepoGroup')).toBeLessThan(
-      groups.indexOf('export function MoreChecks'),
+      groups.indexOf('export function WebsiteGroup'),
     );
-    // the hero now names the repo too: its step says "a public GitHub repo", and it has a GitHub repo chip
-    expect(read('lib', 'hero-copy.ts')).toMatch(
-      /Add a website address, Supabase details, a public GitHub repo, or any of them together/,
+    // the first step of the page names the repo first
+    expect(read('lib', 'hero-copy.ts')).toContain(
+      'Paste the link of a public GitHub repo. You can add a live website too.',
     );
-    expect(read('lib', 'hero-copy.ts')).toContain("id: 'repo'");
   });
 });

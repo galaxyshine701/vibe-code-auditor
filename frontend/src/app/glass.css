@@ -576,3 +576,200 @@ html[data-intro="leaving"] .hero-scene * {
     animation: none;
   }
 }
+
+/* ---- one column: the form, then the example result under it ---- */
+.hero.hero-stage {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 28px;
+}
+
+.hero-stage > .hero-copy,
+.hero-stage > .hero-card-wrap,
+.hero-stage > .hero-gate {
+  width: 100%;
+  max-width: 640px;
+  min-width: 0;
+}
+
+.hero-stage .start-wrap {
+  max-width: none;
+  margin: 0;
+}
+
+.hero-stage .hero-title {
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  line-height: 1.05;
+  overflow-wrap: break-word;
+}
+
+.hero-stage .hero-title-ur {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  line-height: 1.15;
+}
+
+.hero-stage .hero-gate {
+  justify-items: start;
+}
+
+.start-box {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* the one field of the hero needs no box title; it stays for a screen reader,
+   and the chip shows once something is typed */
+.start-box > .source-group[data-group="repo"] > .source-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.start-box > .source-group[data-group="repo"][data-state="partial"] > .source-legend {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
+}
+
+.start-box > .source-group[data-group="repo"][data-state="partial"] .source-title {
+  display: none;
+}
+
+.will-check {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.website-toggle {
+  justify-self: start;
+  min-height: 2.4rem;
+  text-align: left;
+}
+
+.start-box .fine-print,
+.start-box #start-hint {
+  margin: 0;
+}
+
+/* ---- the Supabase section at the bottom ---- */
+.advanced {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 14px 20px;
+}
+
+.advanced-summary {
+  min-height: 2.4rem;
+  display: flex;
+  align-items: center;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.advanced-body {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: 12px;
+}
+
+.truth-card {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.truth-card .truth-legend {
+  margin-top: 16px;
+}
+
+/* "Go to the start button" lands below the header, not under it */
+#start-box {
+  scroll-margin-top: 96px;
+}
+
+/* ---- the access code in the header ---- */
+.access-bar {
+  margin-left: auto;
+  min-width: 0;
+}
+
+.access-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 11rem);
+  align-items: center;
+  gap: 0 8px;
+}
+
+.access-field > span {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.access-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.4rem;
+  padding: 6px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--field);
+  font-size: 1rem;
+}
+
+.access-field input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.access-field small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.access-bar .memory-chip {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+@media (max-width: 900px) {
+  /* the bar goes on its own line under the brand, over the whole width */
+  .header-inner {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  /* two lines of header must not stay over the page while it scrolls */
+  .site-header:has(.access-bar) {
+    position: static;
+  }
+
+  .access-bar {
+    order: 3;
+    flex: 1 0 100%;
+    margin: 0;
+    padding-bottom: 10px;
+  }
+
+  .access-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .access-field small {
+    text-align: left;
+  }
+}
+

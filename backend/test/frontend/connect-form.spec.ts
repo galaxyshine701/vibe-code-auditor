@@ -186,11 +186,11 @@ describe('the notes name fields, never values', () => {
   it('the hint under the start button: access code first, then the repo box (the first box of the page)', () => {
     const empty = form.checkConnect(fields());
     expect(form.startHintOf(empty, false)).toBe(
-      'To start: enter the access code. Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.',
+      'To start: enter the access code. Paste a public GitHub repo link and tick the box "This repository is public and I may scan its files", or add a live website.',
     );
     // with the access code, only the repo part is left to say
     expect(form.startHintOf(empty, true)).toBe(
-      'To start: Enter a public GitHub repo address and tick the box "This repository is public and I may scan its files", or add more checks.',
+      'To start: Paste a public GitHub repo link and tick the box "This repository is public and I may scan its files", or add a live website.',
     );
     // the old wording, which named the groups in the old order, is gone
     expect(form.startHintOf(empty, false)).not.toMatch(/website group|Supabase group/);
@@ -215,9 +215,11 @@ describe('after a 202 (R29, R76)', () => {
 describe('the Connect screen wires the groups', () => {
   const page = readFileSync(join(FRONTEND, 'src', 'app', 'page.tsx'), 'utf8');
   it('uses the group component, the rules of form.ts and shows the 400 message as given', () => {
-    // the repository is the main box; the other two groups are under "Add more checks"
+    // the repository is the one field of the hero; the website opens under the
+    // button, the Supabase part is at the bottom of the page
     expect(page).toContain('<RepoGroup');
-    expect(page).toContain('<MoreChecks');
+    expect(page).toContain('<WebsiteGroup');
+    expect(page).toContain('<SupabaseGroup');
     expect(page).not.toContain('<ConnectGroups');
     expect(page).toContain('buildStartBody(fields)');
     expect(page).toContain('setError(handleApiError(caught))');
