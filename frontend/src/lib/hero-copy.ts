@@ -27,6 +27,24 @@ export const KICKER: Pair = {
   ur: 'AI tools se bani apps ke liye checks',
 };
 
+/** The button under the example result that plays the intro again. */
+export const REPLAY: Pair = {
+  en: 'Replay intro',
+  ur: 'Intro dobara chalayein',
+};
+
+/** The theme button of the header: the word on it, and what a screen reader says. */
+export const THEME = {
+  light: {
+    word: { en: 'Light', ur: 'Roshan' },
+    action: { en: 'Switch to light theme', ur: 'Roshan theme lagayein' },
+  },
+  dark: {
+    word: { en: 'Dark', ur: 'Andhera' },
+    action: { en: 'Switch to dark theme', ur: 'Andhera theme lagayein' },
+  },
+} as const;
+
 /** The one line under the headline: the problem, in one plain sentence, no figures. */
 export const PROBLEM: Pair = {
   en: 'An app built with AI tools can go live with its database or keys open to anyone.',

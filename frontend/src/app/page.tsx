@@ -34,6 +34,7 @@ import {
   KICKER,
   MEANING,
   PROBLEM,
+  REPLAY,
   SCENE_NOTE,
   STEPS,
   TABLE_STEPS,
@@ -231,7 +232,7 @@ export default function ConnectPage() {
             className="button button-ghost button-small hero-replay"
             onClick={() => window.dispatchEvent(new Event('vca:replay-hero'))}
           >
-            Replay intro
+            {pickText(REPLAY, lang)}
           </button>
         </div>
       </section>

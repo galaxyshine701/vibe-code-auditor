@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { THEME, pickText } from '@/lib/hero-copy';
+import { useLang } from '@/lib/use-lang';
 
 type Theme = 'dark' | 'light';
 
@@ -44,6 +46,7 @@ function MoonIcon() {
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('dark');
+  const [lang] = useLang();
 
   useEffect(() => {
     const current = document.documentElement.dataset.theme;
@@ -64,15 +67,18 @@ export function ThemeToggle() {
     }
   }
 
+  // the button names the theme a click would give
+  const other = THEME[theme === 'dark' ? 'light' : 'dark'];
+
   return (
     <button
       type="button"
       className="theme-toggle"
       onClick={toggle}
-      aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+      aria-label={pickText(other.action, lang)}
     >
       {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-      <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+      <span>{pickText(other.word, lang)}</span>
     </button>
   );
 }

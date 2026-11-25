@@ -3327,7 +3327,7 @@ html[data-intro="leaving"] .hero-word {
 }
 
 .hero-replay {
-  display: none;
+  display: inline-flex;
   justify-self: start;
 }
 
@@ -3335,10 +3335,6 @@ html[data-intro="leaving"] .hero-word {
   /* a phone has no room for the scene under the headline: it is the intro only */
   .hero-scene {
     display: none;
-  }
-
-  .hero-replay {
-    display: inline-flex;
   }
 }
 

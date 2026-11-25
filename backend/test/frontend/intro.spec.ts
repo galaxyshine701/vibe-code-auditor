@@ -679,3 +679,50 @@ describe('skipping and the keyboard', () => {
     );
   });
 });
+
+describe('the replay button and the theme button', () => {
+  const copy = read('lib', 'hero-copy.ts');
+  const plain = css.replace(/\r\n/g, '\n');
+
+  it('the replay button shows on every width, and not at all with reduced motion', () => {
+    expect(plain).toMatch(/\n\.hero-replay \{\s*display: inline-flex;/);
+    expect(plain).not.toMatch(/\.hero-replay \{\s*display: none;/);
+    expect(plain).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.hero-replay,\s*\.motion-controls \{\s*display: none !important;/,
+    );
+  });
+
+  it('a click asks the overlay to play again', () => {
+    const page = read('app', 'page.tsx');
+    expect(page).toContain("new Event('vca:replay-hero')");
+    expect(read('components', 'intro-overlay.tsx')).toContain(
+      "addEventListener('vca:replay-hero', replay)",
+    );
+  });
+
+  it('both speak English and Roman Urdu', () => {
+    expect(read('app', 'page.tsx')).toContain('{pickText(REPLAY, lang)}');
+    const toggle = read('components', 'theme-toggle.tsx');
+    expect(toggle).toContain('useLang()');
+    expect(toggle).toContain('pickText(other.word, lang)');
+    expect(toggle).toContain('pickText(other.action, lang)');
+    for (const words of [
+      "en: 'Replay intro'",
+      "ur: 'Intro dobara chalayein'",
+      "{ en: 'Light', ur: 'Roshan' }",
+      "{ en: 'Dark', ur: 'Andhera' }",
+      "ur: 'Roshan theme lagayein'",
+      "ur: 'Andhera theme lagayein'",
+    ]) {
+      expect(copy).toContain(words);
+    }
+  });
+
+  it('a replay has the same time limits: in the page code and in the CSS', () => {
+    const overlay = read('components', 'intro-overlay.tsx');
+    expect(overlay).toContain('begin(true)');
+    expect(overlay).toContain('INTRO_FALLBACK_MS');
+    expect(plain).toContain('animation: introGone 0.01s linear 3s forwards;');
+  });
+});
+

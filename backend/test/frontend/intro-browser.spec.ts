@@ -282,4 +282,52 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
       ),
     ).toBe(true);
   }, 20000);
+
+  const REPLAY = "document.querySelector('.hero-replay')";
+
+  it.each([1366, 375])(
+    'at %i px "Replay intro" plays the intro again, and it ends by itself',
+    async (width) => {
+      const tab = await freshTab(width, 768);
+      await tab.open();
+      expect(await waitFor(tab, 'done', 9000)).toBeGreaterThanOrEqual(0);
+      await sleep(600); // the page's own code is there
+      expect(await tab.evaluate(`getComputedStyle(${REPLAY}).display`)).not.toBe('none');
+      await tab.evaluate(`${REPLAY}.click()`);
+      expect(await waitFor(tab, 'pending', 1000)).toBeGreaterThanOrEqual(0);
+      await sleep(300);
+      expect(
+        await tab.evaluate("getComputedStyle(document.querySelector('.intro-overlay')).display"),
+      ).toBe('grid');
+      const took = await waitFor(tab, 'done', 4000);
+      expect(took).toBeGreaterThanOrEqual(0);
+      expect(took + 300).toBeLessThan(3400);
+      expect(await tab.evaluate("!!document.querySelector('.intro-overlay')")).toBe(false);
+    },
+    30000,
+  );
+
+  it('with reduced motion there is no replay button', async () => {
+    const tab = await freshTab(1366, 768);
+    await tab.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+    });
+    await tab.open();
+    await sleep(1500);
+    expect(await tab.evaluate(`getComputedStyle(${REPLAY}).display`)).toBe('none');
+  }, 20000);
+
+  it('the replay button and the theme button follow the language', async () => {
+    const tab = await freshTab(1366, 768);
+    await tab.open();
+    expect(await waitFor(tab, 'done', 9000)).toBeGreaterThanOrEqual(0);
+    await sleep(600);
+    const WORDS = `[${REPLAY}.textContent.trim(), document.querySelector('.theme-toggle').textContent.trim()]`;
+    expect(await tab.evaluate(WORDS)).toEqual(['Replay intro', 'Light']);
+    await tab.evaluate(
+      "[...document.querySelectorAll('.hero-copy-top button')].find((b) => /urdu/i.test(b.textContent)).click()",
+    );
+    await sleep(300);
+    expect(await tab.evaluate(WORDS)).toEqual(['Intro dobara chalayein', 'Roshan']);
+  }, 30000);
 });
