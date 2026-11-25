@@ -1,8 +1,8 @@
 import type { Lang } from '@/lib/check-labels';
 import { SCENE, pickText } from '@/lib/hero-copy';
 
-// The scene above the rows of the example run (flat vector, one inline SVG, the
-// motion is CSS in glass.css; no library):
+// The scene of the table check, in the Supabase section of the home page (flat
+// vector, one inline SVG, the motion is CSS in glass.css; no library):
 //
 //   1  a canary on a checkpoint post        a soft glow around the canary
 //   2  a stranger stopped at a striped      the barrier comes down, BLOCKED
@@ -15,7 +15,7 @@ import { SCENE, pickText } from '@/lib/hero-copy';
 // moves once, with transform and opacity only, and it is still (its last frame)
 // with reduced motion and on a phone. No lock and no tick: a verdict is the
 // word under the picture, the colour and the shape. All of it is an example,
-// and the card around it says so ("Example, not a real audit").
+// and the line above it says so ("Example scene, not a real audit").
 export function HeroScene({ lang }: { lang: Lang }) {
   return (
     <figure className="hero-scene" aria-label={pickText(SCENE.label, lang)}>

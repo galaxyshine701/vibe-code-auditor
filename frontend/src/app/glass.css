@@ -1,136 +1,64 @@
-/* The hero as a dark stage with glass cards (A2). Loaded after hero.css.
+/* The home page: one column on the one background of the page. Loaded after
+   hero.css.
 
-   - The stage is dark (#070b17) in both themes: its colours are set again here,
-     so the words in it keep the same contrast whichever theme the rest of the
-     page has.
-   - The soft colour blobs are radial gradients (no blur filter) and they sit
-     only behind the two glass cards (the example run, the main box), never
-     behind plain text. Every word is therefore either on the dark base or on a
-     glass card with a dark scrim under the glass. A test (hero-glass.spec.ts)
-     works out the worst case of those backgrounds and checks the contrast (AA).
-   - Glow: only on the canary, on the window of the key, and on the three verdict
-     tiles.
-   - Motion: transform and opacity only, once. No light sweep and a lighter blur
-     on a phone; no motion at all with prefers-reduced-motion (the last frame is
-     shown); a plain translucent card when backdrop-filter is missing. */
+   - No frame and no background of its own around the hero: the headline, the
+     form and the example result sit on the page, in both themes, with the
+     colours of the theme.
+   - The headline is at most 1100px wide, the form and the example result 760px,
+     all in the middle.
+   - The scene of the table check lives in the Supabase section. Motion:
+     transform and opacity only, once; no motion at all with
+     prefers-reduced-motion (the last frame is shown). */
 
-.hero-stage {
-  --stage-base: #070b17;
-  --blob-amber: rgba(246, 201, 69, 0.34);
-  --blob-green: rgba(63, 178, 127, 0.3);
-  --blob-violet: rgba(122, 98, 216, 0.26);
-  --glass-hi: rgba(255, 255, 255, 0.16);
-  --glass-lo: rgba(255, 255, 255, 0.04);
-  --glass-scrim: rgba(7, 11, 23, 0.76);
-  --glass-edge: rgba(255, 255, 255, 0.2);
-  --glass-top: rgba(255, 255, 255, 0.28);
-  --sweep: rgba(255, 255, 255, 0.08);
-  --rows-scrim: rgba(7, 11, 23, 0.55);
-  --glass-blur: blur(18px) saturate(150%);
-
-  /* the dark set of colours, whichever theme the page has */
-  --bg: #0f1114;
-  --panel: rgba(255, 255, 255, 0.045);
-  --panel-strong: rgba(255, 255, 255, 0.07);
-  --surface: #15181d;
-  --surface-soft: rgba(255, 255, 255, 0.035);
-  --line: rgba(255, 255, 255, 0.14);
-  --line-strong: rgba(255, 255, 255, 0.24);
-  --control-border: rgba(255, 255, 255, 0.4);
-  --ink: #f2f0ea;
-  --ink-soft: #dcdcd6;
-  --muted: #cfd3d9;
-  --muted-2: #c8cdd4;
-  --canary: #f2c94c;
-  --canary-soft: rgba(242, 201, 76, 0.12);
-  --canary-glow: rgba(242, 201, 76, 0.22);
-  --leak: #ff7a80;
-  --leak-soft: rgba(240, 85, 91, 0.14);
-  --leak-glow: rgba(240, 85, 91, 0.2);
-  --ok: #4cc28f;
-  --ok-soft: rgba(63, 178, 127, 0.13);
-  --grey: #a3a8af;
-  --grey-soft: rgba(163, 168, 175, 0.1);
-  --btn-bg: #f2f0ea;
-  --btn-ink: #0e1013;
-  --field: #14171b;
-  --field-focus: #181c21;
-  --rowfill: rgba(255, 255, 255, 0.05);
-  --focus: rgba(242, 240, 234, 0.7);
-  --code-bg: #0b0d10;
-  --code-ink: #e7e4d9;
-  --scene-lit: #7584a6;
-  --scene-shade: #2b3552;
-
-  position: relative;
-  overflow: hidden;
-  align-items: start;
-  padding: clamp(20px, 4vw, 44px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  color: var(--ink);
-  background: var(--stage-base);
+.hero.hero-stage {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 28px;
+  padding: clamp(20px, 4vw, 40px) 0 8px;
 }
 
-/* ---- the soft blobs: behind the glass cards only ---- */
-.hero-card-wrap,
-.start-wrap {
-  position: relative;
-  isolation: isolate;
+.hero-stage > .hero-copy {
+  width: 100%;
+  max-width: 1100px;
+  min-width: 0;
+  text-align: center;
 }
 
-.hero-card-wrap::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0 -40px;
-  pointer-events: none;
-  /* each blob reaches nothing (transparent) before the edge of the box, so no
-     hard edge is ever seen */
-  background:
-    radial-gradient(38% 28% at 62% 30%, var(--blob-amber), transparent 100%),
-    radial-gradient(36% 28% at 36% 72%, var(--blob-green), transparent 100%);
+.hero-stage .hero-copy-top {
+  justify-content: center;
+  margin-bottom: 18px;
 }
 
-.start-wrap {
-  margin: 0 0 22px;
-  max-width: 560px;
+.hero-stage .hero-title {
+  font-size: clamp(2.2rem, 5.4vw, 4.2rem);
+  line-height: 1.05;
+  overflow-wrap: break-word;
 }
 
-.start-wrap::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0 -24px;
-  pointer-events: none;
-  background: radial-gradient(34% 34% at 66% 66%, var(--blob-violet), transparent 100%);
+.hero-stage .hero-title-ur {
+  font-size: clamp(1.8rem, 4.2vw, 3rem);
+  line-height: 1.15;
 }
 
-/* ---- the glass card ---- */
-.hero-card,
-.start-box {
-  border: 1px solid var(--glass-edge);
-  border-radius: 22px;
-  background:
-    linear-gradient(150deg, var(--glass-hi), var(--glass-lo)),
-    var(--glass-scrim);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow:
-    inset 0 1px 0 var(--glass-top),
-    0 30px 80px -50px rgba(0, 0, 0, 0.9);
+.hero-stage .start-wrap,
+.hero-stage > .hero-card-wrap,
+.hero-stage > .hero-gate {
+  width: 100%;
+  max-width: 760px;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+/* the words of the form read from the left */
+.start-box,
+.hero-card {
+  text-align: left;
 }
 
 .start-box {
   max-width: none;
   margin: 0;
-  padding: 20px;
-}
-
-.hero-card {
-  position: relative;
-  overflow: hidden;
-  padding: 20px;
+  padding: 22px;
 }
 
 /* the repository group inside the main box is not a second box: the chip in its
@@ -142,57 +70,83 @@
   box-shadow: none;
 }
 
-/* the words of the card sit above the light sweep */
-.hero-card > * {
-  position: relative;
-  z-index: 1;
+.hero-stage > .hero-gate {
+  justify-items: center;
 }
 
-/* the rows are darker than the glass: the words in them keep their contrast */
-.hero-rows {
-  background: var(--rows-scrim);
-  border-color: var(--line);
+.hero-steps,
+.hero-honesty {
+  width: 100%;
+  max-width: 1100px;
+  margin-inline: auto;
 }
 
-/* ---- one slow light sweep across the main card, once ---- */
-.hero-card::after {
-  content: "";
+.hero-honesty {
+  justify-content: center;
+}
+
+/* the dark theme: a lighter red in the example and the scene, so the word
+   LEAKED on its tint is at least 4.5:1 */
+html:not([data-theme="light"]) .hero-card,
+html:not([data-theme="light"]) .hero-scene {
+  --leak: #ff7a80;
+}
+
+/* a page that scrolls to an anchor keeps it below the sticky header */
+html {
+  scroll-padding-top: 96px;
+}
+
+.start-box {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* the one field of the hero needs no box title; it stays for a screen reader,
+   and the chip shows once something is typed */
+.start-box > .source-group[data-group="repo"] > .source-legend {
   position: absolute;
-  z-index: 0;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 38%;
-  pointer-events: none;
-  background: linear-gradient(100deg, transparent, var(--sweep), transparent);
-  transform: translateX(-140%) skewX(-14deg);
-  opacity: 0;
-  animation: heroSweep 4.8s ease-in-out 1.6s 1 both;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-@keyframes heroSweep {
-  0% {
-    opacity: 0;
-    transform: translateX(-140%) skewX(-14deg);
-  }
-  15%,
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(380%) skewX(-14deg);
-  }
+.start-box > .source-group[data-group="repo"][data-state="partial"] > .source-legend {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
 }
 
-/* like the rest of the card, it waits for the intro */
-html[data-intro="pending"] .hero-card::after,
-html[data-intro="leaving"] .hero-card::after {
-  animation-play-state: paused;
+.start-box > .source-group[data-group="repo"][data-state="partial"] .source-title {
+  display: none;
 }
 
-/* ---- the scene above the rows ---- */
+.will-check {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.website-toggle {
+  justify-self: start;
+  min-height: 2.4rem;
+  text-align: left;
+}
+
+.start-box .fine-print,
+.start-box #start-hint {
+  margin: 0;
+}
+
+/* ---- the scene of the table check, in the Supabase section ---- */
 .hero-scene {
+  --scene-lit: #7584a6;
+  --scene-shade: #2b3552;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -200,7 +154,7 @@ html[data-intro="leaving"] .hero-card::after {
   padding: 12px 10px 10px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--rows-scrim);
+  background: var(--surface-soft);
 }
 
 .scene-art {
@@ -212,7 +166,7 @@ html[data-intro="leaving"] .hero-card::after {
 
 .scene-ground {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.22);
+  stroke: var(--line-strong);
   stroke-width: 1.5;
 }
 
@@ -260,11 +214,11 @@ html[data-intro="leaving"] .hero-card::after {
 }
 
 .scene-stranger-body {
-  fill: #8d97ad;
+  fill: var(--grey);
 }
 
 .scene-barrier-post {
-  fill: #aab3c8;
+  fill: var(--grey);
 }
 
 .scene-barrier-bar {
@@ -278,36 +232,36 @@ html[data-intro="leaving"] .hero-card::after {
 }
 
 .scene-stripe-b {
-  fill: #0e1424;
+  fill: var(--surface);
 }
 
 .scene-app {
-  fill: rgba(255, 255, 255, 0.07);
-  stroke: rgba(255, 255, 255, 0.28);
+  fill: var(--surface-soft);
+  stroke: var(--control-border);
   stroke-width: 1.2;
 }
 
 .scene-app-bar {
-  fill: rgba(255, 255, 255, 0.14);
+  fill: var(--line);
 }
 
 .scene-app-dot {
-  fill: rgba(255, 255, 255, 0.55);
+  fill: var(--muted);
 }
 
 .scene-brick {
-  fill: rgba(255, 255, 255, 0.24);
+  fill: var(--line-strong);
 }
 
 .scene-brick-todo {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.45);
+  stroke: var(--muted);
   stroke-width: 1.2;
   stroke-dasharray: 3 2.4;
 }
 
 .scene-window {
-  fill: rgba(255, 122, 128, 0.16);
+  fill: var(--leak-soft);
   stroke: var(--leak);
   stroke-width: 1.6;
 }
@@ -440,16 +394,10 @@ html[data-intro="leaving"] .hero-card::after {
   }
 }
 
-/* the scene waits for the intro with the rest of the card */
-html[data-intro="pending"] .hero-scene *,
-html[data-intro="leaving"] .hero-scene * {
-  animation-play-state: paused;
-}
-
-/* ---- the three verdict tiles, with dot-matrix numerals ---- */
+/* ---- the verdict tiles, with dot-matrix numerals ---- */
 .hero-tiles {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 0;
   padding: 0;
@@ -458,7 +406,7 @@ html[data-intro="leaving"] .hero-scene * {
 
 .hero-tile {
   --tone: var(--grey);
-  --tone-glow: rgba(163, 168, 175, 0.5);
+  --tone-glow: var(--grey-soft);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -466,23 +414,23 @@ html[data-intro="leaving"] .hero-scene * {
   padding: 13px 8px 11px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
-  background: var(--rows-scrim);
+  background: var(--surface-soft);
   box-shadow: 0 0 26px -10px var(--tone-glow);
 }
 
 .hero-tile-leaked {
   --tone: var(--leak);
-  --tone-glow: rgba(255, 122, 128, 0.7);
+  --tone-glow: var(--leak-glow);
 }
 
 .hero-tile-inconclusive {
   --tone: var(--canary);
-  --tone-glow: rgba(242, 201, 76, 0.65);
+  --tone-glow: var(--canary-glow);
 }
 
-.hero-tile-blocked {
-  --tone: var(--ok);
-  --tone-glow: rgba(76, 194, 143, 0.65);
+/* the light theme needs a darker amber for the numeral */
+[data-theme="light"] .hero-tile-inconclusive {
+  --tone: #8a6400;
 }
 
 .dot-numeral {
@@ -509,19 +457,8 @@ html[data-intro="leaving"] .hero-scene * {
   letter-spacing: 0.06em;
 }
 
-/* ---- a phone: a lighter blur, no sweep, the scene is its last frame ---- */
+/* ---- a phone ---- */
 @media (max-width: 640px) {
-  .hero-stage {
-    --glass-blur: blur(8px) saturate(130%);
-    padding: 14px;
-    border-radius: 22px;
-  }
-
-  .hero-card::after {
-    display: none;
-  }
-
-  .hero-card,
   .start-box {
     padding: 14px 12px;
   }
@@ -554,20 +491,8 @@ html[data-intro="leaving"] .hero-scene * {
   }
 }
 
-/* ---- no backdrop-filter: the same card, a little more solid ---- */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .hero-stage {
-    --glass-scrim: rgba(7, 11, 23, 0.88);
-  }
-}
-
 /* ---- reduced motion: nothing moves, the last frame is shown ---- */
 @media (prefers-reduced-motion: reduce) {
-  .hero-card::after {
-    display: none;
-    animation: none;
-  }
-
   .scene-canary,
   .scene-glow,
   .scene-stranger,
@@ -577,91 +502,10 @@ html[data-intro="leaving"] .hero-scene * {
   }
 }
 
-/* ---- one column: the form, then the example result under it ---- */
-.hero.hero-stage {
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
-  gap: 28px;
-}
-
-.hero-stage > .hero-copy,
-.hero-stage > .hero-card-wrap,
-.hero-stage > .hero-gate {
-  width: 100%;
-  max-width: 640px;
-  min-width: 0;
-}
-
-.hero-stage .start-wrap {
-  max-width: none;
-  margin: 0;
-}
-
-.hero-stage .hero-title {
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
-  line-height: 1.05;
-  overflow-wrap: break-word;
-}
-
-.hero-stage .hero-title-ur {
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
-  line-height: 1.15;
-}
-
-.hero-stage .hero-gate {
-  justify-items: start;
-}
-
-.start-box {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-/* the one field of the hero needs no box title; it stays for a screen reader,
-   and the chip shows once something is typed */
-.start-box > .source-group[data-group="repo"] > .source-legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.start-box > .source-group[data-group="repo"][data-state="partial"] > .source-legend {
-  position: static;
-  width: auto;
-  height: auto;
-  clip-path: none;
-}
-
-.start-box > .source-group[data-group="repo"][data-state="partial"] .source-title {
-  display: none;
-}
-
-.will-check {
-  margin: 0;
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.website-toggle {
-  justify-self: start;
-  min-height: 2.4rem;
-  text-align: left;
-}
-
-.start-box .fine-print,
-.start-box #start-hint {
-  margin: 0;
-}
-
 /* ---- the Supabase section at the bottom ---- */
 .advanced {
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
   margin-inline: auto;
   padding: 14px 20px;
 }
@@ -675,6 +519,13 @@ html[data-intro="leaving"] .hero-scene * {
   cursor: pointer;
 }
 
+.scene-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
 .advanced-body {
   display: grid;
   gap: 14px;
@@ -684,17 +535,12 @@ html[data-intro="leaving"] .hero-scene * {
 
 .truth-card {
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
   margin-inline: auto;
 }
 
 .truth-card .truth-legend {
   margin-top: 16px;
-}
-
-/* "Go to the start button" lands below the header, not under it */
-#start-box {
-  scroll-margin-top: 96px;
 }
 
 /* ---- the access code in the header ---- */

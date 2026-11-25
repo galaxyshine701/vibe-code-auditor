@@ -27,8 +27,6 @@ const form = (await import(/* @vite-ignore */ href('lib', 'form.ts'))) as {
   EMPTY_FIELDS: Fields;
   checkConnect: (f: never) => { canStart: boolean };
   buildStartBody: (f: never) => Record<string, unknown>;
-  willCheckLine: (c: never, lang?: Lang) => string;
-  startButtonLabel: (c: never, websiteOpen: boolean, lang?: Lang) => string;
   startHintOf: (c: never, code: boolean, lang?: Lang) => string;
   startNote: (c: never, lang?: Lang) => string;
   repoUrlProblem: (v: string, lang?: Lang) => string;
@@ -65,80 +63,6 @@ function render(name: string, lang: Lang, patch: Fields = {}): string {
     }),
   );
 }
-
-describe('willCheckLine', () => {
-  it('is empty while nothing is complete', () => {
-    expect(form.willCheckLine(checkOf())).toBe('');
-    expect(form.willCheckLine(checkOf({ repoUrl: REPO.repoUrl }))).toBe('');
-    expect(form.willCheckLine(checkOf({ confirmSiteAccess: true }))).toBe('');
-  });
-
-  it('is built from the complete groups, repo first', () => {
-    expect(form.willCheckLine(checkOf(REPO))).toBe('Will check: repo');
-    expect(form.willCheckLine(checkOf(WEBSITE))).toBe('Will check: website');
-    expect(form.willCheckLine(checkOf(WEBSITE, REPO))).toBe(
-      'Will check: repo + website',
-    );
-    expect(form.willCheckLine(checkOf(SUPABASE, WEBSITE, REPO))).toBe(
-      'Will check: repo + website + Supabase test project',
-    );
-  });
-
-  it('leaves a half-filled group out', () => {
-    expect(
-      form.willCheckLine(checkOf(REPO, { websiteUrl: WEBSITE.websiteUrl })),
-    ).toBe('Will check: repo');
-  });
-
-  it('names exactly what the request sends', () => {
-    for (const parts of [[REPO], [WEBSITE], [REPO, WEBSITE], [REPO, SUPABASE]]) {
-      const fields = Object.assign({}, form.EMPTY_FIELDS, ...parts);
-      const body = form.buildStartBody(fields as never);
-      const line = form.willCheckLine(form.checkConnect(fields as never) as never);
-      expect(line.includes('repo')).toBe('repoUrl' in body);
-      expect(line.includes('website')).toBe('websiteUrl' in body);
-      expect(line.includes('Supabase')).toBe('projectUrl' in body);
-    }
-  });
-
-  it('has Roman Urdu', () => {
-    expect(form.willCheckLine(checkOf(REPO, WEBSITE), 'ur')).toBe(
-      'Ye check honge: repo + website',
-    );
-  });
-});
-
-describe('the words of the one button', () => {
-  it('"Check this repo" at first, "Check repo + website" once the website is open', () => {
-    expect(form.startButtonLabel(checkOf(), false)).toBe('Check this repo');
-    expect(form.startButtonLabel(checkOf(REPO), false)).toBe('Check this repo');
-    expect(form.startButtonLabel(checkOf(), true)).toBe('Check repo + website');
-    expect(form.startButtonLabel(checkOf(REPO, WEBSITE), true)).toBe(
-      'Check repo + website',
-    );
-  });
-
-  it('names neither once the Supabase part has something in it', () => {
-    expect(form.startButtonLabel(checkOf(SUPABASE), false)).toBe(
-      'Run these checks',
-    );
-    expect(
-      form.startButtonLabel(checkOf({ projectUrl: SUPABASE.projectUrl }), true),
-    ).toBe('Run these checks');
-  });
-
-  it('has Roman Urdu', () => {
-    expect(form.startButtonLabel(checkOf(), false, 'ur')).toBe(
-      'Ye repo check karein',
-    );
-    expect(form.startButtonLabel(checkOf(), true, 'ur')).toBe(
-      'Repo + website check karein',
-    );
-    expect(form.startButtonLabel(checkOf(SUPABASE), false, 'ur')).toBe(
-      'Ye checks chalayein',
-    );
-  });
-});
 
 describe('the hints, in both languages', () => {
   it('say what is missing in Roman Urdu too, and never a value', () => {
@@ -178,7 +102,7 @@ describe('the page', () => {
     expect(page).toContain(
       "const websiteOpen = websiteAsked || check.website.state !== 'empty';",
     );
-    expect(page).toContain('startButtonLabel(check, websiteOpen, lang)');
+    expect(page).toContain('startButtonLabel(check, lang)');
     expect(page).toContain('willCheckLine(check, lang)');
   });
 

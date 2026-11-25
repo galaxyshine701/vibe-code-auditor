@@ -6,6 +6,7 @@ import { useApp } from '@/components/app-provider';
 import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroCard } from '@/components/hero-card';
+import { HeroScene } from '@/components/hero-scene';
 import { LangToggle } from '@/components/lang-toggle';
 import {
   RepoGroup,
@@ -31,6 +32,7 @@ import {
   FORM,
   MEANING,
   PROBLEM,
+  SCENE_NOTE,
   STEPS,
   TABLE_STEPS,
   headlineWords,
@@ -185,7 +187,7 @@ export default function ConnectPage() {
             >
               {submitting
                 ? pickText(FORM.starting, lang)
-                : startButtonLabel(check, websiteOpen, lang)}
+                : startButtonLabel(check, lang)}
             </button>
             {willCheck ? (
               <p className="will-check" id="will-check" role="status">
@@ -296,6 +298,9 @@ export default function ConnectPage() {
               </li>
             ))}
           </ol>
+          {/* the picture of the table check: a canary on a post, a stranger at a barrier, a key in a window */}
+          <p className="scene-note">{pickText(SCENE_NOTE, lang)}</p>
+          <HeroScene lang={lang} />
         </div>
       </details>
     </div>

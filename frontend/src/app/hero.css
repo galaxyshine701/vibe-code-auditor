@@ -188,10 +188,6 @@
   border-top: 1px solid var(--line);
 }
 
-.hero-row-ok {
-  min-height: 6.2rem;
-}
-
 .hero-row-warn {
   --tone: var(--canary);
 }
@@ -240,6 +236,15 @@
   font-size: 0.8rem;
   line-height: 1.4;
   overflow-wrap: break-word;
+}
+
+/* a path or a list of variable names of the example; it wraps on a phone */
+.hero-path {
+  max-width: 100%;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
 }
 
 .hero-key {
@@ -308,43 +313,6 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-/* the canary scene, made small */
-.hero-mini {
-  display: block;
-  width: 8.6rem;
-  height: auto;
-  margin-top: 6px;
-  overflow: visible;
-}
-
-.hero-mini-actor {
-  fill: var(--muted);
-}
-
-.hero-mini-path {
-  fill: none;
-  stroke: var(--line-strong);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
-}
-
-.hero-mini-policy {
-  fill: none;
-  stroke: var(--ok);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.hero-mini-row {
-  fill: var(--surface);
-  stroke: var(--canary);
-  stroke-width: 1.2;
-}
-
-.hero-mini-canary {
-  fill: var(--canary);
 }
 
 /* the gate line: after the beam, one reason, one thing that was not provided */
@@ -489,8 +457,19 @@ html[data-intro="leaving"] .hero-card * {
     padding: 14px 12px;
   }
 
+  /* the result goes under the words, so a path and a long label have the whole width */
+  .hero-row {
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    row-gap: 6px;
+  }
+
+  .hero-row-end {
+    grid-column: 2;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
   .hero-beam-layer,
-  .hero-mini,
   .hero-wait,
   .hero-row-detail {
     display: none;

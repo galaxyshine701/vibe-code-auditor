@@ -101,7 +101,7 @@ describe('the one line under the headline, and the order of the hero', () => {
       /\.hero\.hero-stage \{\s*grid-template-columns: minmax\(0, 1fr\);/,
     );
     expect(css).toMatch(
-      /\.hero-stage > \.hero-copy,\s*\.hero-stage > \.hero-card-wrap,\s*\.hero-stage > \.hero-gate \{\s*width: 100%;\s*max-width: 640px;/,
+      /\.hero-stage \.start-wrap,\s*\.hero-stage > \.hero-card-wrap,\s*\.hero-stage > \.hero-gate \{\s*width: 100%;\s*max-width: 760px;/,
     );
   });
 });
@@ -109,20 +109,39 @@ describe('the one line under the headline, and the order of the hero', () => {
 describe('the example run card', () => {
   const card = read('components', 'hero-card.tsx');
 
-  it('has four evidence rows: site headers (amber), scripts of the site (red), table data (green), repository files (amber, INCONCLUSIVE)', () => {
+  it('is repository first: a key in a file, a committed .env, a migration, two site headers', () => {
+    expect(copy.CARD.keyFile.label.en).toBe('Secret key in a file');
+    expect(copy.CARD.envFile.label.en).toBe('Committed .env file');
+    expect(copy.CARD.migration.label.en).toBe('Migration without row level security');
     expect(copy.CARD.headers.label.en).toBe('Site headers');
-    expect(copy.CARD.scripts.label.en).toBe('Scripts of the site');
-    expect(copy.CARD.tables.label.en).toBe('Table data');
-    expect(copy.CARD.repo.label.en).toBe('Repository files');
-    expect(copy.CARD.repo.label.ur).toBe('Repository ki files');
-    expect(copy.CARD.repo.detail.en).toContain('no row level security');
-    expect(copy.CARD.repo.detail.en).toContain('may be enabled elsewhere');
-    expect(card.match(/tone="warn"/g)).toHaveLength(2);
-    expect(card).toMatch(/tone="leak"/);
-    expect(card).toMatch(/tone="ok"/);
+    expect(copy.CARD.migration.detail.en).toContain('may be enabled elsewhere');
+    expect(card.match(/tone="leak"/g)).toHaveLength(1);
+    expect(card.match(/tone="warn"/g)).toHaveLength(3);
     expect(card).toContain('<VerdictBadge verdict="LEAKED"');
-    expect(card).toContain('<VerdictBadge verdict="BLOCKED"');
     expect(card).toContain('<VerdictBadge verdict="INCONCLUSIVE"');
+    // the table check has its own picture, in the Supabase section
+    expect(card).not.toMatch(/CARD\.tables|hero-mini|HeroScene/);
+    expect(JSON.stringify(copy.CARD)).not.toMatch(/canary|stranger|ajnabi/i);
+  });
+
+  it('takes the key file and the migration from the repo-only example bundle', () => {
+    const bundle = JSON.parse(
+      readFileSync(join(FRONTEND, '..', 'docs', 'frontend-mock', 'repo-only', 'evidence.json'), 'utf8'),
+    ) as { items: { kind: string; subject: string; line: number; table: string | null; verdict: string }[] };
+    const of = (kind: string) => bundle.items.find((i) => i.kind === kind)!;
+    const key = of('repo-file');
+    expect(copy.CARD.keyFile.path).toBe(`${key.subject}:${key.line}`);
+    expect(key.verdict).toBe('LEAKED');
+    const migration = of('repo-migration');
+    expect(copy.CARD.migration.path).toBe(`${migration.subject}:${migration.line}`);
+    expect(copy.CARD.migration.detail.en).toContain(`"${migration.table}"`);
+    expect(migration.verdict).toBe('INCONCLUSIVE');
+  });
+
+  it('shows the names and the path of the env file, never a value', () => {
+    expect(copy.CARD.envFile.path).toBe('.env');
+    expect(copy.CARD.envFile.names).toMatch(/^[A-Z0-9_]+(, [A-Z0-9_]+)*$/);
+    expect(JSON.stringify(copy.CARD.envFile)).not.toContain('=');
   });
 
   it('two headers are missing, in both languages', () => {
@@ -132,7 +151,7 @@ describe('the example run card', () => {
   });
 
   it('the key is masked, and no real key is anywhere in the hero', () => {
-    expect(copy.CARD.scripts.key).toBe('sb_secret_••••');
+    expect(copy.CARD.keyFile.key).toBe('sb_secret_\u2022\u2022\u2022\u2022');
     for (const file of [
       read('lib', 'hero-copy.ts'),
       card,
@@ -146,7 +165,7 @@ describe('the example run card', () => {
   it('ends with a gate line: "Not ready by these checks", one reason, one "Not provided" chip', () => {
     expect(copy.CARD.gate.label.en).toBe('Not ready by these checks');
     expect(copy.CARD.gate.reason.en).toBe(
-      'A secret key is in a script of the site.',
+      'A secret key is in a file of the repository.',
     );
     expect(copy.CARD.gate.notProvided.en).toMatch(/^Not provided: /);
     expect(copy.CARD.gate.notProvided.ur).toMatch(/^Diya nahi gaya: /);
@@ -158,8 +177,8 @@ describe('the example run card', () => {
   it('says "Example result, not a real audit" in English and Roman Urdu, with made-up numbers, in the card head and its label', () => {
     expect(copy.CARD.tag.en).toBe('Example result, not a real audit');
     expect(copy.CARD.tag.ur).toBe('Misaal ka nateeja, asli audit nahi');
-    expect(copy.CARD.tagNote.en).toBe('Made-up numbers');
-    expect(copy.CARD.tagNote.ur).toBe('Farzi ankre');
+    expect(copy.CARD.tagNote.en).toBe('Made-up app');
+    expect(copy.CARD.tagNote.ur).toBe('Farzi app');
     // the tag is the visible head of the card and also its accessible name
     expect(card).toContain('aria-label={pickText(CARD.tag, lang)}');
     expect(card.indexOf('hero-card-tag')).toBeLessThan(card.indexOf('hero-rows'));
@@ -206,22 +225,19 @@ describe('the example run card', () => {
     );
   });
 
-  it('the beam reaches the rows in order: headers, scripts, tables, repository, then the gate', () => {
-    const times = [
-      ...card.matchAll(/(headers|scripts|tables|repo|gate): (?:at\((\d+)\)|`)/g),
-    ];
-    expect(times.length).toBeGreaterThanOrEqual(4);
+  it('the beam reaches the rows in order: key file, env file, migration, headers, then the gate', () => {
     const at = (name: string) =>
       Number(card.match(new RegExp(name + ': at\\((\\d+)\\)'))?.[1]);
-    expect(at('headers')).toBeLessThan(at('scripts'));
-    expect(at('scripts')).toBeLessThan(at('tables'));
-    expect(at('tables')).toBeLessThan(at('repo'));
-    expect(at('repo')).toBeLessThan(108); // inside the beam's path
+    const order = ['keyFile', 'envFile', 'migration', 'headers'];
+    for (let i = 1; i < order.length; i += 1) {
+      expect(at(order[i - 1])).toBeLessThan(at(order[i]));
+    }
+    expect(at('headers')).toBeLessThan(108); // inside the beam's path
     // the rows are in the markup in the same order
-    const rowAt = (text: string) => card.indexOf(`resolveAt={T.${text}}`);
-    expect(rowAt('headers')).toBeLessThan(rowAt('scripts'));
-    expect(rowAt('scripts')).toBeLessThan(rowAt('tables'));
-    expect(rowAt('tables')).toBeLessThan(rowAt('repo'));
+    const rowAt = (name: string) => card.indexOf(`resolveAt={T.${name}}`);
+    for (let i = 1; i < order.length; i += 1) {
+      expect(rowAt(order[i - 1])).toBeLessThan(rowAt(order[i]));
+    }
   });
 
   it('waits for the intro like the headline: paused while the intro runs, then it starts', () => {
@@ -248,7 +264,7 @@ describe('the example run card', () => {
     const css = read('app', 'hero.css');
     const block = css.slice(css.indexOf('@media (max-width: 480px)'));
     expect(block).toMatch(
-      /\.hero-beam-layer,\s*\.hero-mini,\s*\.hero-wait,\s*\.hero-row-detail \{\s*display: none/,
+      /\.hero-beam-layer,\s*\.hero-wait,\s*\.hero-row-detail \{\s*display: none/,
     );
     expect(block).toMatch(
       /\.hero-result,\s*\.hero-gate-line \{\s*opacity: 1;\s*animation: none/,
@@ -265,10 +281,8 @@ describe('the example run card', () => {
     expect(css).not.toMatch(/(?<![\w-])(?:min-)?width: (?:[4-9]\d\d|\d{4,})px/);
   });
 
-  it('the canary scene is made small: three tries, a policy line, one canary row', () => {
-    expect(card).toContain('hero-mini-policy');
-    expect(card).toContain('hero-mini-canary');
-    expect(card).toContain('[8, 23, 38].map');
+  it('a long path wraps instead of pushing a phone sideways', () => {
+    expect(read('app', 'hero.css')).toMatch(/\.hero-path \{[^}]*overflow-wrap: anywhere/);
   });
 });
 

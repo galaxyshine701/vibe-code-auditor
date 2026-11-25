@@ -211,36 +211,44 @@ export function startHintOf(
 }
 
 /**
- * "Will check: repo + website": built from the groups that are complete, which
- * are exactly the ones buildStartBody sends. Empty when none is complete.
+ * The groups that have something in them, in the order of the page. When the
+ * start is possible they are all complete, so they are exactly what
+ * buildStartBody sends.
  */
+function filledGroups(check: ConnectCheck) {
+  return {
+    repo: check.repo.state !== 'empty',
+    website: check.website.state !== 'empty',
+    supabase: check.supabase.state !== 'empty',
+  };
+}
+
+/** "Will check: repo + website", from what is filled in. Empty when nothing is. */
 export function willCheckLine(check: ConnectCheck, lang: Lang = 'en'): string {
+  const has = filledGroups(check);
   const names = [
-    check.repo.state === 'complete' ? 'repo' : '',
-    check.website.state === 'complete' ? 'website' : '',
-    check.supabase.state === 'complete' ? 'Supabase test project' : '',
+    has.repo ? 'repo' : '',
+    has.website ? 'website' : '',
+    has.supabase ? 'Supabase test project' : '',
   ].filter(Boolean);
   if (names.length === 0) return '';
   return `${lang === 'ur' ? 'Ye check honge' : 'Will check'}: ${names.join(' + ')}`;
 }
 
 /**
- * The words of the one start button. It names the repository alone until the
- * website part is opened; with anything typed in the Supabase part it names
- * neither, and the "Will check" line says what will run.
+ * The words of the one start button, from what is filled in: the repository
+ * (also while nothing is), the website, both, or "these checks" as soon as the
+ * Supabase part has something in it.
  */
-export function startButtonLabel(
-  check: ConnectCheck,
-  websiteOpen: boolean,
-  lang: Lang = 'en',
-): string {
-  if (check.supabase.state !== 'empty') {
-    return lang === 'ur' ? 'Ye checks chalayein' : 'Run these checks';
+export function startButtonLabel(check: ConnectCheck, lang: Lang = 'en'): string {
+  const has = filledGroups(check);
+  const ur = lang === 'ur';
+  if (has.supabase) return ur ? 'Ye checks chalayein' : 'Run these checks';
+  if (has.website && has.repo) {
+    return ur ? 'Repo + website check karein' : 'Check repo + website';
   }
-  if (websiteOpen) {
-    return lang === 'ur' ? 'Repo + website check karein' : 'Check repo + website';
-  }
-  return lang === 'ur' ? 'Ye repo check karein' : 'Check this repo';
+  if (has.website) return ur ? 'Website check karein' : 'Check website';
+  return ur ? 'Ye repo check karein' : 'Check this repo';
 }
 
 /**

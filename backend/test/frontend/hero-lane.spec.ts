@@ -57,7 +57,6 @@ describe('the shapes of the checkpoints', () => {
     expect(html(React.createElement(lane.GateBar as never))).toContain('hero-node-gate');
     // each row ends with a verdict word (a badge or the "2 missing" chip)
     expect(card).toContain('<VerdictBadge verdict="LEAKED"');
-    expect(card).toContain('<VerdictBadge verdict="BLOCKED"');
     expect(card).toContain('<VerdictBadge verdict="INCONCLUSIVE"');
     expect(card).toContain('hero-chip-warn');
   });
@@ -111,12 +110,12 @@ describe('the card, rendered for real', () => {
       expect(out.match(/hero-node-gate/g)).toHaveLength(1);
       expect(out.match(/class="hero-lane-dot"/g)).toHaveLength(1);
       expect(out.match(/class="hero-row /g)).toHaveLength(4);
-      // the three verdict words are in the page, and the masked key only
-      for (const word of ['LEAKED', 'BLOCKED', 'INCONCLUSIVE']) expect(out).toContain(word);
+      // the verdict words are in the page, and the masked key only
+      for (const word of ['LEAKED', 'INCONCLUSIVE']) expect(out).toContain(word);
       expect(out).toContain('sb_secret_••••');
     }
-    expect(en).toContain('Repository files');
-    expect(ur).toContain('Repository ki files');
+    expect(en).toContain('Secret key in a file');
+    expect(ur).toContain('File mein secret key');
   });
 });
 

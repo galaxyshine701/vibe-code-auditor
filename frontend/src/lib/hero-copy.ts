@@ -27,65 +27,80 @@ export const PROBLEM: Pair = {
   ur: 'AI tools se bani app is halat mein live ho sakti hai ke uska database ya keys kisi ke liye bhi khuli hon.',
 };
 
-/** The example run. The numbers are an example, and the card says so. */
+/**
+ * The example result: a repository first, the way the home page asks for it.
+ * The paths of the key and of the migration are the ones of the repo-only
+ * example bundle (docs/frontend-mock/repo-only; a test compares them); the env
+ * file and the two headers are made up. It is an example, and the card says so.
+ * An env file shows the names of its variables and its path, never a value.
+ */
 export const CARD = {
   tag: {
     en: 'Example result, not a real audit',
     ur: 'Misaal ka nateeja, asli audit nahi',
   },
-  tagNote: { en: 'Made-up numbers', ur: 'Farzi ankre' },
+  tagNote: { en: 'Made-up app', ur: 'Farzi app' },
   scanning: { en: 'Scanning', ur: 'Jaanch jari' },
+  keyFile: {
+    label: { en: 'Secret key in a file', ur: 'File mein secret key' },
+    detail: {
+      en: 'A secret key is in a file of the repository',
+      ur: 'Repository ki ek file mein secret key hai',
+    },
+    path: 'src/lib/supabase.ts:3',
+    /** masked: the dots hide it, and it is never a real key */
+    key: 'sb_secret_••••',
+  },
+  envFile: {
+    label: { en: 'Committed .env file', ur: 'Commit ki hui .env file' },
+    detail: {
+      en: 'Secret-looking names with a value. The values were not checked.',
+      ur: 'Secret jaise naam jin ki value likhi hai. Values check nahi huin.',
+    },
+    path: '.env',
+    /** names only, never a value */
+    names: 'JWT_SECRET, DB_PASSWORD',
+  },
+  migration: {
+    label: {
+      en: 'Migration without row level security',
+      ur: 'Row level security ke baghair migration',
+    },
+    detail: {
+      en: 'The table "orders" has none in the migrations (it may be enabled elsewhere)',
+      ur: 'Migrations mein table "orders" ki nahi hai (kahin aur on ho sakti hai)',
+    },
+    path: 'supabase/migrations/001_init.sql:2',
+  },
   headers: {
     label: { en: 'Site headers', ur: 'Site ke headers' },
     detail: { en: '2 of 6 headers are missing or weak', ur: '6 mein se 2 headers nahi hain ya kamzor hain' },
     result: { en: '2 missing', ur: '2 nahi hain' },
   },
-  scripts: {
-    label: { en: 'Scripts of the site', ur: 'Site ki scripts' },
-    detail: { en: 'A secret-looking key is in a script', ur: 'Ek script mein secret jaisi key hai' },
-    /** masked: the dots hide it, and it is never a real key */
-    key: 'sb_secret_••••',
-    result: { en: 'LEAKED', ur: 'LEAKED' },
-  },
-  tables: {
-    label: { en: 'Table data', ur: 'Table ka data' },
-    detail: {
-      en: 'Another user and a visitor could not reach the canary row',
-      ur: 'Doosra user aur visitor canary row tak nahi pahunch sake',
-    },
-    result: { en: 'BLOCKED', ur: 'BLOCKED' },
-  },
-  repo: {
-    label: { en: 'Repository files', ur: 'Repository ki files' },
-    detail: {
-      en: 'A table has no row level security in the migrations (it may be enabled elsewhere)',
-      ur: 'Migrations mein ek table ki row level security nahi hai (kahin aur on ho sakti hai)',
-    },
-    result: { en: 'INCONCLUSIVE', ur: 'INCONCLUSIVE' },
-  },
   gate: {
     label: { en: 'Not ready by these checks', ur: 'In checks ke hisaab se abhi tayyar nahi' },
     reason: {
-      en: 'A secret key is in a script of the site.',
-      ur: 'Site ki ek script mein secret key hai.',
+      en: 'A secret key is in a file of the repository.',
+      ur: 'Repository ki ek file mein secret key hai.',
     },
     notProvided: {
-      en: 'Not provided: pages behind a login',
-      ur: 'Diya nahi gaya: login wale pages',
+      en: 'Not provided: Supabase test project',
+      ur: 'Diya nahi gaya: Supabase test project',
     },
-  },
-  figure: {
-    en: 'Owner A, User B and a visitor try to reach one canary row behind a policy',
-    ur: 'Owner A, User B aur visitor ek canary row tak pahunchne ki koshish karte hain, jis ke aage policy hai',
   },
 } as const;
 
 /**
- * The scene above the rows of the example run: a canary on a checkpoint post, a
- * stranger stopped at a striped barrier (BLOCKED), and an app being built with a
- * key left in a window (LEAKED). It is a picture of the idea, not a real audit,
- * and the card around it says so (CARD.tag).
+ * The scene of the table check, in the Supabase section: a canary on a
+ * checkpoint post, a stranger stopped at a striped barrier (BLOCKED), and an
+ * app being built with a key left in a window (LEAKED). It is a picture of the
+ * idea, not a real audit, and the line above it says so (SCENE_NOTE).
  */
+export const SCENE_NOTE: Pair = {
+  en: 'Example scene, not a real audit',
+  ur: 'Misaal ka manzar, asli audit nahi',
+};
+
 export const SCENE = {
   label: {
     en: 'Example scene: a canary on a post, a stranger stopped at a barrier, a key left in a window of an app',
@@ -106,14 +121,13 @@ export const SCENE = {
 } as const;
 
 /**
- * The three verdict tiles under the rows: how many of the example's verdicts
- * are LEAKED, INCONCLUSIVE and BLOCKED. A test counts the verdict badges of
- * the card, so these numbers cannot drift from the rows.
+ * The verdict tiles under the rows: how many of the example's verdict badges are
+ * LEAKED and INCONCLUSIVE. A test counts the badges of the card, so these
+ * numbers cannot drift from the rows.
  */
 export const TILES = [
   { verdict: 'LEAKED', count: 1 },
-  { verdict: 'INCONCLUSIVE', count: 1 },
-  { verdict: 'BLOCKED', count: 1 },
+  { verdict: 'INCONCLUSIVE', count: 2 },
 ] as const;
 
 export const TILES_LABEL: Pair = {
