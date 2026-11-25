@@ -154,6 +154,7 @@ describe('the repo inspector agent', () => {
     expect(context.siteResults?.[REPO_CHECK_ID]).toEqual({
       id: REPO_CHECK_ID,
       status: 'completed',
+      filesRead: 2,
     });
     expect(context.siteEvidence).toMatchObject([
       { check: REPO_CHECK_ID, kind: 'repo-file', verdict: 'LEAKED', proof: 'PROVEN', subject: 'src/client.ts', line: 1 },

@@ -100,6 +100,8 @@ export const COPY = {
   kindBundle: { en: 'Scripts of the site', ur: 'Site ki scripts' },
   kindRepo: { en: 'Repository files', ur: 'Repository ki files' },
   kindRepoMigration: { en: 'Repository migrations', ur: 'Repository ki migrations' },
+  kindRepoTestKey: { en: 'Repository test files', ur: 'Repository ki test files' },
+  kindRepoEnvFile: { en: 'Repository env files', ur: 'Repository ki env files' },
   kindRepoName: { en: 'Repository variable names', ur: 'Repository ki variable ke naam' },
   repoKeyHidden: {
     en: 'The key is hidden. Only its place is shown.',
@@ -170,4 +172,11 @@ export function moreSteps(count: number, lang: Lang): string {
   return lang === 'ur'
     ? `${count} aur qadam dikhaye nahi gaye.`
     : `${count} more ${count === 1 ? 'step is' : 'steps are'} not shown.`;
+}
+
+/** "N files read" next to the repository tile; only called with a number the API sent. */
+export function filesReadText(count: number, lang: Lang): string {
+  return lang === 'ur'
+    ? `${count} files parhi gayin`
+    : `${count} ${count === 1 ? 'file' : 'files'} read`;
 }

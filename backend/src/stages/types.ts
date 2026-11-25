@@ -1,4 +1,5 @@
 import type { Severity } from '../prover/types.js';
+import type { KeyKind } from './site-rules.js';
 
 /** A sentence in both languages, as everywhere else in the API. */
 export interface Text {
@@ -50,6 +51,11 @@ export interface CheckResult {
   /** For partial: what was not read (a name and a reason each). */
   notRead?: { name: string; reason: Text }[];
   /**
+   * How many files the check really read (whole number, 0 or more). Set only
+   * by a check that counts them (today: the Repo scan). Missing = unknown.
+   */
+  filesRead?: number;
+  /**
    * Things that are out of scope on purpose (for example a script of another
    * origin): listed by name in the coverage. This is NOT "partial".
    */
@@ -68,6 +74,10 @@ export type EvidenceKind =
   | 'site-headers'
   /** a secret key in a file of the GitHub repository (Repo Scan) */
   | 'repo-file'
+  /** a secret key in a test path of the repository: not proven, INCONCLUSIVE (Repo Scan) */
+  | 'repo-test-key'
+  /** a committed env file with a secret-looking variable that has a value (Repo Scan, rule 3) */
+  | 'repo-env-file'
   /** a NEXT_PUBLIC_ / VITE_ variable name with SECRET or SERVICE_ROLE in a file of the repository (Repo Scan, rule 2) */
   | 'repo-env-name'
   /** a table that a migration creates and no migration enables row level security for (Repo Scan, rule 1) */
@@ -93,6 +103,12 @@ export interface EvidenceItem {
   /** For a file of a repository: the 1-based line. Never the text of the line. */
   line?: number;
   kind?: EvidenceKind;
+  /**
+   * For an item about a secret key (repo-file, repo-test-key, site-bundle):
+   * which kind of key. Never the key. Missing = a Supabase key (items made
+   * before other providers were looked for).
+   */
+  keyKind?: KeyKind;
   verdict: 'LEAKED' | 'BLOCKED' | 'INCONCLUSIVE';
   /** PROVEN = seen directly by the check. UNVERIFIED = the check could not tell. */
   proof: Proof;
@@ -114,6 +130,11 @@ export interface Coverage {
   failedToRun: { id: string; reason: Text }[];
   /** completed checks that had nothing to test, with a note (for example zero tables) */
   nothingToTest: { id: string; note: Text }[];
+  /**
+   * How many files a check read, by check id. The key is missing when no check
+   * reported a count (never an invented number).
+   */
+  filesRead?: { id: string; count: number }[];
   /** what these checks can not tell, in plain words */
   limits: Text[];
 }

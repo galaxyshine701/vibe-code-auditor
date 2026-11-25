@@ -1,3 +1,4 @@
+import { KEY_FORMATS_LIMIT } from './key-providers.js';
 import type { CheckMode, Provided, Text } from './types.js';
 
 /**
@@ -149,6 +150,15 @@ export const REPO_CHECK: CheckDefinition = {
     {
       en: 'Only text files are read (at most 1 MB each; the zip at most 15 MB, 40 MB unpacked, 3000 entries). Folders such as node_modules and dist are skipped, and so are files it could not read (they are listed as not read).',
       ur: 'Sirf text files parhi jati hain (har file 1 MB tak; zip 15 MB tak, unpack hone par 40 MB, 3000 entries). node_modules aur dist jaise folders chhod diye jate hain, aur jo files parhi na ja sakin unka naam "not read" mein aata hai.',
+    },
+    KEY_FORMATS_LIMIT,
+    {
+      en: 'A key found in a test path (a folder called test, tests, __tests__, fixtures, __mocks__ or e2e, or a file called *.test.* or *.spec.*) is only a warning sign (INCONCLUSIVE), because test files often hold fake values.',
+      ur: 'Test path mein mili hui key (test, tests, __tests__, fixtures, __mocks__ ya e2e naam ka folder, ya *.test.* ya *.spec.* file) sirf khatre ki nishani hai (INCONCLUSIVE), kyunke test files mein aksar nakli values hoti hain.',
+    },
+    {
+      en: 'A committed env file (.env, .env.local, .env.production, ...; not .env.example, .env.sample or .env.template) with a variable whose name says secret, password, token, API key or similar and that has a value is only a warning sign (INCONCLUSIVE). Only the names and the path are shown. Example values, very short values and numbers are skipped.',
+      ur: 'Committed env file (.env, .env.local, .env.production, ...; .env.example, .env.sample ya .env.template nahi) jis mein aisi variable ho jis ka naam secret, password, token, API key waghaira kehta ho aur jis ki value likhi ho, sirf khatre ki nishani hai (INCONCLUSIVE). Sirf naam aur path dikhaye jate hain. Misal wali values, bahut chhoti values aur numbers chhod diye jate hain.',
     },
     {
       en: 'Variable names that start with NEXT_PUBLIC_ or VITE_ and say SECRET or SERVICE_ROLE are checked in UPPERCASE only (a lowercase name is not seen), and .md and .txt files are skipped for this.',

@@ -60,10 +60,13 @@ describe('the evidence of a public variable name (repo-env-name)', () => {
   it('is its own group, shown as path:line, with words in both languages and no "key hidden" line', async () => {
     const groups = read('components', 'evidence-groups.tsx');
     expect(groups).toContain("'repo-env-name': 'kindRepoName'");
-    expect(groups).toContain("kind === 'repo-file' || kind === 'repo-env-name'");
-    expect(groups).toContain("{kind === 'repo-file' ? (");
+    expect(groups.replace(/\s+/g, ' ')).toContain(
+      "kind === 'repo-file' || kind === 'repo-test-key' || kind === 'repo-env-file' || kind === 'repo-env-name'",
+    );
+    // the "key is not shown" line is for keys only, never for a variable name
+    expect(groups).toContain("{kind === 'repo-file' || kind === 'repo-test-key' ? (");
     expect(read('lib', 'stage.ts')).toContain(
-      "'repo-file', 'repo-env-name', 'repo-migration']",
+      "'repo-file', 'repo-test-key', 'repo-env-file', 'repo-env-name', 'repo-migration']",
     );
     const copy = (await import(
       /* @vite-ignore */ join(FRONTEND, 'lib', 'stage-copy.ts')

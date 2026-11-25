@@ -5,6 +5,12 @@ import {
   type MigrationFile,
   type MigrationTableHit,
 } from './migration-rules.js';
+import {
+  findSecretVariables,
+  isEnvFile,
+  MAX_ENV_FILE_HITS,
+  type EnvFileHit,
+} from './env-file-rules.js';
 import { REPO_SCAN_LIMITS, type RepoScanLimits } from './repo-limits.js';
 import { readZip, stripRootFolder, ZipError } from './zip-reader.js';
 
@@ -52,7 +58,24 @@ export interface RepoHit {
   kind: KeyKind;
   /** the 1-based line of the first key of this kind in the file */
   line: number;
+  /** true when the file is in a test path (see isTestPath): the hit is only a warning sign */
+  testPath: boolean;
 }
+
+/**
+ * A path that holds tests, fixtures or mocks: a folder called test, tests,
+ * __tests__, fixtures, __mocks__ or e2e, or a file called *.test.* or *.spec.*.
+ * A key there is often a fake one, so it is not proven to be a leak.
+ */
+const TEST_PATH =
+  /(^|\/)(?:tests?|__tests__|fixtures|__mocks__|e2e)\/|(^|\/)[^/]*\.(?:test|spec)\.[^/]*$/i;
+
+export function isTestPath(path: string): boolean {
+  return TEST_PATH.test(path);
+}
+
+/** The most keys listed from test paths (the rest are not listed). */
+export const MAX_TEST_KEY_HITS = 50;
 
 /**
  * A variable NAME that a browser build publishes (it starts with NEXT_PUBLIC_
@@ -64,6 +87,8 @@ export interface RepoNameHit {
   /** the 1-based line of the first such name in the file */
   line: number;
 }
+
+export type { EnvFileHit } from './env-file-rules.js';
 
 export type RepoNotReadReason =
   | 'too-large'
@@ -80,6 +105,12 @@ export interface RepoScanOutcome {
   /** why, when `completed` is false (one fixed code, never the library text) */
   failure?: RepoNotReadReason;
   hits: RepoHit[];
+  /** true when more keys were found in test paths than MAX_TEST_KEY_HITS: the list is cut */
+  testHitsCut: boolean;
+  /** committed env files with a secret-looking variable that has a value (rule 3) */
+  envHits: EnvFileHit[];
+  /** true when more env files than MAX_ENV_FILE_HITS: the list is cut */
+  envHitsCut: boolean;
   /** public variable names that say SECRET or SERVICE_ROLE (rule 2) */
   nameHits: RepoNameHit[];
   /** true when more files had such a name than MAX_NAME_HITS: the list is cut */
@@ -149,6 +180,9 @@ export async function scanRepo(
     completed: false,
     failure,
     hits: [],
+    testHitsCut: false,
+    envHits: [],
+    envHitsCut: false,
     nameHits: [],
     nameHitsCut: false,
     migrationHits: [],
@@ -188,6 +222,10 @@ export async function scanRepo(
   }
 
   const hits: RepoHit[] = [];
+  let testHits = 0;
+  let testHitsCut = false;
+  const envHits: EnvFileHit[] = [];
+  let envHitsCut = false;
   const nameHits: RepoNameHit[] = [];
   let nameHitsCut = false;
   const migrations: MigrationFile[] = [];
@@ -207,8 +245,23 @@ export async function scanRepo(
     paths.push(path);
     const text = file.data.toString('utf8');
     if (isMigrationFile(path)) migrations.push({ path, text });
+    const testPath = isTestPath(path);
     for (const hit of scanForKeyHits(text)) {
-      hits.push({ path, kind: hit.kind, line: hit.line });
+      if (testPath) {
+        if (testHits >= MAX_TEST_KEY_HITS) {
+          testHitsCut = true;
+          continue;
+        }
+        testHits += 1;
+      }
+      hits.push({ path, kind: hit.kind, line: hit.line, testPath });
+    }
+    if (isEnvFile(path)) {
+      const found = findSecretVariables(text);
+      if (found) {
+        if (envHits.length < MAX_ENV_FILE_HITS) envHits.push({ path, ...found });
+        else envHitsCut = true;
+      }
     }
     if (!DOCUMENT_FILE.test(path)) {
       const line = findPublicSecretName(text);
@@ -222,6 +275,9 @@ export async function scanRepo(
   return {
     completed: true,
     hits,
+    testHitsCut,
+    envHits,
+    envHitsCut,
     nameHits,
     nameHitsCut,
     migrationHits: migration.hits,

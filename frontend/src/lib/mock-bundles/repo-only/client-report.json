@@ -115,6 +115,18 @@
       "ur": "Sirf text files parhi jati hain (har file 1 MB tak; zip 15 MB tak, unpack hone par 40 MB, 3000 entries). node_modules aur dist jaise folders chhod diye jate hain, aur jo files parhi na ja sakin unka naam \"not read\" mein aata hai."
     },
     {
+      "en": "The keys that are looked for: a Supabase secret key or service_role key, and the secret keys of OpenAI (sk-), Stripe (sk_live_, rk_live_), AWS (access key id AKIA), GitHub (ghp_, github_pat_), Slack (xoxb-), Anthropic (sk-ant-) and Groq (gsk_), each by its fixed prefix and a minimum length. Google keys (AIza) and Stripe publishable keys (pk_) are meant to be public and are not reported. Values that are only examples (xxxx, your_..., example, changeme) are skipped.",
+      "ur": "Jin keys ko dhoonda jata hai: Supabase ki secret key ya service_role key, aur OpenAI (sk-), Stripe (sk_live_, rk_live_), AWS (access key id AKIA), GitHub (ghp_, github_pat_), Slack (xoxb-), Anthropic (sk-ant-) aur Groq (gsk_) ki secret keys, har ek apne tay shuda prefix aur kam az kam lambai se. Google keys (AIza) aur Stripe ki publishable keys (pk_) public hone ke liye hoti hain, unhein report nahi kiya jata. Jo values sirf misal hain (xxxx, your_..., example, changeme) chhod di jati hain."
+    },
+    {
+      "en": "A key found in a test path (a folder called test, tests, __tests__, fixtures, __mocks__ or e2e, or a file called *.test.* or *.spec.*) is only a warning sign (INCONCLUSIVE), because test files often hold fake values.",
+      "ur": "Test path mein mili hui key (test, tests, __tests__, fixtures, __mocks__ ya e2e naam ka folder, ya *.test.* ya *.spec.* file) sirf khatre ki nishani hai (INCONCLUSIVE), kyunke test files mein aksar nakli values hoti hain."
+    },
+    {
+      "en": "A committed env file (.env, .env.local, .env.production, ...; not .env.example, .env.sample or .env.template) with a variable whose name says secret, password, token, API key or similar and that has a value is only a warning sign (INCONCLUSIVE). Only the names and the path are shown. Example values, very short values and numbers are skipped.",
+      "ur": "Committed env file (.env, .env.local, .env.production, ...; .env.example, .env.sample ya .env.template nahi) jis mein aisi variable ho jis ka naam secret, password, token, API key waghaira kehta ho aur jis ki value likhi ho, sirf khatre ki nishani hai (INCONCLUSIVE). Sirf naam aur path dikhaye jate hain. Misal wali values, bahut chhoti values aur numbers chhod diye jate hain."
+    },
+    {
       "en": "Variable names that start with NEXT_PUBLIC_ or VITE_ and say SECRET or SERVICE_ROLE are checked in UPPERCASE only (a lowercase name is not seen), and .md and .txt files are skipped for this.",
       "ur": "NEXT_PUBLIC_ ya VITE_ se shuru hone wale aur SECRET ya SERVICE_ROLE kehne wale variable naam sirf BADE (UPPERCASE) harfon mein check hote hain (chhote harf wala naam nazar nahi aata), aur is ke liye .md aur .txt files chhod di jati hain."
     },

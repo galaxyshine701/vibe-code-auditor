@@ -400,6 +400,7 @@ describe('scanRepo and the inspector agent', () => {
     expect(context.siteResults?.[REPO_CHECK_ID]).toEqual({
       id: REPO_CHECK_ID,
       status: 'completed',
+      filesRead: 3,
     });
     expect(context.siteEvidence).toMatchObject([
       {

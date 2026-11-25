@@ -47,6 +47,7 @@ import {
   leakCount,
   pick,
   noTableCheck,
+  repoFilesRead,
 } from '@/lib/stage';
 import { t } from '@/lib/stage-copy';
 import type { StageBundle } from '@/lib/stage-types';
@@ -495,6 +496,7 @@ export default function ReportPage() {
             hasWebsite={Boolean(audit?.target.websiteUrl)}
             hasSupabase={Boolean(audit?.target.projectUrl)}
             hasRepo={Boolean(audit?.target.repoUrl)}
+            repoFilesRead={repoFilesRead(stage?.evidence?.coverage)}
             lang={language}
           />
           <ScopeBuckets buckets={buckets} lang={language} />

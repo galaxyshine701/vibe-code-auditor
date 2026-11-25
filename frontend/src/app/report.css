@@ -954,3 +954,8 @@
   font-size: 0.86rem;
   line-height: 1.5;
 }
+
+.files-read {
+  width: 100%;
+  margin: 2px 0 0;
+}
