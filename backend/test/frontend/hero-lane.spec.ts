@@ -92,7 +92,7 @@ describe('the lane in the card', () => {
 
   it('waits for the intro like the rest of the card (its elements are inside .hero-card)', () => {
     expect(css).toMatch(/html\[data-intro="pending"\] \.hero-card \*/);
-    expect(card).toContain('<section className="hero-card"');
+    expect(card).toContain('<section className="hero-card glass"');
   });
 });
 

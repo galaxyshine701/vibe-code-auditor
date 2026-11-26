@@ -98,7 +98,8 @@ export function ClientSummary({
   // the same step as in the roadmap below: the same step is listed once
   const first = topActionItems(report, mergeSameSteps(roadmapItems));
   // a group is shown when the audit asked for it, or the report has a place for it
-  const showTables = hasSupabase || report?.findings?.tables !== undefined;
+  // with no Supabase project there is no table group (the page says so once)
+  const showTables = hasSupabase || Boolean(report?.findings?.tables);
   const showSite = hasWebsite || report?.findings?.site !== undefined;
   const showRepo = hasRepo || report?.findings?.repo !== undefined;
 

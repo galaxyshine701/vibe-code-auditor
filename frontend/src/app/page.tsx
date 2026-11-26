@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
-import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroCard } from '@/components/hero-card';
 import { HeroScene } from '@/components/hero-scene';
+import { HowItWorks } from '@/components/how-it-works';
 import { LangToggle } from '@/components/lang-toggle';
 import {
   RepoGroup,
@@ -14,7 +14,9 @@ import {
   WebsiteGroup,
 } from '@/components/connect-groups';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
+import { SectionHead } from '@/components/section-head';
 import { WhatItChecks } from '@/components/what-it-checks';
+import { WordMeanings } from '@/components/word-meanings';
 import { startAudit } from '@/lib/api';
 import { ApiError, NetworkError } from '@/lib/errors';
 import {
@@ -31,12 +33,11 @@ import {
 import {
   ADVANCED,
   FORM,
+  GET,
   KICKER,
-  MEANING,
   PROBLEM,
-  REPLAY,
   SCENE_NOTE,
-  STEPS,
+  SECTIONS,
   TABLE_STEPS,
   headlineWords,
   honestyLine,
@@ -139,9 +140,9 @@ export default function ConnectPage() {
   }
 
   return (
-    <div className="shell page-stack">
-      {/* wide screens: the words and the form on the left, the example result on
-          the right; narrower: one column, the form first */}
+    <div className="shell home">
+      {/* wide screens: the words and the form on the left, the scene on the
+          right; narrower: one column, the form first */}
       <section className="hero hero-stage">
         <div className="hero-copy">
           <div className="hero-copy-top">
@@ -167,10 +168,10 @@ export default function ConnectPage() {
           <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
 
           {/* one field, one box, one button; the website opens under the button */}
-          <div className="start-wrap">
+          <div className="start-wrap glass-wrap">
           <form
             id="start-box"
-            className="start-box"
+            className="start-box glass"
             aria-label={pickText(FORM.start, lang)}
             onSubmit={submit}
             noValidate
@@ -224,57 +225,42 @@ export default function ConnectPage() {
           </div>
         </div>
 
-        {/* the example result, in one place only: beside the form, or under it on a narrow screen */}
-        <div className="hero-card-wrap">
-          <HeroCard lang={lang} />
-          <button
-            type="button"
-            className="button button-ghost button-small hero-replay"
-            onClick={() => window.dispatchEvent(new Event('vca:replay-hero'))}
-          >
-            {pickText(REPLAY, lang)}
-          </button>
+        {/* the picture of the three words: it plays again and again */}
+        <div className="hero-visual">
+          <div className="glass-wrap">
+            <HeroScene lang={lang} />
+          </div>
+          <p className="scene-note">{pickText(SCENE_NOTE, lang)}</p>
         </div>
       </section>
 
       <WhatItChecks lang={lang} />
+      <HowItWorks lang={lang} />
 
-      <ol className="hero-steps" aria-label={pickText({ en: 'How it works', ur: 'Kaise kaam karta hai' }, lang)}>
-        {STEPS.map((step, index) => (
-          <li className="hero-step" key={index}>
-            <span className="hero-step-number" aria-hidden="true">
-              {index + 1}
-            </span>
-            <h2>{pickText(step.title, lang)}</h2>
-            <p>{pickText(step.body, lang)}</p>
-          </li>
-        ))}
-      </ol>
-      <p className="hero-honesty">{honestyLine(lang)}</p>
-
-      <section className="card truth-card">
-        <h2>{pickText(MEANING.title, lang)}</h2>
-        <p>
-          {pickText(MEANING.cleanLead, lang)}{' '}
-          <strong>{pickText(MEANING.clean, lang)}</strong>.
-        </p>
-        <CoverageNotes summary={pickText(MEANING.covers, lang)} />
-        <dl className="truth-legend">
-          {(['leaked', 'inconclusive', 'blocked'] as const).map((kind) => (
-            <div key={kind}>
-              <dt className={`legend-dot legend-${kind}`} />
-              <dd>
-                <strong>{pickText(MEANING[kind].word, lang)}</strong>
-                <span>{pickText(MEANING[kind].body, lang)}</span>
-              </dd>
-            </div>
-          ))}
-        </dl>
+      <section className="home-section get" aria-labelledby="get-title">
+        <div className="get-text">
+          <SectionHead id="get-title" head={SECTIONS.get} lang={lang} />
+          <p>{pickText(GET.body, lang)}</p>
+          <ul className="get-points">
+            {GET.points.map((point) => (
+              <li key={point.en}>{pickText(point, lang)}</li>
+            ))}
+          </ul>
+          <p className="hero-honesty">{honestyLine(lang)}</p>
+        </div>
+        {/* the example result, here and nowhere else */}
+        <div className="hero-card-wrap glass-wrap">
+          <HeroCard lang={lang} />
+        </div>
       </section>
 
+      <WordMeanings lang={lang} />
+
       {/* the Supabase test project: the last thing on the page, closed at first */}
+      <section className="home-section" aria-labelledby="advanced-title">
+        <SectionHead id="advanced-title" head={SECTIONS.advanced} lang={lang} />
       <details
-        className="card advanced"
+        className="advanced glass"
         id="advanced-supabase"
         open={advancedOpen}
         onToggle={(event) => setAdvancedAsked(event.currentTarget.open)}
@@ -303,11 +289,9 @@ export default function ConnectPage() {
               </li>
             ))}
           </ol>
-          {/* the picture of the table check: a canary on a post, a stranger at a barrier, a key in a window */}
-          <p className="scene-note">{pickText(SCENE_NOTE, lang)}</p>
-          <HeroScene lang={lang} />
         </div>
       </details>
+      </section>
     </div>
   );
 }

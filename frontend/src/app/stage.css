@@ -350,3 +350,18 @@
     animation: none;
   }
 }
+
+/* the one plain line about the optional Supabase project, and the modules that
+   were not asked for */
+.optional-line,
+.not-asked {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.not-asked {
+  margin-bottom: 14px;
+}
+

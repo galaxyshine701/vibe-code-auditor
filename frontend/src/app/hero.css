@@ -1,5 +1,4 @@
-/* The hero of the home page: the example result, the three steps and the
-   honesty line. The tokens of the theme only. The example run is resolved by the
+/* The example result of the home page and the honesty line. The tokens of the theme only. The example run is resolved by the
    scan beam (scan-beam.tsx, styled in intro.css): each row shows its result when
    the beam has passed it (--at). The words are always in the page; only the
    moment of the result moves. With reduced motion, and on a phone, the card is
@@ -367,90 +366,24 @@ html[data-intro="leaving"] .hero-card * {
   animation-play-state: paused;
 }
 
-/* ---- the three steps, and the honesty line ---- */
-.hero-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.hero-step {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px 18px 18px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel);
-}
-
-.hero-step-number {
-  display: grid;
-  place-items: center;
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 50%;
-  color: var(--btn-ink);
-  background: var(--btn-bg);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.hero-step h2 {
-  margin: 4px 0 0;
-  font-size: 1rem;
-}
-
-.hero-step p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.5;
-}
-
-/* a short line from one step to the next */
-.hero-step:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: 1.9rem;
-  right: -13px;
-  width: 14px;
-  height: 2px;
-  background: var(--line-strong);
-}
-
+/* ---- the honesty line ---- */
 .hero-honesty {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
   gap: 10px;
   margin: 0;
   color: var(--muted);
   font-size: 0.86rem;
-  text-align: center;
 }
 
 .hero-honesty::before {
   content: "";
+  margin-top: 0.5em;
   flex: 0 0 auto;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--canary);
-}
-
-@media (max-width: 720px) {
-  .hero-steps {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-step:not(:last-child)::after {
-    display: none;
-  }
 }
 
 /* ---- a phone (480 px and narrower): four compact rows, no diagram, no motion ---- */
@@ -521,14 +454,6 @@ html[data-intro="leaving"] .hero-card * {
     padding: 11px 12px;
   }
 
-  .hero-honesty {
-    text-align: left;
-    align-items: flex-start;
-  }
-
-  .hero-honesty::before {
-    margin-top: 0.4em;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

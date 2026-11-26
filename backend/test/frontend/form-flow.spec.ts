@@ -122,7 +122,7 @@ describe('the page', () => {
 
   it('the Supabase part is the last thing on the page, closed at first, with the Groq line in it', () => {
     expect(at('<SupabaseGroup')).toBeGreaterThan(at('</form>'));
-    expect(at('<SupabaseGroup')).toBeGreaterThan(at('truth-card'));
+    expect(at('<SupabaseGroup')).toBeGreaterThan(at('<WordMeanings'));
     expect(at('ADVANCED.groq')).toBeGreaterThan(at('id="advanced-supabase"'));
     expect(page).toContain('open={advancedOpen}');
     expect(page).toContain(

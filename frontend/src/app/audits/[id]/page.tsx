@@ -26,6 +26,7 @@ import {
   targetLines,
 } from '@/lib/progress-rows';
 import { headlineOf, leakCount, noTableCheck, pick } from '@/lib/stage';
+import { t } from '@/lib/stage-copy';
 import type { AuditStatus, AuditStatusResponse } from '@/lib/types';
 import { useLang } from '@/lib/use-lang';
 import { useApiError } from '@/lib/use-api-error';
@@ -142,6 +143,16 @@ export default function ProgressPage() {
   const status = audit?.status;
   const isRunning = status === 'queued' || status === 'running';
   const isFailed = status === 'failed';
+  // a module that was skipped was not asked for: it is named under "Not
+  // checked", not shown as a row or a chip
+  const modules = audit?.modules ?? [];
+  const asked = modules.filter((module) => String(module.status) !== 'skipped');
+  const notChecked = modules.filter((module) => String(module.status) === 'skipped');
+  // while the run goes on, each module has its row and bar; afterwards the line
+  // of chips says it all, and only a failed module keeps its row (its message)
+  const detailed = isRunning
+    ? asked
+    : asked.filter((module) => String(module.status) === 'failed');
 
   return (
     <div className="shell page-stack">
@@ -224,7 +235,7 @@ export default function ProgressPage() {
             {audit.modules.length > 0 ? (
               <div className="activity">
                 <ol className="activity-strip" aria-label="Activity of the modules">
-                  {activityOrder(audit.modules).map((module) => {
+                  {activityOrder(asked).map((module) => {
                     const row = rowView(module, lang);
                     return (
                       <li
@@ -245,8 +256,15 @@ export default function ProgressPage() {
               </div>
             ) : null}
 
+            {notChecked.length > 0 ? (
+              <p className="muted small not-asked">
+                {t(lang, 'notCheckedLine')}{' '}
+                {notChecked.map((module) => module.name).join(', ')}
+              </p>
+            ) : null}
+
             <div className="module-list">
-              {audit.modules.map((module, index) => {
+              {detailed.map((module, index) => {
                 const row = rowView(module, lang);
                 return (
                   <div
@@ -322,9 +340,6 @@ export default function ProgressPage() {
                     <strong>Secrets in repo</strong>
                   </div>
                 ) : null}
-                <p className="muted small summary-site-note">
-                  No Supabase details were given, so no table was checked.
-                </p>
               </div>
             ) : null}
 

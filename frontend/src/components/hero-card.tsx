@@ -80,7 +80,7 @@ function Row({
 
 export function HeroCard({ lang }: { lang: Lang }) {
   return (
-    <section className="hero-card" aria-label={pickText(CARD.tag, lang)}>
+    <section className="hero-card glass" aria-label={pickText(CARD.tag, lang)}>
       <header className="hero-card-head">
         <span className="hero-card-tag">{pickText(CARD.tag, lang)}</span>
         <span className="hero-card-note">{pickText(CARD.tagNote, lang)}</span>

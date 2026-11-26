@@ -23,3 +23,27 @@ export const COVERAGE = {
     'A table with more than 100 rows stops the audit.',
   ],
 } as const;
+
+/** The same words in Roman Urdu. */
+export const COVERAGE_UR = {
+  checked:
+    'Project ki REST API jitne tables dikhati hai, har ek par doosra login user ek temporary canary row ko parhne, badalne aur delete karne ki koshish karta hai. Bina login wala visitor use parhne ki koshish karta hai. Owner use control ke taur par parhta hai.',
+  inconclusive:
+    'Jin tables mein owner column na mile wo inconclusive aate hain.',
+  notCovered: [
+    'Doosre users ya visitors ke inserts',
+    'Database functions (RPC)',
+    'Storage',
+    'Realtime',
+    'Edge Functions',
+    'Auth settings',
+    'Doosre schemas',
+    'Column-level rules',
+  ],
+  limits: [
+    'Updates sirf un tables par test hote hain jin mein text column ho.',
+    'Jin tables ke naam mein harf, hindsay ya underscore ke ilawa kuch ho wo chhod diye jate hain.',
+    'Kisi table mein 100 se zyada rows hon to audit ruk jata hai.',
+  ],
+} as const;
+

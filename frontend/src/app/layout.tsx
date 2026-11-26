@@ -4,7 +4,8 @@ import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
 import { IntroOverlay } from '@/components/intro-overlay';
 import { ServiceWorkerRegister } from '@/components/sw-register';
-import { PROJECT_DESCRIPTION, PROJECT_NAME, PROJECT_TAGLINE } from '@/lib/brand';
+import { SiteFooter } from '@/components/site-footer';
+import { PROJECT_DESCRIPTION, PROJECT_NAME, PROJECT_TITLE } from '@/lib/brand';
 import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
 import './globals.css';
 import './intro.css';
@@ -14,8 +15,15 @@ import './hero.css';
 import './glass.css';
 
 export const metadata: Metadata = {
-  title: PROJECT_NAME,
+  title: PROJECT_TITLE,
   description: PROJECT_DESCRIPTION,
+  // text only: there is no picture
+  openGraph: {
+    title: PROJECT_TITLE,
+    description: PROJECT_DESCRIPTION,
+    type: 'website',
+    siteName: PROJECT_NAME,
+  },
 };
 
 // The first visit is dark, not decided by the system setting (R55). The
@@ -53,13 +61,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <AppProvider>
           <AppHeader />
           <main className="site-main">{children}</main>
-          <footer className="site-footer">
-            <div className="shell footer-inner">
-              <p>
-                {PROJECT_NAME} · {PROJECT_TAGLINE}
-              </p>
-            </div>
-          </footer>
+          <SiteFooter />
         </AppProvider>
       </body>
     </html>

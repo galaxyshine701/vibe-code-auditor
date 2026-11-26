@@ -58,6 +58,15 @@ describe('what it checks', () => {
     }
   });
 
+  it('each card says what it reads, in a tag', () => {
+    const out = render('en');
+    expect(out.match(/class="reads-tag"/g)).toHaveLength(4);
+    for (const item of copy.WHAT_IT_CHECKS.items) {
+      expect(item.reads.en).toMatch(/^reads: /);
+      expect(item.reads.ur).toMatch(/^parhta hai: /);
+    }
+  });
+
   it('says "by these checks" and lists every part, in both languages', () => {
     expect(copy.WHAT_IT_CHECKS.notCheckedLead.en).toBe(
       'Not checked by these checks:',
@@ -72,8 +81,8 @@ describe('what it checks', () => {
 
   it('is under the hero and above the steps', () => {
     const page = read('app', 'page.tsx');
-    expect(page.indexOf('<WhatItChecks')).toBeGreaterThan(page.indexOf('<HeroCard'));
-    expect(page.indexOf('<WhatItChecks')).toBeLessThan(page.indexOf('hero-steps'));
+    expect(page.indexOf('<WhatItChecks')).toBeGreaterThan(page.indexOf('<HeroScene'));
+    expect(page.indexOf('<WhatItChecks')).toBeLessThan(page.indexOf('<HowItWorks'));
   });
 
   it('claims nothing and draws no lock or tick', () => {

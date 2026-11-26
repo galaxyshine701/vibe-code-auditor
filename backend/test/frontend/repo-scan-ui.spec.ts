@@ -314,7 +314,7 @@ describe('the Connect form screen', () => {
     );
     // the first step of the page names the repo first
     expect(read('lib', 'hero-copy.ts')).toContain(
-      'Paste the link of a public GitHub repo. You can add a live website too.',
+      'Paste the link of a public GitHub repo and tick the box. A live website is optional.',
     );
   });
 });

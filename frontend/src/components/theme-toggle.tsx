@@ -5,6 +5,7 @@ import { THEME, pickText } from '@/lib/hero-copy';
 import { useLang } from '@/lib/use-lang';
 
 type Theme = 'dark' | 'light';
+const CHANGE = 'vca:theme';
 
 // The colour of the browser bar, the same as the page (--bg of each theme).
 const BAR_COLOR: Record<Theme, string> = { dark: '#0f1114', light: '#efefec' };
@@ -49,10 +50,16 @@ export function ThemeToggle() {
   const [lang] = useLang();
 
   useEffect(() => {
-    const current = document.documentElement.dataset.theme;
-    const known: Theme = current === 'light' ? 'light' : 'dark';
-    setTheme(known);
-    setBarColor(known);
+    const read = () => {
+      const current = document.documentElement.dataset.theme;
+      const known: Theme = current === 'light' ? 'light' : 'dark';
+      setTheme(known);
+      setBarColor(known);
+    };
+    read();
+    // there is a second button in the footer: both show the same theme
+    window.addEventListener(CHANGE, read);
+    return () => window.removeEventListener(CHANGE, read);
   }, []);
 
   function toggle() {
@@ -60,6 +67,7 @@ export function ThemeToggle() {
     setTheme(next);
     document.documentElement.dataset.theme = next;
     setBarColor(next);
+    window.dispatchEvent(new Event(CHANGE));
     try {
       localStorage.setItem('vca-theme', next);
     } catch {

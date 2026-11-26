@@ -8,6 +8,8 @@ import {
   INTRO_STORY_MS,
   remainingMs,
 } from '@/lib/intro';
+import { INTRO_COPY, pickText } from '@/lib/hero-copy';
+import { useLang } from '@/lib/use-lang';
 import { IntroScene } from './intro-scene';
 
 type IntroWindow = Window & {
@@ -38,6 +40,7 @@ type IntroWindow = Window & {
 // animation hides the overlay by itself: the app is never blocked.
 export function IntroOverlay() {
   const [mounted, setMounted] = useState(true);
+  const [lang] = useLang();
   const [runId, setRunId] = useState(0);
   const skipButton = useRef<HTMLButtonElement>(null);
   const timers = useRef<number[]>([]);
@@ -190,7 +193,7 @@ export function IntroOverlay() {
       className="intro-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="Introduction"
+      aria-label={pickText(INTRO_COPY.label, lang)}
       onClick={close}
     >
       <IntroScene key={runId} />
@@ -200,9 +203,9 @@ export function IntroOverlay() {
         ref={skipButton}
         onClick={close}
       >
-        Skip intro
+        {pickText(INTRO_COPY.skip, lang)}
       </button>
-      <p className="intro-hint">Tap, click or press Esc to skip.</p>
+      <p className="intro-hint">{pickText(INTRO_COPY.hint, lang)}</p>
     </div>
   );
 }

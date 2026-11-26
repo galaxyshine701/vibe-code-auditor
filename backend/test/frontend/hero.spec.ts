@@ -290,19 +290,14 @@ describe('the example run card', () => {
 });
 
 describe('the three steps and the honesty line', () => {
-  it('Connect, Checks run, Gate and roadmap', () => {
+  it('Paste your repo link, Checks run, Read the result', () => {
     expect(copy.STEPS.map((s) => s.title.en)).toEqual([
-      'Connect',
+      'Paste your repo link',
       'Checks run',
-      'Gate and roadmap',
+      'Read the result',
     ]);
     const page = read('app', 'page.tsx');
-    expect(page.indexOf('hero-card-wrap')).toBeLessThan(
-      page.indexOf('hero-steps'),
-    );
-    expect(page.indexOf('hero-steps')).toBeLessThan(
-      page.indexOf('truth-card'),
-    );
+    expect(page.indexOf('<HowItWorks')).toBeLessThan(page.indexOf('<HeroCard'));
   });
 
   it('one honesty line, in both languages, about the listed checks and the scope', () => {

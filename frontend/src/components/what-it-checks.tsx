@@ -1,8 +1,9 @@
 import type { Lang } from '@/lib/check-labels';
-import { WHAT_IT_CHECKS, pickText } from '@/lib/hero-copy';
+import { SECTIONS, WHAT_IT_CHECKS, pickText } from '@/lib/hero-copy';
+import { SectionHead } from './section-head';
 
-// "What it checks": four short items under the hero, each with one line, and one
-// line that says what is not checked (the limits the checks themselves report).
+// "What it checks": four cards under the hero, each with one line and what it
+// reads, and one line that says what is not checked (the limits the checks themselves report).
 // The icons are plain shapes in the colour of the text.
 const ICONS = {
   // a file
@@ -17,11 +18,11 @@ const ICONS = {
 
 export function WhatItChecks({ lang }: { lang: Lang }) {
   return (
-    <section className="checks-strip" aria-labelledby="checks-strip-title">
-      <h2 id="checks-strip-title">{pickText(WHAT_IT_CHECKS.title, lang)}</h2>
-      <ul className="checks-list">
+    <section className="home-section checks-strip" aria-labelledby="checks-title">
+      <SectionHead id="checks-title" head={SECTIONS.checks} lang={lang} />
+      <ul className="checks-list glass-wrap">
         {WHAT_IT_CHECKS.items.map((item) => (
-          <li key={item.icon}>
+          <li className="glass" key={item.icon}>
             <svg
               className="checks-icon"
               viewBox="0 0 24 24"
@@ -39,6 +40,7 @@ export function WhatItChecks({ lang }: { lang: Lang }) {
             </svg>
             <h3>{pickText(item.title, lang)}</h3>
             <p>{pickText(item.body, lang)}</p>
+            <span className="reads-tag">{pickText(item.reads, lang)}</span>
           </li>
         ))}
       </ul>

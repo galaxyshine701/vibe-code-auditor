@@ -41,6 +41,7 @@ import { targetLines } from '@/lib/progress-rows';
 import {
   bucketsOf,
   canRetest,
+  gateWithoutSupabaseAsk,
   hasStages,
   headlineOf,
   invitesWebsite,
@@ -48,6 +49,7 @@ import {
   pick,
   noTableCheck,
   repoFilesRead,
+  withoutSupabaseAsk,
 } from '@/lib/stage';
 import { t } from '@/lib/stage-copy';
 import type { StageBundle } from '@/lib/stage-types';
@@ -441,6 +443,12 @@ export default function ReportPage() {
   const buckets = stages
     ? bucketsOf(stage?.clientReport, stage?.evidence?.coverage, audit?.plan)
     : null;
+  // with no Supabase project the result never asks for one (see lib/stage.ts)
+  const roadmap =
+    noTables && stage?.roadmap
+      ? { ...stage.roadmap, items: withoutSupabaseAsk(stage.roadmap.items) }
+      : (stage?.roadmap ?? null);
+  const gate = noTables ? gateWithoutSupabaseAsk(audit?.gate) : audit?.gate;
   const findingIdSet = new Set((findings ?? []).map((finding) => finding.id));
   const evidenceIdSet = new Set(
     (stage?.evidence?.items ?? []).map((item) => item.id),
@@ -480,7 +488,7 @@ export default function ReportPage() {
 
       {stages ? (
         <>
-          <GateBanner gate={audit?.gate} headline={headline} lang={language} />
+          <GateBanner gate={gate} headline={headline} lang={language} />
           {stageError ? (
             <div className="notice notice-info" role="status">
               {t(language, 'stageError')} {stageError}
@@ -488,7 +496,7 @@ export default function ReportPage() {
           ) : null}
           <ClientSummary
             report={stage?.clientReport ?? null}
-            roadmapItems={stage?.roadmap?.items}
+            roadmapItems={roadmap?.items}
             summary={audit?.summary}
             hasWebsite={Boolean(audit?.target.websiteUrl)}
             hasSupabase={Boolean(audit?.target.projectUrl)}
@@ -498,7 +506,7 @@ export default function ReportPage() {
           />
           <ScopeBuckets buckets={buckets} lang={language} />
           <RoadmapList
-            roadmap={stage?.roadmap ?? null}
+            roadmap={roadmap}
             report={stage?.clientReport ?? null}
             lang={language}
             findingIds={findingIdSet}
@@ -741,7 +749,7 @@ export default function ReportPage() {
               </p>
             ) : null}
             {!stages || audit?.target.projectUrl ? (
-              <CoverageNotes summary="Checked, not covered and limits" />
+              <CoverageNotes lang={language} />
             ) : null}
           </Disclaimer>
         </>

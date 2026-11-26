@@ -10,3 +10,6 @@ export const PROJECT_TAGLINE = 'Launch readiness checks';
 // three checks and the way the result is worded: "by these checks".
 export const PROJECT_DESCRIPTION =
   'Checks a live site, Supabase table access (by replaying two test users) and a public GitHub repo, then gives one gate result, by these checks, with the evidence.';
+
+// The title of the page (<title> and Open Graph).
+export const PROJECT_TITLE = `${PROJECT_NAME}: launch readiness checks`;

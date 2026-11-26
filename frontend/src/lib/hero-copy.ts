@@ -115,10 +115,10 @@ export const CARD = {
 } as const;
 
 /**
- * The scene of the table check, in the Supabase section: a canary on a
- * checkpoint post, a stranger stopped at a striped barrier (BLOCKED), and an
- * app being built with a key left in a window (LEAKED). It is a picture of the
- * idea, not a real audit, and the line above it says so (SCENE_NOTE).
+ * The scene at the right of the hero: a test marker on a checkpoint post
+ * (INCONCLUSIVE), an attempt stopped at a striped barrier (BLOCKED), and an app
+ * with a key left in the open (LEAKED). It is a picture of the three words, not
+ * a real audit, and the line under it says so (SCENE_NOTE).
  */
 export const SCENE_NOTE: Pair = {
   en: 'Example scene, not a real audit',
@@ -127,19 +127,22 @@ export const SCENE_NOTE: Pair = {
 
 export const SCENE = {
   label: {
-    en: 'Example scene: a canary on a post, a stranger stopped at a barrier, a key left in a window of an app',
-    ur: 'Misaal ka manzar: post par canary, barrier par ruka hua ajnabi, app ki khidki mein chhoti hui key',
+    en: 'Example scene: a test marker on a post, an attempt stopped at a barrier, a key left in the open in a window of an app',
+    ur: 'Misaal ka manzar: post par test marker, barrier par ruki hui koshish, app ki khidki mein khuli reh gayi chabi',
   },
-  canary: {
-    title: { en: 'Canary row', ur: 'Canary row' },
-    note: { en: 'on a checkpoint post', ur: 'checkpoint post par' },
+  marker: {
+    title: { en: 'Test marker', ur: 'Test marker' },
+    note: { en: 'a person should confirm', ur: 'insaan tasdeeq kare' },
+    verdict: 'INCONCLUSIVE',
   },
   barrier: {
-    title: { en: 'Stranger stopped', ur: 'Ajnabi ruk gaya' },
+    title: { en: 'Attempt stopped', ur: 'Koshish ruk gayi' },
+    note: { en: 'it did not get through', ur: 'aage nahi ja saki' },
     verdict: 'BLOCKED',
   },
   key: {
-    title: { en: 'Key in a window', ur: 'Khidki mein key' },
+    title: { en: 'Key left open', ur: 'Chabi khuli reh gayi' },
+    note: { en: 'anyone can read it', ur: 'koi bhi parh sakta hai' },
     verdict: 'LEAKED',
   },
 } as const;
@@ -166,23 +169,24 @@ export const TILES_LABEL: Pair = {
  * a test looks for them there. Nothing else may be added to the line.
  */
 export const WHAT_IT_CHECKS = {
-  title: { en: 'What it checks', ur: 'Ye kya check karta hai' },
   items: [
     {
       icon: 'files',
       title: { en: 'Secret keys in files', ur: 'Files mein secret keys' },
       body: {
-        en: 'Known key formats, such as Supabase, OpenAI, Stripe and AWS, in the text files of a public GitHub repo.',
-        ur: 'Public GitHub repo ki text files mein jaani pehchani keys, maslan Supabase, OpenAI, Stripe aur AWS.',
+        en: 'Known key formats, such as Supabase, OpenAI, Stripe and AWS.',
+        ur: 'Jaani pehchani keys, maslan Supabase, OpenAI, Stripe aur AWS.',
       },
+      reads: { en: 'reads: repo text files', ur: 'parhta hai: repo ki text files' },
     },
     {
       icon: 'env',
       title: { en: 'Committed .env files', ur: 'Commit ki hui .env files' },
       body: {
-        en: 'Secret-looking names that have a value. Only names and path are shown, as a warning sign.',
-        ur: 'Secret jaise naam jin ki value likhi hai. Sirf naam aur path dikhte hain, khatre ki nishani ke taur par.',
+        en: 'Secret-looking names that have a value, as a warning sign.',
+        ur: 'Secret jaise naam jin ki value likhi hai, khatre ki nishani ke taur par.',
       },
+      reads: { en: 'reads: .env files in the repo', ur: 'parhta hai: repo ki .env files' },
     },
     {
       icon: 'migrations',
@@ -191,9 +195,10 @@ export const WHAT_IT_CHECKS = {
         ur: 'Migrations mein database rules (RLS)',
       },
       body: {
-        en: 'A table with no row level security in the migration files is a warning sign.',
-        ur: 'Jis table ki row level security migration files mein na ho wo khatre ki nishani hai.',
+        en: 'A table with no row level security there is a warning sign.',
+        ur: 'Jis table ki row level security wahan na ho wo khatre ki nishani hai.',
       },
+      reads: { en: 'reads: .sql files in migrations folders', ur: 'parhta hai: migrations folders ki .sql files' },
     },
     {
       icon: 'site',
@@ -202,9 +207,10 @@ export const WHAT_IT_CHECKS = {
         ur: 'Site ke headers aur scripts mein keys',
       },
       body: {
-        en: 'For a live website: the headers of the front page, and keys in its own scripts.',
-        ur: 'Live website ke liye: pehle page ke headers, aur us ki apni scripts mein keys.',
+        en: 'For a live website: weak or missing headers, and keys in its scripts.',
+        ur: 'Live website ke liye: kamzor ya ghayab headers, aur scripts mein keys.',
       },
+      reads: { en: 'reads: front page and its own scripts', ur: 'parhta hai: pehla page aur us ki apni scripts' },
     },
   ],
   notCheckedLead: {
@@ -257,27 +263,95 @@ export const WHAT_IT_CHECKS = {
 
 export const STEPS = [
   {
-    title: { en: 'Connect', ur: 'Jodein' },
+    visual: 'paste',
+    title: { en: 'Paste your repo link', ur: 'Repo ka link paste karein' },
     body: {
-      en: 'Paste the link of a public GitHub repo. You can add a live website too.',
-      ur: 'Public GitHub repo ka link paste karein. Chahein to live website bhi jodein.',
+      en: 'Paste the link of a public GitHub repo and tick the box. A live website is optional.',
+      ur: 'Public GitHub repo ka link paste karein aur box tick karein. Live website optional hai.',
     },
   },
   {
+    visual: 'run',
     title: { en: 'Checks run', ur: 'Checks chalte hain' },
     body: {
-      en: 'Each check runs on its own and keeps its evidence.',
-      ur: 'Har check alag chalta hai aur apna saboot rakhta hai.',
+      en: 'Each check runs on its own and keeps its evidence. You can follow it on the run page.',
+      ur: 'Har check alag chalta hai aur apna saboot rakhta hai. Aap run page par dekh sakte hain.',
     },
   },
   {
-    title: { en: 'Gate and roadmap', ur: 'Gate aur roadmap' },
+    visual: 'result',
+    title: { en: 'Read the result', ur: 'Nateeja parhein' },
     body: {
-      en: 'A gate says ready or not by these checks, with the next steps in order.',
-      ur: 'Gate in checks ke hisaab se tayyar ya nahi batata hai, agle qadam tarteeb se.',
+      en: 'A gate says ready or not by these checks, with the next steps and a fix prompt.',
+      ur: 'Gate in checks ke hisaab se tayyar ya nahi batata hai, agle qadam aur fix prompt ke saath.',
     },
   },
-] as const satisfies readonly { title: Pair; body: Pair }[];
+] as const satisfies readonly { visual: string; title: Pair; body: Pair }[];
+
+/** The headings of the sections of the home page: a small label, then the heading. */
+export const SECTIONS = {
+  checks: {
+    label: { en: 'What it checks', ur: 'Ye kya check karta hai' },
+    title: { en: 'Four things it reads', ur: 'Chaar cheezein jo ye parhta hai' },
+  },
+  how: {
+    label: { en: 'How it works', ur: 'Ye kaise kaam karta hai' },
+    title: { en: 'Three steps to a result', ur: 'Nateeje tak teen qadam' },
+  },
+  get: {
+    label: { en: 'What you get', ur: 'Aap ko kya milta hai' },
+    title: { en: 'A result you can act on', ur: 'Aisa nateeja jis par amal ho sake' },
+  },
+  words: {
+    label: { en: 'What the words mean', ur: 'Lafzon ka matlab' },
+    title: { en: 'Three words in every result', ur: 'Har nateeje ke teen lafz' },
+  },
+  advanced: {
+    label: { en: 'Optional', ur: 'Optional' },
+    title: { en: 'Check a Supabase test project too', ur: 'Supabase test project bhi check karein' },
+  },
+} as const;
+
+/** "What you get": a short text and three points beside the example result. */
+export const GET = {
+  body: {
+    en: 'One page with a gate result and the evidence behind it, in the order to work through.',
+    ur: 'Ek page jis par gate ka nateeja aur us ka saboot hai, usi tarteeb mein jis mein kaam karna hai.',
+  },
+  points: [
+    {
+      en: 'A verdict, and where it was found',
+      ur: 'Verdict, aur wo kahan mila',
+    },
+    {
+      en: 'Why it matters, in plain words',
+      ur: 'Ye kyun ahem hai, saade lafzon mein',
+    },
+    {
+      en: 'A fix prompt in English and Roman Urdu',
+      ur: 'Fix prompt English aur Roman Urdu mein',
+    },
+  ],
+} as const;
+
+/** The footer. */
+export const FOOTER = {
+  line: {
+    en: 'launch readiness checks, by these checks only',
+    ur: 'launch se pehle ke checks, sirf in checks ki had tak',
+  },
+  links: { en: 'Page links', ur: 'Page ke links' },
+} as const satisfies Record<string, Pair>;
+
+/** The words of the intro overlay. */
+export const INTRO_COPY = {
+  label: { en: 'Introduction', ur: 'Taaruf' },
+  skip: { en: 'Skip intro', ur: 'Intro chhodein' },
+  hint: {
+    en: 'Tap, click or press Esc to skip.',
+    ur: 'Chhorne ke liye tap ya click karein, ya Esc dabayein.',
+  },
+} as const satisfies Record<string, Pair>;
 
 export function honestyLine(lang: Lang): string {
   return lang === 'ur'
@@ -367,13 +441,11 @@ export const TABLE_STEPS = [
 
 /** "What this means": how to read a result. */
 export const MEANING = {
-  title: { en: 'What this means', ur: 'Is ka matlab' },
   cleanLead: { en: 'A clean result means', ur: 'Saaf nateeje ka matlab hai' },
   clean: {
     en: 'no leak found by these checks',
     ur: 'in checks mein koi leak nahi mila',
   },
-  covers: { en: 'See what they cover.', ur: 'Dekhein ye kya cover karte hain.' },
   leaked: {
     word: { en: 'Leaked', ur: 'Leak hua' },
     body: {

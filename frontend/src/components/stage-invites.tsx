@@ -23,12 +23,11 @@ export function InviteWebsite({ lang }: { lang: Lang }) {
 
 export function NoTables({ lang }: { lang: Lang }) {
   return (
-    <section className="card invite-card" aria-labelledby="no-tables">
-      <h2 id="no-tables">{t(lang, 'noTables')}</h2>
-      <p className="muted">{t(lang, 'inviteSupabase')}</p>
-      <Link href="/" className="button button-ghost">
+    <p className="optional-line" id="no-tables">
+      {t(lang, 'noTables')} {t(lang, 'inviteSupabase')}{' '}
+      <Link href="/#advanced-supabase" className="text-link">
         {t(lang, 'newAudit')}
       </Link>
-    </section>
+    </p>
   );
 }

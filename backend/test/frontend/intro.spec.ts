@@ -640,7 +640,7 @@ describe('skipping and the keyboard', () => {
   it('tap, click, Esc and a Skip button end it; the Skip button gets the focus', () => {
     expect(source).toContain('onClick={close}');
     expect(source).toContain("event.key === 'Escape'");
-    expect(source).toContain('Skip intro');
+    expect(source).toContain('INTRO_COPY.skip');
     expect(source).toContain('skipButton.current?.focus');
   });
 
@@ -664,7 +664,7 @@ describe('skipping and the keyboard', () => {
   });
 
   it('the Skip button is always there', () => {
-    expect(source).toContain('Skip intro');
+    expect(source).toContain('INTRO_COPY.skip');
     expect(source).toContain('onClick={close}');
   });
 
@@ -693,15 +693,15 @@ describe('the replay button and the theme button', () => {
   });
 
   it('a click asks the overlay to play again', () => {
-    const page = read('app', 'page.tsx');
-    expect(page).toContain("new Event('vca:replay-hero')");
+    const footer = read('components', 'site-footer.tsx');
+    expect(footer).toContain("new Event('vca:replay-hero')");
     expect(read('components', 'intro-overlay.tsx')).toContain(
       "addEventListener('vca:replay-hero', replay)",
     );
   });
 
   it('both speak English and Roman Urdu', () => {
-    expect(read('app', 'page.tsx')).toContain('{pickText(REPLAY, lang)}');
+    expect(read('components', 'site-footer.tsx')).toContain('{pickText(REPLAY, lang)}');
     const toggle = read('components', 'theme-toggle.tsx');
     expect(toggle).toContain('useLang()');
     expect(toggle).toContain('pickText(other.word, lang)');

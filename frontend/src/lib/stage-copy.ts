@@ -57,6 +57,8 @@ export const COPY = {
   required: { en: 'Required', ur: 'Zaroori' },
   addIt: { en: 'Add it with a new audit', ur: 'Naye audit mein shamil karein' },
   limitsHeading: { en: 'Limits of these checks', ur: 'In checks ki hadein' },
+  technicalHeading: { en: 'Technical details', ur: 'Technical tafseel' },
+  notCheckedLine: { en: 'Not checked:', ur: 'Check nahi hua:' },
   emptyBucket: { en: 'Nothing here.', ur: 'Yahan kuch nahi.' },
 
   // the fix prompt of a roadmap item
@@ -122,8 +124,8 @@ export const COPY = {
     ur: 'Is audit ne sirf Supabase dekha. Website ke checks diye nahi gaye.',
   },
   inviteSupabase: {
-    en: 'Add Supabase details to check tables.',
-    ur: 'Tables check karne ke liye Supabase ki details dein.',
+    en: 'Optional: a Supabase TEST project can be checked too, under "Advanced: Supabase test project" on the home page.',
+    ur: 'Optional: Supabase TEST project bhi check ho sakta hai, home page par "Advanced: Supabase test project" mein.',
   },
   noTables: {
     en: 'No Supabase details were given, so no table was checked.',

@@ -15,6 +15,7 @@ import type {
   EvidenceItem,
   RoadmapItem,
   Text,
+  Gate,
 } from './stage-types';
 import type { AuditStatusResponse } from './types';
 
@@ -354,6 +355,32 @@ export function topActionItems(
     out.push(item);
   }
   return out;
+}
+
+// A Supabase TEST project is optional. When none was given, the result does not
+// ask for one (and so never for its keys): its "add this" step is left out, and
+// one plain line on the page points to the home page instead.
+const SUPABASE_CHECK = 'data-access-prover';
+
+export function withoutSupabaseAsk(
+  items: RoadmapItem[] | undefined | null,
+): RoadmapItem[] {
+  return (items ?? []).filter(
+    (item) =>
+      !(item.kind === 'provide-input' && item.refs?.checkId === SUPABASE_CHECK),
+  );
+}
+
+/**
+ * The reasons of the gate without the "not provided" one of the table check (the
+ * page says it once, in that plain line). A gate is never left without a reason.
+ */
+export function gateWithoutSupabaseAsk(gate: Gate | undefined): Gate | undefined {
+  if (!gate?.reasons) return gate;
+  const reasons = gate.reasons.filter(
+    (reason) => !/not provided: "Data access/i.test(reason.en),
+  );
+  return reasons.length > 0 ? { ...gate, reasons } : gate;
 }
 
 /** The roadmap could not be made (R80): the limits say so and no steps are shown. */

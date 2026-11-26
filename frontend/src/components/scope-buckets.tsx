@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { checkLabel, type Lang } from '@/lib/check-labels';
+import { plainLimits } from '@/lib/plain-limits';
 import { pick, type BucketCheck, type Buckets } from '@/lib/stage';
 import { t, type CopyKey } from '@/lib/stage-copy';
 
@@ -54,7 +55,9 @@ function Row({
   showRequired: boolean;
   children?: ReactNode;
 }) {
-  const reason = withReason ? pick(check.reason, lang) : '';
+  // a Supabase project that was not given is said once on the page, not here
+  const optional = check.id === 'data-access-prover' && addable;
+  const reason = withReason && !optional ? pick(check.reason, lang) : '';
   return (
     <li>
       <div className="bucket-line">
@@ -65,7 +68,7 @@ function Row({
       </div>
       {reason ? <p className="bucket-reason">{reason}</p> : null}
       {children}
-      {addable ? (
+      {addable && !optional ? (
         <Link href="/" className="text-link bucket-add">
           {t(lang, 'addIt')}
         </Link>
@@ -111,6 +114,10 @@ export function ScopeBuckets({
   ];
 
   let index = 0;
+  // only the checks that ran have limits to tell in plain words
+  const plain = plainLimits(
+    [...buckets.checked, ...buckets.partial].map((check) => check.id),
+  );
   return (
     <section className="card scope-card" id="scope" aria-labelledby="scope-heading">
       <h2 id="scope-heading">{t(lang, 'scopeHeading')}</h2>
@@ -177,9 +184,19 @@ export function ScopeBuckets({
         ) : null}
       </div>
 
-      {buckets.limits.length > 0 ? (
-        <details className="limits" open>
+      {plain.length > 0 ? (
+        <details className="limits">
           <summary>{t(lang, 'limitsHeading')}</summary>
+          <ul>
+            {plain.map((limit) => (
+              <li key={limit.en}>{limit[lang]}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {buckets.limits.length > 0 ? (
+        <details className="limits limits-technical">
+          <summary>{t(lang, 'technicalHeading')}</summary>
           <ul>
             {buckets.limits.map((limit, i) => (
               <li key={i}>{pick(limit, lang)}</li>

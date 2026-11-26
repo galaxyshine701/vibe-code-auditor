@@ -128,13 +128,13 @@ describe('the page and the styles', () => {
   const css = read('app', 'stage.css');
 
   it('shows the strip above the rows, from audit.modules in the order of activityOrder', () => {
-    expect(page).toContain('activityOrder(audit.modules)');
+    expect(page).toContain('activityOrder(asked)');
     expect(page.indexOf('className="activity-strip"')).toBeLessThan(
       page.indexOf('className="module-list"'),
     );
     expect(page).toContain('activityText(module, lang)');
     // the rows keep the order received (R75)
-    expect(page).toContain('audit.modules.map((module, index)');
+    expect(page).toContain('detailed.map((module, index)');
   });
 
   it('says what is running from the modules that are running, as a status message', () => {

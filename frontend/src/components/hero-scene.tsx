@@ -1,24 +1,23 @@
 import type { Lang } from '@/lib/check-labels';
 import { SCENE, pickText } from '@/lib/hero-copy';
 
-// The scene of the table check, in the Supabase section of the home page (flat
-// vector, one inline SVG, the motion is CSS in glass.css; no library):
+// The scene of the hero (flat vector, one inline SVG, the motion is CSS in
+// glass.css; no library):
 //
-//   1  a canary on a checkpoint post        a soft glow around the canary
-//   2  a stranger stopped at a striped      the barrier comes down, BLOCKED
-//      barrier
-//   3  an app being built, with a key       a soft glow around the window of the
-//      left in a window                     key, LEAKED
+//   1  a test marker (a canary) on a checkpoint post    INCONCLUSIVE
+//   2  an attempt stopped at a striped barrier          BLOCKED
+//   3  an app with a key left in the open               LEAKED
 //
-// Depth is a gradient on the post and the app and a soft shadow on the ground;
-// the glow is a radial gradient (no blur filter, so it is light on a phone). It
-// moves once, with transform and opacity only, and it is still (its last frame)
-// with reduced motion and on a phone. No lock and no tick: a verdict is the
-// word under the picture, the colour and the shape. All of it is an example,
-// and the line above it says so ("Example scene, not a real audit").
+// Depth is a gradient on the post and a soft shadow on the ground; the glow is a
+// radial gradient (no blur filter). It plays again and again, with transform and
+// opacity only, and it is still with reduced motion. No lock and no tick: a
+// verdict is the word under the picture, the colour and the shape. All of it is
+// an example, and the line under it says so ("Example scene, not a real audit").
+const CAPTIONS = ['marker', 'barrier', 'key'] as const;
+
 export function HeroScene({ lang }: { lang: Lang }) {
   return (
-    <figure className="hero-scene" aria-label={pickText(SCENE.label, lang)}>
+    <figure className="hero-scene glass" aria-label={pickText(SCENE.label, lang)}>
       <svg
         className="scene-art"
         viewBox="0 0 360 118"
@@ -109,18 +108,17 @@ export function HeroScene({ lang }: { lang: Lang }) {
       </svg>
 
       <figcaption className="scene-captions">
-        <span className="scene-caption">
-          <strong>{pickText(SCENE.canary.title, lang)}</strong>
-          <span>{pickText(SCENE.canary.note, lang)}</span>
-        </span>
-        <span className="scene-caption">
-          <strong>{pickText(SCENE.barrier.title, lang)}</strong>
-          <span className="scene-word scene-word-blocked">{SCENE.barrier.verdict}</span>
-        </span>
-        <span className="scene-caption">
-          <strong>{pickText(SCENE.key.title, lang)}</strong>
-          <span className="scene-word scene-word-leaked">{SCENE.key.verdict}</span>
-        </span>
+        {CAPTIONS.map((part) => (
+          <span className="scene-caption" key={part}>
+            <strong>{pickText(SCENE[part].title, lang)}</strong>
+            <span>{pickText(SCENE[part].note, lang)}</span>
+            <span
+              className={`scene-word scene-word-${SCENE[part].verdict.toLowerCase()}`}
+            >
+              {SCENE[part].verdict}
+            </span>
+          </span>
+        ))}
       </figcaption>
     </figure>
   );
