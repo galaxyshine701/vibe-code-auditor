@@ -8,7 +8,7 @@ type Theme = 'dark' | 'light';
 const CHANGE = 'vca:theme';
 
 // The colour of the browser bar, the same as the page (--bg of each theme).
-const BAR_COLOR: Record<Theme, string> = { dark: '#0f1114', light: '#efefec' };
+const BAR_COLOR: Record<Theme, string> = { dark: '#0f1114', light: '#f4efe5' };
 
 function setBarColor(theme: Theme) {
   document

@@ -383,6 +383,30 @@ export function gateWithoutSupabaseAsk(gate: Gate | undefined): Gate | undefined
   return reasons.length > 0 ? { ...gate, reasons } : gate;
 }
 
+// The same for a website that was not given: one plain line on the page says so,
+// and the "not provided" sentences of the gate and the "add it" steps are left out.
+const SITE_CHECKS = ['tls-headers', 'bundle-secrets'];
+
+export function withoutWebsiteAsk(
+  items: RoadmapItem[] | undefined | null,
+): RoadmapItem[] {
+  return (items ?? []).filter(
+    (item) =>
+      !(item.kind === 'provide-input' && SITE_CHECKS.includes(item.refs?.checkId ?? '')),
+  );
+}
+
+export function gateWithoutWebsiteAsk(gate: Gate | undefined): Gate | undefined {
+  if (!gate?.reasons) return gate;
+  const reasons = gate.reasons.filter(
+    (reason) =>
+      !/not provided: "(Certificate and security headers|Secret keys inside the scripts)/i.test(
+        reason.en,
+      ),
+  );
+  return reasons.length > 0 ? { ...gate, reasons } : gate;
+}
+
 /** The roadmap could not be made (R80): the limits say so and no steps are shown. */
 export function roadmapUnavailable(report: ClientReport | null | undefined): boolean {
   return (report?.limits ?? []).some((l) => /roadmap not available/i.test(l.en));

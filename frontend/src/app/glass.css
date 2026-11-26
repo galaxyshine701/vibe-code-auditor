@@ -15,48 +15,85 @@
    - Motion: transform and opacity only. */
 
 :root {
-  --blob-amber: rgba(246, 201, 69, 0.16);
-  --blob-green: rgba(63, 178, 127, 0.15);
-  --blob-violet: rgba(122, 98, 216, 0.16);
-  --glass-hi: rgba(255, 255, 255, 0.08);
+  --blob-amber: rgba(246, 190, 50, 0.3);
+  --blob-green: rgba(45, 190, 125, 0.26);
+  --blob-violet: rgba(130, 95, 235, 0.34);
+  --glass-hi: rgba(255, 255, 255, 0.09);
   --glass-lo: rgba(255, 255, 255, 0.025);
-  --glass-scrim: rgba(18, 21, 27, 0.84);
-  --glass-edge: rgba(255, 255, 255, 0.18);
-  --glass-top: rgba(255, 255, 255, 0.24);
-  --glass-shadow: 0 30px 70px -50px rgba(0, 0, 0, 0.9);
-  --glass-blur: blur(18px) saturate(150%);
+  --glass-scrim: rgba(20, 22, 30, 0.66);
+  --glass-edge: rgba(255, 255, 255, 0.22);
+  --glass-top: rgba(255, 255, 255, 0.46);
+  --glass-tint: rgba(130, 95, 235, 0.6);
+  --glass-blur: blur(18px) saturate(160%);
   --sweep: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="light"] {
-  --blob-amber: rgba(246, 196, 50, 0.3);
-  --blob-green: rgba(40, 160, 110, 0.18);
-  --blob-violet: rgba(122, 98, 216, 0.16);
-  --glass-hi: rgba(255, 255, 255, 0.85);
-  --glass-lo: rgba(255, 255, 255, 0.45);
-  --glass-scrim: rgba(255, 255, 255, 0.6);
-  --glass-edge: rgba(15, 17, 20, 0.14);
-  --glass-top: rgba(255, 255, 255, 0.95);
-  --glass-shadow: 0 30px 60px -45px rgba(20, 24, 32, 0.45);
+  --blob-amber: rgba(255, 190, 60, 0.4);
+  --blob-green: rgba(70, 195, 140, 0.28);
+  --blob-violet: rgba(150, 115, 240, 0.26);
+  --glass-hi: rgba(255, 255, 255, 0.72);
+  --glass-lo: rgba(255, 255, 255, 0.32);
+  --glass-scrim: rgba(255, 255, 255, 0.42);
+  --glass-edge: rgba(130, 100, 55, 0.18);
+  --glass-top: rgba(255, 255, 255, 1);
+  --glass-tint: rgba(190, 130, 50, 0.5);
   --sweep: rgba(255, 255, 255, 0.5);
 }
 
 /* ---- the glass card, and the blobs behind it ---- */
+/* a wrapper holds glass cards only. Its blobs reach out into the margins at the
+   two sides, never up or down to a heading; the page cuts them at its edge. */
 .glass-wrap {
   position: relative;
   isolation: isolate;
+}
+
+.site-main:has(.home) {
+  overflow-x: clip;
 }
 
 .glass-wrap::before {
   content: "";
   position: absolute;
   z-index: -1;
-  inset: 0;
+  inset: 0 -140px;
   pointer-events: none;
   background:
-    radial-gradient(22% 28% at 23% 30%, var(--blob-amber), transparent 100%),
-    radial-gradient(24% 28% at 74% 70%, var(--blob-green), transparent 100%),
-    radial-gradient(18% 20% at 62% 22%, var(--blob-violet), transparent 100%);
+    radial-gradient(26% 50% at 26% 50%, var(--blob-a, var(--blob-amber)), transparent 100%),
+    radial-gradient(28% 50% at 72% 50%, var(--blob-b, var(--blob-violet)), transparent 100%),
+    radial-gradient(18% 36% at 50% 36%, var(--blob-c, var(--blob-green)), transparent 100%);
+}
+
+/* each part of the page has its own mix */
+.hero-visual > .glass-wrap {
+  --blob-a: var(--blob-violet);
+  --blob-b: var(--blob-amber);
+  --glass-tint: rgba(130, 95, 235, 0.55);
+}
+
+.checks-list.glass-wrap {
+  --blob-a: var(--blob-green);
+  --blob-b: var(--blob-amber);
+  --blob-c: var(--blob-violet);
+}
+
+.how-steps.glass-wrap {
+  --blob-a: var(--blob-amber);
+  --blob-b: var(--blob-green);
+  --blob-c: var(--blob-violet);
+}
+
+.hero-card-wrap.glass-wrap {
+  --blob-a: var(--blob-violet);
+  --blob-b: var(--blob-green);
+  --blob-c: var(--blob-amber);
+}
+
+.word-cards.glass-wrap {
+  --blob-a: var(--blob-violet);
+  --blob-b: var(--blob-green);
+  --blob-c: var(--blob-amber);
 }
 
 .glass {
@@ -69,27 +106,43 @@
   backdrop-filter: var(--glass-blur);
   box-shadow:
     inset 0 1px 0 var(--glass-top),
-    var(--glass-shadow);
+    inset 1px 0 0 var(--glass-edge),
+    0 28px 56px -32px var(--glass-tint);
 }
 
-/* a lighter red in the dark theme, and a darker amber in the light one, so the
-   words LEAKED and INCONCLUSIVE keep their contrast on the glass */
+/* the words on glass: a little stronger than on the page, so they keep their
+   contrast over the colours behind */
 html:not([data-theme="light"]) .glass {
-  --leak: #ff8a8f;
-  --ok: #5fd6a0;
-  --grey: #b7bcc4;
+  --muted: #c9ced6;
+  --muted-2: #bfc5ce;
+  --leak: #ffb6b9;
+  --ok: #6fe0ac;
+  --grey: #c4c9d0;
 }
 
 [data-theme="light"] .glass {
-  --leak: #a02a30;
-  --canary-word: #7a5800;
+  --muted: #474d55;
+  --muted-2: #4d535b;
+  --leak: #97242a;
+  --ok: #11573a;
+  --grey: #474d55;
+  --canary-word: #6d4f00;
+}
+
+/* the dark theme: a soft glow on the verdict words of the cards */
+html:not([data-theme="light"]) .glass .verdict-badge {
+  box-shadow: 0 0 14px -4px currentColor;
+}
+
+html:not([data-theme="light"]) .scene-canary {
+  filter: drop-shadow(0 0 5px rgba(246, 201, 69, 0.55));
 }
 
 /* ---- the page: one gap between the sections ---- */
 .home {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 96px;
+  gap: 72px;
 }
 
 .site-main:has(.home) {
@@ -203,6 +256,21 @@ html:not([data-theme="light"]) .glass {
   display: none;
 }
 
+/* the start button: a soft amber ring when it can be pressed; a tinted button
+   (not a dead grey one) while something is missing, with the line under it */
+.start-box .button-primary:not(:disabled) {
+  box-shadow:
+    0 0 0 3px rgba(246, 190, 50, 0.45),
+    0 0 28px -4px rgba(246, 190, 50, 0.75);
+}
+
+.start-box .button-primary:disabled {
+  opacity: 1;
+  border: 1px dashed var(--canary);
+  color: var(--ink);
+  background: var(--canary-soft);
+}
+
 .will-check {
   margin: 0;
   color: var(--ink);
@@ -224,35 +292,26 @@ html:not([data-theme="light"]) .glass {
 .hero-visual {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
 }
 
-.scene-note {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 600;
+.hero-visual > .glass-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 1100px) {
   .hero.hero-stage {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
     column-gap: 48px;
   }
 
   .hero-stage .hero-title {
-    font-size: clamp(2.4rem, 3.4vw, 3.1rem);
-  }
-
-  /* as tall as the words beside it, and still all on the first screen */
-  .hero-visual .hero-scene {
-    justify-content: center;
-    gap: 48px;
-    min-height: 462px;
+    font-size: clamp(2.1rem, 3vw, 2.6rem);
   }
 
   .hero-stage .hero-title-ur {
-    font-size: clamp(1.8rem, 2.6vw, 2.3rem);
+    font-size: clamp(1.7rem, 2.4vw, 2.1rem);
   }
 }
 
@@ -261,7 +320,7 @@ html {
   scroll-padding-top: 96px;
 }
 
-/* ---- the scene ---- */
+/* ---- the scene: four pictures, two by two; it fills the height of its column ---- */
 .hero-scene {
   --scene-lit: #7584a6;
   --scene-shade: #2b3552;
@@ -269,16 +328,64 @@ html {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
+  min-width: 0;
   margin: 0;
-  padding: 28px 18px 20px;
+  padding: 20px 18px 16px;
 }
 
+.scene-grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.scene-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+/* the drawing takes the room that is left, and sits in its middle */
 .scene-art {
   display: block;
+  flex: 1 1 96px;
   width: 100%;
-  height: auto;
+  min-height: 96px;
   overflow: visible;
+}
+
+.scene-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.scene-card {
+  fill: var(--surface);
+  stroke: var(--canary);
+  stroke-width: 1.8;
+}
+
+.scene-card-head {
+  fill: var(--ink-soft);
+}
+
+.scene-card-dot {
+  fill: var(--canary);
+}
+
+.scene-card-line {
+  fill: var(--line-strong);
 }
 
 .scene-ground {
@@ -391,18 +498,13 @@ html {
   stroke-linecap: round;
 }
 
-.scene-captions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
 .scene-caption {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
   min-width: 0;
+  margin: 0;
   color: var(--muted);
   font-size: 0.76rem;
   line-height: 1.35;
@@ -412,7 +514,7 @@ html {
 
 .scene-caption strong {
   color: var(--ink);
-  font-size: 0.84rem;
+  font-size: 0.86rem;
   font-weight: 650;
 }
 
@@ -496,9 +598,31 @@ html {
   animation: sceneShine 7s ease-in-out infinite both;
 }
 
+/* the card comes out of the window, from its side */
+.scene-fix {
+  animation: sceneCard 7s ease-in-out infinite both;
+}
+
+@keyframes sceneCard {
+  0%,
+  52% {
+    opacity: 0.3;
+    transform: translateX(-26px);
+  }
+  66%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0.3;
+    transform: none;
+  }
+}
+
 @keyframes sceneLand {
   0% {
-    opacity: 0;
+    opacity: 0.3;
     transform: translateY(-18px);
   }
   12%,
@@ -507,7 +631,7 @@ html {
     transform: none;
   }
   100% {
-    opacity: 0;
+    opacity: 0.3;
     transform: none;
   }
 }
@@ -529,7 +653,7 @@ html {
 @keyframes sceneWalk {
   0%,
   14% {
-    opacity: 0;
+    opacity: 0.3;
     transform: translateX(-22px);
   }
   28%,
@@ -538,7 +662,7 @@ html {
     transform: none;
   }
   100% {
-    opacity: 0;
+    opacity: 0.3;
     transform: none;
   }
 }
@@ -560,7 +684,7 @@ html {
 @keyframes sceneKey {
   0%,
   40% {
-    opacity: 0;
+    opacity: 0.3;
     transform: scale(0.8);
   }
   50%,
@@ -569,7 +693,7 @@ html {
     transform: none;
   }
   100% {
-    opacity: 0;
+    opacity: 0.3;
     transform: none;
   }
 }
@@ -655,14 +779,35 @@ html[data-intro="leaving"] .hero-scene::after {
 }
 
 .checks-skipped {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.6;
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 20px;
+  padding: 16px 20px;
 }
 
-.checks-skipped strong {
+.checks-skipped p {
+  margin: 0;
   color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.checks-skipped ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks-skipped li {
+  padding: 4px 11px;
+  border: 1px dashed var(--control-border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 /* ---- how it works: three steps joined by a line ---- */
@@ -691,11 +836,155 @@ html[data-intro="leaving"] .hero-scene::after {
 }
 
 .how-visual {
-  display: block;
-  width: 100%;
-  max-width: 260px;
-  height: auto;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  justify-content: center;
+  gap: 8px;
+  min-height: 11rem;
   margin-bottom: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.how-visual::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -10px;
+  pointer-events: none;
+  background: radial-gradient(60% 60% at 50% 50%, var(--visual-glow), transparent 100%);
+}
+
+.how-visual-paste {
+  --visual-glow: var(--blob-amber);
+}
+
+.how-visual-run {
+  --visual-glow: var(--blob-green);
+}
+
+.how-visual-result {
+  --visual-glow: var(--blob-violet);
+}
+
+.mv-input,
+.mv-agree,
+.mv-row,
+.mv-code {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.mv-input {
+  padding: 7px 10px;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.mv-agree,
+.mv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+}
+
+.mv-box {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--control-border);
+  border-radius: 3px;
+}
+
+.mv-button {
+  align-self: flex-start;
+  padding: 7px 14px;
+  border-radius: 8px;
+  color: var(--btn-ink);
+  background: var(--btn-bg);
+  font-weight: 700;
+}
+
+.mv-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--grey);
+}
+
+.mv-row-done .mv-dot {
+  background: var(--ok);
+}
+
+.mv-row-running .mv-dot {
+  background: var(--canary);
+}
+
+.mv-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.mv-progress span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transform: scaleX(0.62);
+  transform-origin: left;
+}
+
+.mv-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mv-pill {
+  --tone: var(--grey);
+  padding: 3px 9px;
+  border: 1px solid var(--tone);
+  border-radius: 999px;
+  color: var(--tone);
+  background: var(--field);
+  box-shadow: 0 0 14px -3px var(--tone);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mv-pill-leaked {
+  --tone: var(--leak);
+}
+
+.mv-pill-inconclusive {
+  --tone: var(--canary-word, var(--canary));
+}
+
+.mv-pill-blocked {
+  --tone: var(--ok);
+}
+
+.mv-code {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
 }
 
 .how-number {
@@ -710,63 +999,6 @@ html[data-intro="leaving"] .hero-scene::after {
   font-weight: 700;
 }
 
-.v-box {
-  fill: var(--surface-soft);
-  stroke: var(--line-strong);
-  stroke-width: 1.2;
-}
-
-.v-line {
-  fill: var(--line-strong);
-}
-
-.v-mark {
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.6;
-}
-
-.v-caret {
-  stroke: var(--canary);
-  stroke-width: 2;
-}
-
-.v-button {
-  fill: var(--btn-bg);
-}
-
-.v-dot {
-  fill: var(--grey);
-}
-
-.v-dot-0,
-.v-dot-1 {
-  fill: var(--ok);
-}
-
-.v-dot-2 {
-  fill: var(--canary);
-}
-
-.v-pill {
-  stroke-width: 1.4;
-}
-
-.v-pill-leak {
-  fill: var(--leak-soft);
-  stroke: var(--leak);
-}
-
-.v-pill-grey {
-  fill: var(--grey-soft);
-  stroke: var(--grey);
-}
-
-.v-pill-ok {
-  fill: var(--ok-soft);
-  stroke: var(--ok);
-}
-
 /* the steps rise once, when they come into view (how-it-works.tsx) */
 .how-steps[data-rise="waiting"] .how-step {
   opacity: 0;
@@ -774,6 +1006,24 @@ html[data-intro="leaving"] .hero-scene::after {
 
 .how-steps[data-rise="up"] .how-step {
   animation: howRise 0.6s ease-out calc(var(--i, 0) * 0.12s) both;
+}
+
+/* the checks fill once, when the steps come into view */
+.how-steps[data-rise="up"] .mv-row {
+  animation: howRise 0.4s ease-out calc(0.35s + var(--r, 0) * 0.22s) both;
+}
+
+.how-steps[data-rise="up"] .mv-progress span {
+  animation: mvFill 1.4s ease-out 0.4s both;
+}
+
+@keyframes mvFill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(0.62);
+  }
 }
 
 @keyframes howRise {
@@ -787,15 +1037,17 @@ html[data-intro="leaving"] .hero-scene::after {
   }
 }
 
-/* ---- what you get ---- */
-.home-section.get {
-  align-items: start;
+/* ---- what you get: the words and a real prompt beside the example result ---- */
+.get-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
 }
 
 .get-text {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -806,10 +1058,54 @@ html[data-intro="leaving"] .hero-scene::after {
 
 .get-points {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
   padding-left: 1.2rem;
   color: var(--ink);
+}
+
+.prompt-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.prompt-sample {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.prompt-sample h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.prompt-about {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* it grows with the room there is; the whole prompt is in it */
+.prompt-text {
+  flex: 1 1 auto;
+  align-self: stretch;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--code-ink);
+  background: var(--code-bg);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .hero-card-wrap {
@@ -823,15 +1119,32 @@ html[data-intro="leaving"] .hero-scene::after {
 }
 
 @media (min-width: 900px) {
-  .home-section.get {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-    column-gap: 48px;
+  .get-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    column-gap: 32px;
   }
 
-  /* the words stay beside the example result while it scrolls past */
-  .get-text {
-    position: sticky;
-    top: 104px;
+  /* the example result is compact beside the words */
+  .get .hero-card {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .get .hero-row {
+    min-height: 0;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .get .hero-tile {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    padding: 6px 8px;
+  }
+
+  .get .dot-numeral {
+    height: 26px;
   }
 }
 
@@ -970,7 +1283,7 @@ html[data-intro="leaving"] .hero-scene::after {
 /* ---- tablet and phone ---- */
 @media (max-width: 1099px) {
   .home {
-    gap: 64px;
+    gap: 56px;
   }
 
   .checks-list {
@@ -979,12 +1292,30 @@ html[data-intro="leaving"] .hero-scene::after {
 }
 
 @media (max-width: 640px) {
+  /* a phone: a lighter blur and paler blobs */
   :root {
     --glass-blur: blur(8px) saturate(130%);
+    --blob-amber: rgba(246, 190, 50, 0.16);
+    --blob-green: rgba(45, 190, 125, 0.14);
+    --blob-violet: rgba(130, 95, 235, 0.18);
+  }
+
+  [data-theme="light"] {
+    --blob-amber: rgba(255, 190, 60, 0.22);
+    --blob-green: rgba(70, 195, 140, 0.16);
+    --blob-violet: rgba(150, 115, 240, 0.15);
+  }
+
+  .glass-wrap::before {
+    inset: 0 -16px;
+  }
+
+  .checks-skipped {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .home {
-    gap: 48px;
+    gap: 40px;
   }
 
   .start-box {
@@ -1006,24 +1337,37 @@ html[data-intro="leaving"] .hero-scene::after {
   }
 
   .hero-scene {
-    padding: 18px 10px 14px;
+    padding: 12px 10px;
   }
 
   .hero-scene::after {
     display: none;
   }
 
+  .scene-grid {
+    gap: 8px;
+  }
+
+  .scene-panel {
+    padding: 8px 6px 10px;
+  }
+
+  .scene-art {
+    flex-basis: 80px;
+    min-height: 80px;
+  }
+
   .scene-caption {
-    font-size: 0.68rem;
+    font-size: 0.7rem;
   }
 
   .scene-caption strong {
-    font-size: 0.74rem;
+    font-size: 0.76rem;
   }
 
   .scene-word {
-    font-size: 0.56rem;
-    letter-spacing: 0;
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
   }
 }
 
@@ -1045,7 +1389,7 @@ html[data-intro="leaving"] .hero-scene::after {
 /* ---- no backdrop-filter: the same card, plain and more solid ---- */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {
-    --glass-scrim: rgba(18, 21, 27, 0.92);
+    --glass-scrim: rgba(20, 22, 30, 0.94);
   }
 
   [data-theme="light"] {
@@ -1065,7 +1409,13 @@ html[data-intro="leaving"] .hero-scene::after {
   .scene-stranger,
   .scene-barrier-bar,
   .scene-key,
-  .scene-glow-key {
+  .scene-glow-key,
+  .scene-fix {
+    animation: none;
+  }
+
+  .how-steps[data-rise] .mv-row,
+  .how-steps[data-rise] .mv-progress span {
     animation: none;
   }
 

@@ -123,6 +123,10 @@ export const COPY = {
     en: 'This audit looked at Supabase only. The website checks were not provided.',
     ur: 'Is audit ne sirf Supabase dekha. Website ke checks diye nahi gaye.',
   },
+  noSite: {
+    en: 'No website address was given, so the site was not checked. Optional: add one in a new audit.',
+    ur: 'Website ka address nahi diya gaya, isliye site check nahi hui. Optional: naye audit mein address dein.',
+  },
   inviteSupabase: {
     en: 'Optional: a Supabase TEST project can be checked too, under "Advanced: Supabase test project" on the home page.',
     ur: 'Optional: Supabase TEST project bhi check ho sakta hai, home page par "Advanced: Supabase test project" mein.',

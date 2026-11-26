@@ -43,16 +43,16 @@ const ALL_TEXT = JSON.stringify([
 ]);
 
 describe('the headline', () => {
-  it('is "Before you launch: what can a stranger reach?", 8 words, so its timing is unchanged', () => {
+  it('says what to paste and what comes of it', () => {
     expect(copy.HEADLINE.en).toBe(
-      'Before you launch: what can a stranger reach?',
+      'Paste a GitHub repo. See what a stranger could reach, and how to fix it.',
     );
-    expect(copy.headlineWords('en')).toHaveLength(8);
+    expect(copy.headlineWords('en')).toHaveLength(15);
   });
 
   it('has the Roman Urdu version', () => {
     expect(copy.HEADLINE.ur).toBe(
-      'Launch se pehle: ek ajnabi aap ki app mein kahan tak pahunch sakta hai?',
+      'GitHub repo ka link daalein. Dekhein ajnabi kya tak pahunch sakta hai, aur use kaise theek karein.',
     );
   });
 
@@ -66,14 +66,26 @@ describe('the headline', () => {
 });
 
 describe('the one line under the headline, and the order of the hero', () => {
-  it('is the problem, in one plain sentence, in both languages', () => {
+  it('says what is looked for and what a finding comes with, in both languages', () => {
     expect(copy.PROBLEM.en).toBe(
-      'An app built with AI tools can go live with its database or keys open to anyone.',
+      'Looks for secret keys, committed .env files, missing database rules and weak site headers. Findings come with steps to fix them, most also with a prompt you can paste into your AI tool.',
     );
-    expect(copy.PROBLEM.ur.length).toBeGreaterThan(20);
-    expect(copy.PROBLEM.ur).toContain('AI tools');
+    for (const word of ['Secret keys', '.env', 'headers', 'qadam', 'prompt', 'zyada tar']) {
+      expect(copy.PROBLEM.ur).toContain(word);
+    }
     // no statistics: no digit, no percent
     expect(copy.PROBLEM.en + copy.PROBLEM.ur).not.toMatch(/\d|%/);
+  });
+
+  it('does not promise a prompt for every finding: the roadmap makes none for some', () => {
+    const roadmap = readFileSync(
+      join(FRONTEND, '..', 'backend', 'src', 'stages', 'roadmap.ts'),
+      'utf8',
+    ).replace(/\r\n/g, '\n');
+    const confirm = roadmap.slice(roadmap.indexOf("kind: 'confirm'"), roadmap.indexOf("kind: 'fix-site-secret'"));
+    expect(confirm).toContain('steps:');
+    expect(confirm).not.toContain('fixPrompt');
+    expect(copy.PROBLEM.en).toContain('most also with a prompt');
   });
 
   it('is shown in this order: headline, line, the form, then the example result under it', () => {

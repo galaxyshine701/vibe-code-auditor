@@ -106,11 +106,16 @@ describe('the glass cards', () => {
     expect(source).toMatch(/word-card word-\$\{kind\} glass/);
   });
 
-  it('blobs are radial gradients that end inside a wrapper of cards only', () => {
+  it('blobs are radial gradients behind a wrapper of cards: into the side margins, never up or down to a heading', () => {
     const blobs = rule('.glass-wrap::before');
-    expect(blobs).toContain('inset: 0;');
+    expect(blobs).toContain('inset: 0 -140px;');
+    expect(css).toMatch(/\.site-main:has\(\.home\) \{\s*overflow-x: clip;/);
     expect(blobs).toContain('z-index: -1');
     const shapes = [...blobs.matchAll(/radial-gradient\((\d+)% (\d+)% at (\d+)% (\d+)%/g)];
+    // five or more wrappers carry them over the page, each with its own mix
+    expect(css.match(/\.glass-wrap \{\n  --blob-a:/g)!.length).toBeGreaterThanOrEqual(5);
+    // static: no animation on them
+    expect(blobs).not.toContain('animation');
     expect(shapes).toHaveLength(3);
     for (const [, rx, ry, x, y] of shapes.map((m) => m.map(Number))) {
       expect(x - rx).toBeGreaterThanOrEqual(0);
@@ -118,7 +123,24 @@ describe('the glass cards', () => {
       expect(y - ry).toBeGreaterThanOrEqual(0);
       expect(y + ry).toBeLessThanOrEqual(100);
     }
-    expect(css).not.toMatch(/filter:\s*blur\(\d+px\);/);
+    expect(css).not.toMatch(/(?<![-\w])filter:\s*blur/);
+  });
+
+  it('a card has a light edge, a light along the top and a coloured shadow', () => {
+    const glass = rule('.glass');
+    expect(glass).toContain('inset 1px 0 0 var(--glass-edge)');
+    expect(glass).toContain('var(--glass-tint)');
+  });
+
+  it('the light theme has a warm page', () => {
+    expect(themes.light).toContain('--bg: #f4efe5;');
+    expect(read('components', 'theme-toggle.tsx')).toContain("light: '#f4efe5'");
+  });
+
+  it('the start button glows when it can be pressed, and is tinted, not grey, when it cannot', () => {
+    expect(css).toMatch(/\.start-box \.button-primary:not\(:disabled\) \{\s*box-shadow:\s*0 0 0 3px/);
+    expect(rule('.start-box .button-primary:disabled')).toContain('opacity: 1;');
+    expect(rule('.start-box .button-primary:disabled')).toContain('background: var(--canary-soft)');
   });
 
   it('a phone: a lighter blur and no light sweep', () => {
@@ -129,7 +151,7 @@ describe('the glass cards', () => {
 
   it('without backdrop-filter the card is more solid, in both themes', () => {
     const block = css.slice(css.indexOf('@supports not'));
-    expect(block).toMatch(/--glass-scrim: rgba\(18, 21, 27, 0\.92\)/);
+    expect(block).toMatch(/--glass-scrim: rgba\(20, 22, 30, 0\.94\)/);
     expect(block).toMatch(/--glass-scrim: rgba\(255, 255, 255, 0\.92\)/);
   });
 });
@@ -187,37 +209,39 @@ describe('text contrast (AA) in both themes, on the worst case of the glass', ()
       return [over(scrim, glass('glass-hi')), over(scrim, glass('glass-lo'))];
     });
     const rows = cards.map((card) => over(card, token('surface-soft')));
-    const word = (t: string) => {
-      if (t === 'leak') {
-        const found =
-          name === 'dark'
-            ? /html:not\(\[data-theme="light"\]\) \.glass \{\s*--leak: (#[0-9a-f]{6});/.exec(css)
-            : /\[data-theme="light"\] \.glass \{\s*--leak: (#[0-9a-f]{6});/.exec(css);
-        return color(found![1]);
-      }
-      if ((t === 'ok' || t === 'grey') && name === 'dark') {
-        const dark = /html:not\(\[data-theme="light"\]\) \.glass \{([^}]*)\}/.exec(css)![1];
-        return color(new RegExp(`--${t}: (#[0-9a-f]{6});`).exec(dark)![1]);
-      }
-      if (t === 'canary-word') {
-        return name === 'dark'
-          ? token('canary')
-          : color(/\[data-theme="light"\] \.glass \{[^}]*--canary-word: (#[0-9a-f]{6});/.exec(css)![1]);
-      }
-      return token(t);
+    // the colours a card sets again for the words on it
+    const onGlass = (
+      name === 'dark'
+        ? /html:not\(\[data-theme="light"\]\) \.glass \{([^}]*)\}/
+        : /(?:^|\n)\[data-theme="light"\] \.glass \{([^}]*)\}/
+    ).exec(css)![1];
+    const word = (t: string): Rgba => {
+      if (t === 'canary-word' && name === 'dark') return token('canary');
+      const own = new RegExp(`--${t}:\\s*(#[0-9a-f]{6});`).exec(onGlass);
+      return own ? color(own[1]) : token(t);
     };
 
-    it(`${name}: the words on the page, the cards and the rows are at least 4.5:1`, () => {
+    it(`${name}: the words on the page are at least 4.5:1, with a blob behind them too`, () => {
       for (const t of ['ink', 'ink-soft', 'muted']) {
-        for (const background of [page, ...cards, ...rows]) {
-          expect(ratio(token(t), background), t).toBeGreaterThanOrEqual(4.5);
+        expect(ratio(token(t), page), t).toBeGreaterThanOrEqual(4.5);
+      }
+      // (no blob is placed behind words; this is the margin if one reached them)
+      for (const blob of blobs) {
+        expect(ratio(token('ink'), over(page, blob))).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`${name}: the words on the cards and their rows are at least 4.5:1`, () => {
+      for (const t of ['ink', 'ink-soft', 'muted']) {
+        for (const background of [...cards, ...rows]) {
+          expect(ratio(word(t), background), t).toBeGreaterThanOrEqual(4.5);
         }
       }
     });
 
-    it(`${name}: the coloured words of the scene are at least 4.5:1 on the glass`, () => {
+    it(`${name}: the coloured words of the scene and the pictures are at least 4.5:1`, () => {
       for (const t of ['leak', 'ok', 'canary-word']) {
-        for (const background of cards) {
+        for (const background of [...cards, ...rows]) {
           expect(ratio(word(t), background), t).toBeGreaterThanOrEqual(4.5);
         }
       }
@@ -246,11 +270,11 @@ describe('text contrast (AA) in both themes, on the worst case of the glass', ()
 });
 
 describe('motion', () => {
-  const scene = ['sceneDown', 'sceneFade', 'sceneKey', 'sceneLand', 'sceneShine', 'sceneWalk'];
+  const scene = ['sceneCard', 'sceneDown', 'sceneFade', 'sceneKey', 'sceneLand', 'sceneShine', 'sceneWalk'];
 
   it('every animation of the page style moves only transform and opacity', () => {
     const names = [...new Set([...css.matchAll(/animation: (\w+) /g)].map((m) => m[1]))];
-    expect(names.sort()).toEqual([...scene, 'heroSweep', 'howRise'].sort());
+    expect(names.sort()).toEqual([...scene, 'heroSweep', 'howRise', 'mvFill'].sort());
     for (const name of names) {
       const body = new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}\\n`).exec(css)![1];
       for (const prop of [...body.matchAll(/^\s+([a-z-]+):/gm)].map((m) => m[1])) {
@@ -270,7 +294,7 @@ describe('motion', () => {
 
   it('with reduced motion nothing moves', () => {
     const block = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}\n/.exec(css)![1];
-    for (const part of ['canary', 'glow-canary', 'stranger', 'barrier-bar', 'key', 'glow-key']) {
+    for (const part of ['canary', 'glow-canary', 'stranger', 'barrier-bar', 'key', 'glow-key', 'fix']) {
       expect(block).toContain(`.scene-${part}`);
     }
     expect(block).toContain('.hero-scene::after');
@@ -287,18 +311,44 @@ describe('the scene of the hero', () => {
       React.createElement(sceneModule.HeroScene as never, { lang }),
     );
 
-  it('is in the hero, once, with the line that says it is an example under it', () => {
+  it('is in the hero, once, with the line that says it is an example inside the card', () => {
     const at = (text: string) => page.indexOf(text);
     expect(page.match(/<HeroScene\b/g)).toHaveLength(1);
     expect(at('<HeroScene')).toBeGreaterThan(at('</form>'));
     expect(at('<HeroScene')).toBeLessThan(at('<WhatItChecks'));
-    expect(at('SCENE_NOTE, lang')).toBeGreaterThan(at('<HeroScene'));
-    expect(at('SCENE_NOTE, lang')).toBeLessThan(at('<WhatItChecks'));
+    for (const lang of ['en', 'ur'] as const) {
+      const out = html(lang);
+      const note = out.indexOf(copy.SCENE_NOTE[lang]);
+      expect(note).toBeGreaterThan(out.indexOf('scene-grid'));
+      expect(note).toBeLessThan(out.indexOf('</figure>'));
+    }
     expect(read('components', 'hero-card.tsx')).not.toContain('HeroScene');
     expect(copy.SCENE_NOTE).toEqual({
       en: 'Example scene, not a real audit',
       ur: 'Misaal ka manzar, asli audit nahi',
     });
+  });
+
+  it('has a fourth thing, after the window: a card "Fix prompt: steps that close it" that slides out', () => {
+    expect(copy.SCENE.fix.title.en).toBe('Fix prompt:');
+    expect(copy.SCENE.fix.note.en).toBe('steps that close it');
+    expect(copy.SCENE.fix.note.ur.length).toBeGreaterThan(8);
+    const out = html('en');
+    expect(out.match(/class="scene-panel /g)).toHaveLength(4);
+    expect(out.indexOf('scene-panel-fix')).toBeGreaterThan(out.indexOf('scene-panel-key'));
+    expect(out).toContain('scene-card');
+    const moves = /@keyframes sceneCard \{([\s\S]*?)\n\}\n/.exec(css)![1];
+    expect(moves).toContain('translateX(-26px)');
+  });
+
+  it('is two by two, and fills the height of its column: the two columns of the hero are one height', () => {
+    expect(rule('.scene-grid')).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    expect(rule('.scene-grid')).toContain('flex: 1 1 auto');
+    const wide = /@media \(min-width: 1100px\) \{([\s\S]*?)\n\}\n/.exec(css)![1];
+    expect(wide).toContain('align-items: stretch');
+    expect(css).toMatch(/\.hero-visual > \.glass-wrap \{\s*display: grid;/);
+    const padding = /\.hero-scene \{[^}]*padding: \d+px \d+px (\d+)px;/.exec(css)![1];
+    expect(Number(padding)).toBeLessThanOrEqual(24);
   });
 
   it('draws a marker on a post, an attempt at a striped barrier, and an app with a key in a window', () => {
@@ -315,7 +365,7 @@ describe('the scene of the hero', () => {
       expect(scene).toContain(part);
     }
     // an inline SVG: no image file, no library
-    expect(scene).not.toMatch(/<img|from '[^'.@][^']*'/);
+    expect(scene).not.toMatch(/<img|from '(?!react')[^'.@][^']*'/);
   });
 
   it('says INCONCLUSIVE, BLOCKED and LEAKED in words, in general terms, in both languages', () => {
@@ -332,11 +382,15 @@ describe('the scene of the hero', () => {
     expect(copy.SCENE.label.ur).toContain('Misaal');
   });
 
-  it('is light: one SVG, a gradient for the glow (no filter), few shapes', () => {
+  it('is light: four small SVGs, gradients for the glow (no filter), few shapes', () => {
     const out = html('en');
-    expect(out.match(/<svg/g)).toHaveLength(1);
+    const pictures = out.match(/<svg[\s\S]*?<\/svg>/g)!;
+    expect(pictures).toHaveLength(4);
     expect(out).not.toContain('<filter');
-    expect(out.match(/<(circle|rect|path|ellipse)\b/g)!.length).toBeLessThan(60);
+    for (const svg of pictures) {
+      expect(svg).toContain('aria-hidden="true"');
+      expect(svg.match(/<(circle|rect|path|ellipse)\b/g)!.length).toBeLessThan(30);
+    }
   });
 
   it('takes its colours from the theme, so it can be seen in both', () => {

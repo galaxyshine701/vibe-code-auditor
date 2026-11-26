@@ -1,9 +1,13 @@
+'use client';
+
 import type {
   OperationActor,
   OperationEvidence,
   OperationName,
   Verdict,
 } from '@/lib/types';
+import { uiText } from '@/lib/ui-copy';
+import { useLang } from '@/lib/use-lang';
 
 type OpState = 'allowed' | 'reached' | 'blocked' | 'untested';
 type LaneTone = 'control' | 'leaked' | 'blocked' | 'inconclusive' | 'neutral';
@@ -83,13 +87,15 @@ export function ActorDiagram({
   operations: OperationEvidence[];
   verdict: Verdict;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   return (
     <div className="actor-diagram">
       <div className="actor-diagram-head">
-        <span>Who could reach the canary row</span>
+        <span>{w('Who could reach the canary row')}</span>
         <span className="actor-canary-label">
           <span className="canary-dot-mini" aria-hidden="true" />
-          canary row
+          {w('canary row')}
         </span>
       </div>
 
@@ -124,7 +130,7 @@ export function ActorDiagram({
                 </span>
                 <span>
                   <strong>{actor.name}</strong>
-                  <small>{actor.note}</small>
+                  <small>{w(actor.note)}</small>
                 </span>
               </div>
 
@@ -139,8 +145,8 @@ export function ActorDiagram({
                     const state = states[index];
                     const evidence = byOperation.get(operation);
                     const title = evidence?.note
-                      ? `${operation}: ${STATE_LABEL[state]}. ${evidence.note}`
-                      : `${operation}: ${STATE_LABEL[state]}`;
+                      ? `${operation}: ${w(STATE_LABEL[state])}. ${evidence.note}`
+                      : `${operation}: ${w(STATE_LABEL[state])}`;
 
                     return (
                       <span
@@ -151,7 +157,7 @@ export function ActorDiagram({
                         <span className="op-name">{operation}</span>
                         <span className="op-state">
                           <StateIcon state={state} />
-                          {STATE_LABEL[state]}
+                          {w(STATE_LABEL[state])}
                         </span>
                       </span>
                     );
@@ -164,8 +170,7 @@ export function ActorDiagram({
       </div>
 
       <p className="actor-legend">
-        Owner A is the control. User B and Anon are the attempts. The canary
-        row is a temporary row the auditor adds and removes.
+        {w('Owner A is the control. User B and Anon are the attempts. The canary row is a temporary row the auditor adds and removes.')}
       </p>
     </div>
   );

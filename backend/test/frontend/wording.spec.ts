@@ -75,9 +75,9 @@ describe('the words of the UI', () => {
 
   it('the hero says what the product checks (its words are in hero-copy.ts)', () => {
     const copy = readFileSync(join(SRC, 'lib', 'hero-copy.ts'), 'utf8');
-    expect(copy).toContain('Before you launch: what can a stranger reach?');
+    expect(copy).toContain('Paste a GitHub repo. See what a stranger could reach, and how to fix it.');
     expect(copy).toContain('Repo and website checks use no AI. AI is used only to explain Supabase findings.');
-    expect(copy).toContain('An app built with AI tools can go live with its database or keys open to anyone.');
+    expect(copy).toContain('Looks for secret keys, committed .env files, missing database rules and weak site headers.');
     expect(copy).not.toMatch(/Supabase details, or both/);
     const page = readFileSync(join(SRC, 'app', 'page.tsx'), 'utf8');
     expect(page).toContain('headlineWords(lang)');

@@ -100,7 +100,7 @@ export function ClientSummary({
   // a group is shown when the audit asked for it, or the report has a place for it
   // with no Supabase project there is no table group (the page says so once)
   const showTables = hasSupabase || Boolean(report?.findings?.tables);
-  const showSite = hasWebsite || report?.findings?.site !== undefined;
+  const showSite = hasWebsite || Boolean(report?.findings?.site);
   const showRepo = hasRepo || report?.findings?.repo !== undefined;
 
   return (

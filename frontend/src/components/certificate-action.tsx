@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import type { CertificateLock } from '@/lib/outcome';
+import { uiText } from '@/lib/ui-copy';
+import { useLang } from '@/lib/use-lang';
 
 // A plain round mark in front of the button text: a dashed ring while the
 // result view is not available yet, a solid ring with a filled dot when it is.
@@ -37,6 +39,8 @@ export function CertificateAction({
   playUnlock: boolean;
   onPlayed: () => void;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   useEffect(() => {
     if (!playUnlock) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -49,7 +53,7 @@ export function CertificateAction({
       <div className={`cert-action ${playUnlock ? 'is-unlocking' : ''}`}>
         <Link href={`/audits/${auditId}/certificate`} className="button button-ghost cert-button">
           <CertMark ready />
-          Open result view
+          {w('Open result view')}
         </Link>
       </div>
     );
@@ -65,10 +69,10 @@ export function CertificateAction({
         onClick={(event) => event.preventDefault()}
       >
         <CertMark ready={false} />
-        Open result view
+        {w('Open result view')}
       </button>
       <p className="muted small cert-reason" id="cert-reason">
-        {lock.reason}
+        {w(lock.reason)}
       </p>
     </div>
   );

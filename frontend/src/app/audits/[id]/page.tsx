@@ -20,7 +20,6 @@ import {
 import {
   activityOrder,
   activityText,
-  hasReasons,
   rowView,
   runningNow,
   targetLines,
@@ -30,6 +29,7 @@ import { t } from '@/lib/stage-copy';
 import type { AuditStatus, AuditStatusResponse } from '@/lib/types';
 import { useLang } from '@/lib/use-lang';
 import { useApiError } from '@/lib/use-api-error';
+import { uiText } from '@/lib/ui-copy';
 
 const STATUS_LABEL: Record<AuditStatus, string> = {
   queued: 'Queued',
@@ -44,6 +44,7 @@ export default function ProgressPage() {
   const { accessCode, rateLimitSecondsLeft } = useApp();
   const handleApiError = useApiError();
   const [lang, setLang] = useLang();
+  const w = (text: string) => uiText(text, lang);
 
   const [audit, setAudit] = useState<AuditStatusResponse | null>(null);
   const [waiting, setWaiting] = useState(true);
@@ -126,13 +127,12 @@ export default function ProgressPage() {
     return (
       <div className="shell narrow-stack">
         <div className="card empty-card">
-          <h1>This audit no longer exists.</h1>
+          <h1>{w('This audit no longer exists.')}</h1>
           <p className="muted">
-            No audit with this id was found. The server keeps the newest 50
-            audits, so an older one is no longer there.
+            {w('No audit with this id was found. The server keeps the newest 50 audits, so an older one is no longer there.')}
           </p>
           <Link href="/" className="button button-primary">
-            Start a new audit
+            {w('Start a new audit')}
           </Link>
         </div>
       </div>
@@ -158,16 +158,16 @@ export default function ProgressPage() {
     <div className="shell page-stack">
       <div className="page-heading">
         <div>
-          <h1>{audit?.target.label ?? 'Loading audit…'}</h1>
+          <h1>{audit?.target.label ?? w('Loading audit…')}</h1>
           {audit ? (
             <ul className="target-lines">
               {targetLines(audit.target).map((line) => (
                 <li key={line.kind}>
                   <span className="target-kind">
                     {line.kind === 'website'
-                      ? 'Website'
+                      ? w('Website')
                       : line.kind === 'repo'
-                        ? 'GitHub repo'
+                        ? w('GitHub repo')
                         : 'Supabase'}
                   </span>
                   <span className="muted break">{line.url}</span>
@@ -175,7 +175,7 @@ export default function ProgressPage() {
               ))}
             </ul>
           ) : (
-            <p className="muted">Contacting the server…</p>
+            <p className="muted">{w('Contacting the server…')}</p>
           )}
         </div>
       </div>
@@ -197,10 +197,9 @@ export default function ProgressPage() {
         <div className="card loading-card" role="status">
           <span className="spinner" aria-hidden="true" />
           <div>
-            <strong>Waiting for the first status answer.</strong>
+            <strong>{w('Waiting for the first status answer.')}</strong>
             <p className="muted">
-              The page polls every 2 seconds while the audit is queued or
-              running.
+              {w('The page polls every 2 seconds while the audit is queued or running.')}
             </p>
           </div>
         </div>
@@ -213,20 +212,18 @@ export default function ProgressPage() {
               <div>
                 <div className="status-line">
                   <span className={`status-dot status-${audit.status}`} />
-                  <strong>{STATUS_LABEL[audit.status]}</strong>
+                  <strong>{w(STATUS_LABEL[audit.status])}</strong>
                   <span className="muted small">
-                    Created {formatDate(audit.createdAt)}
+                    {lang === 'ur' ? 'Bana' : 'Created'} {formatDate(audit.createdAt)}
                   </span>
                 </div>
               </div>
               <div className="progress-top-side">
-                {hasReasons(audit.modules) ? (
-                  <LangToggle lang={lang} onChange={setLang} />
-                ) : null}
+                <LangToggle lang={lang} onChange={setLang} />
                 {isRunning ? (
                   <span className="live-chip" role="status">
                     <span className="live-dot" aria-hidden="true" />
-                    Polling every 2s
+                    {w('Polling every 2s')}
                   </span>
                 ) : null}
               </div>
@@ -234,7 +231,7 @@ export default function ProgressPage() {
 
             {audit.modules.length > 0 ? (
               <div className="activity">
-                <ol className="activity-strip" aria-label="Activity of the modules">
+                <ol className="activity-strip" aria-label={w('Activity of the modules')}>
                   {activityOrder(asked).map((module) => {
                     const row = rowView(module, lang);
                     return (
@@ -250,7 +247,8 @@ export default function ProgressPage() {
                 </ol>
                 {runningNow(audit.modules).length > 0 ? (
                   <p className="muted small activity-now" role="status">
-                    Running now: {runningNow(audit.modules).join(', ')}
+                    {lang === 'ur' ? 'Abhi chal rahe: ' : 'Running now: '}
+                    {runningNow(audit.modules).join(', ')}
                   </p>
                 ) : null}
               </div>
@@ -276,7 +274,7 @@ export default function ProgressPage() {
                       <div>
                         <strong>{module.name}</strong>
                         <span className={`module-status module-${row.tone}`}>
-                          {row.statusLabel}
+                          {w(row.statusLabel)}
                         </span>
                       </div>
                       {row.showBar ? (
@@ -325,7 +323,7 @@ export default function ProgressPage() {
                     }`}
                   >
                     <span>{audit.summary.siteLeaked ?? 0}</span>
-                    <strong>Secret keys in scripts</strong>
+                    <strong>{w('Secret keys in scripts')}</strong>
                   </div>
                 ) : null}
                 {audit.target.repoUrl ? (
@@ -337,7 +335,7 @@ export default function ProgressPage() {
                     }`}
                   >
                     <span>{audit.summary.repoLeaked ?? 0}</span>
-                    <strong>Secrets in repo</strong>
+                    <strong>{w('Secrets in repo')}</strong>
                   </div>
                 ) : null}
               </div>
@@ -361,7 +359,7 @@ export default function ProgressPage() {
                     }`}
                   >
                     <span>{audit.summary.repoLeaked}</span>
-                    <strong>Secrets in repo</strong>
+                    <strong>{w('Secrets in repo')}</strong>
                   </div>
                 ) : null}
                 {audit.summary.siteLeaked !== undefined ? (
@@ -373,20 +371,20 @@ export default function ProgressPage() {
                     }`}
                   >
                     <span>{audit.summary.siteLeaked}</span>
-                    <strong>Keys in scripts</strong>
+                    <strong>{w('Keys in scripts')}</strong>
                   </div>
                 ) : null}
                 <div className="summary-item summary-leaked">
                   <span>{audit.summary.leaked}</span>
-                  <strong>Leaked</strong>
+                  <strong>{w('Leaked')}</strong>
                 </div>
                 <div className="summary-item summary-inconclusive">
                   <span>{audit.summary.inconclusive}</span>
-                  <strong>Inconclusive</strong>
+                  <strong>{w('Inconclusive')}</strong>
                 </div>
                 <div className="summary-item summary-blocked">
                   <span>{audit.summary.blocked}</span>
-                  <strong>Blocked</strong>
+                  <strong>{w('Blocked')}</strong>
                 </div>
               </div>
             ) : null}
@@ -407,7 +405,7 @@ export default function ProgressPage() {
                   href={`/audits/${audit.id}/report`}
                   className="button button-primary button-large"
                 >
-                  View report
+                  {w('View report')}
                 </Link>
               </div>
             ) : null}
@@ -418,13 +416,13 @@ export default function ProgressPage() {
                   !
                 </span>
                 <div>
-                  <strong>The audit could not finish.</strong>
+                  <strong>{w('The audit could not finish.')}</strong>
                   <p>
                     {audit.error?.message ??
-                      'The audit stopped before it could report findings.'}
+                      w('The audit stopped before it could report findings.')}
                   </p>
                   <Link href="/" className="button button-small">
-                    Start a new audit
+                    {w('Start a new audit')}
                   </Link>
                 </div>
               </div>
@@ -437,8 +435,7 @@ export default function ProgressPage() {
 
           {isRunning ? (
             <p className="muted center small" id="running-note">
-              You can leave this page. Findings are read only after the audit
-              is completed.
+              {w('You can leave this page. Findings are read only after the audit is completed.')}
             </p>
           ) : null}
         </>

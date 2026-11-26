@@ -40,6 +40,8 @@ function Bucket({
   );
 }
 
+const SAID_ONCE = ['data-access-prover', 'tls-headers', 'bundle-secrets'];
+
 function Row({
   check,
   lang,
@@ -55,8 +57,8 @@ function Row({
   showRequired: boolean;
   children?: ReactNode;
 }) {
-  // a Supabase project that was not given is said once on the page, not here
-  const optional = check.id === 'data-access-prover' && addable;
+  // what was not given is said once on the page (stage-invites.tsx), not here
+  const optional = addable && SAID_ONCE.includes(check.id);
   const reason = withReason && !optional ? pick(check.reason, lang) : '';
   return (
     <li>

@@ -26,6 +26,8 @@ export const COVERAGE = {
 
 /** The same words in Roman Urdu. */
 export const COVERAGE_UR = {
+  statement:
+    'Ye nateeja sirf table data ke access ka hai: doosre login user ki tarah parhna, badalna aur delete karna, aur visitor ki tarah parhna.',
   checked:
     'Project ki REST API jitne tables dikhati hai, har ek par doosra login user ek temporary canary row ko parhne, badalne aur delete karne ki koshish karta hai. Bina login wala visitor use parhne ki koshish karta hai. Owner use control ke taur par parhta hai.',
   inconclusive:

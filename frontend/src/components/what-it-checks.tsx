@@ -44,10 +44,18 @@ export function WhatItChecks({ lang }: { lang: Lang }) {
           </li>
         ))}
       </ul>
-      <p className="checks-skipped">
-        <strong>{pickText(WHAT_IT_CHECKS.notCheckedLead, lang)}</strong>{' '}
-        {WHAT_IT_CHECKS.notChecked.map((part) => pickText(part, lang)).join(' · ')}
-      </p>
+      <div className="glass-wrap">
+        <div className="checks-skipped glass">
+          <p>
+            <strong>{pickText(WHAT_IT_CHECKS.notCheckedLead, lang)}</strong>
+          </p>
+          <ul>
+            {WHAT_IT_CHECKS.notChecked.map((part) => (
+              <li key={part.en}>{pickText(part, lang)}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </section>
   );
 }

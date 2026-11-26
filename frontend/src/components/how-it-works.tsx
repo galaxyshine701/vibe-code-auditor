@@ -2,51 +2,78 @@
 
 import { useEffect, useRef, type CSSProperties } from 'react';
 import type { Lang } from '@/lib/check-labels';
-import { SECTIONS, STEPS, pickText } from '@/lib/hero-copy';
+import { SECTIONS, STEPS, VISUAL_COPY, pickText } from '@/lib/hero-copy';
+import { SAMPLE_PROMPT } from './prompt-sample';
 import { SectionHead } from './section-head';
 
 // "How it works": three steps in a row, joined by a line (upright on a phone),
-// each with a small picture made of plain shapes. The pictures have no words, no
-// lock, no tick and no shield. The steps rise once when they come into view
-// (transform and opacity only); with no script, or with reduced motion, they are
-// simply there.
-const VISUALS = {
-  // a field with a link in it, and a button
-  paste: (
+// each with a small picture of that moment, with real words in it: the field and
+// its box, the checks running, the verdicts and a piece of a fix prompt. The
+// pictures are hidden from a screen reader (the step says the same), and have no
+// lock, no tick and no shield. The steps rise once when they come into view, and
+// the checks fill once (transform and opacity only); with no script, or with
+// reduced motion, they are simply there.
+
+/** The first words of the real prompt, in three short lines. */
+export function promptLines(prompt: string, width = 30, count = 3): string[] {
+  const lines: string[] = [''];
+  for (const word of prompt.split(/\s+/)) {
+    const last = lines[lines.length - 1];
+    if (!last) lines[lines.length - 1] = word;
+    else if (last.length + word.length < width) lines[lines.length - 1] = `${last} ${word}`;
+    else if (lines.length < count) lines.push(word);
+    else break;
+  }
+  return lines;
+}
+
+function Visual({ name, lang }: { name: (typeof STEPS)[number]['visual']; lang: Lang }) {
+  if (name === 'paste') {
+    return (
+      <>
+        <span className="mv-input">{VISUAL_COPY.address}</span>
+        <span className="mv-agree">
+          <span className="mv-box" />
+          {pickText(VISUAL_COPY.agree, lang)}
+        </span>
+        <span className="mv-button">{pickText(VISUAL_COPY.button, lang)}</span>
+      </>
+    );
+  }
+  if (name === 'run') {
+    return (
+      <>
+        {VISUAL_COPY.rows.map((row, index) => (
+          <span
+            className={`mv-row mv-row-${row.state}`}
+            key={row.name.en}
+            style={{ '--r': index } as CSSProperties}
+          >
+            <span className="mv-dot" />
+            {pickText(row.name, lang)}
+          </span>
+        ))}
+        <span className="mv-progress">
+          <span />
+        </span>
+      </>
+    );
+  }
+  return (
     <>
-      <rect className="v-box" x="8" y="16" width="184" height="30" rx="8" />
-      <circle className="v-mark" cx="22" cy="31" r="4" />
-      <circle className="v-mark" cx="28" cy="31" r="4" />
-      <rect className="v-line" x="40" y="28" width="104" height="6" rx="3" />
-      <path className="v-caret" d="M150 23v16" />
-      <rect className="v-button" x="8" y="56" width="76" height="18" rx="6" />
+      <span className="mv-pills">
+        <span className="mv-pill mv-pill-leaked">LEAKED</span>
+        <span className="mv-pill mv-pill-inconclusive">INCONCLUSIVE</span>
+        <span className="mv-pill mv-pill-blocked">BLOCKED</span>
+      </span>
+      <span className="mv-code">
+        {promptLines(SAMPLE_PROMPT[lang]).map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+      </span>
     </>
-  ),
-  // four rows, each with a dot
-  run: (
-    <>
-      {[0, 1, 2, 3].map((row) => (
-        <g key={row} transform={`translate(0 ${row * 19})`}>
-          <rect className="v-box" x="8" y="6" width="184" height="15" rx="5" />
-          <circle className={`v-dot v-dot-${row}`} cx="20" cy="13.5" r="3.5" />
-          <rect className="v-line" x="32" y="11" width={[96, 124, 80, 108][row]} height="5" rx="2.5" />
-        </g>
-      ))}
-    </>
-  ),
-  // verdict pills and a piece of a fix prompt
-  result: (
-    <>
-      <rect className="v-pill v-pill-leak" x="8" y="8" width="56" height="17" rx="8.5" />
-      <rect className="v-pill v-pill-grey" x="72" y="8" width="70" height="17" rx="8.5" />
-      <rect className="v-pill v-pill-ok" x="150" y="8" width="42" height="17" rx="8.5" />
-      <rect className="v-box" x="8" y="33" width="184" height="46" rx="8" />
-      <rect className="v-line" x="20" y="43" width="120" height="5" rx="2.5" />
-      <rect className="v-line" x="20" y="54" width="152" height="5" rx="2.5" />
-      <rect className="v-line" x="20" y="65" width="88" height="5" rx="2.5" />
-    </>
-  ),
-} as const;
+  );
+}
 
 export function HowItWorks({ lang }: { lang: Lang }) {
   const list = useRef<HTMLOListElement>(null);
@@ -76,9 +103,9 @@ export function HowItWorks({ lang }: { lang: Lang }) {
       <ol className="how-steps glass-wrap" ref={list}>
         {STEPS.map((step, index) => (
           <li className="how-step glass" key={step.visual} style={{ '--i': index } as CSSProperties}>
-            <svg className="how-visual" viewBox="0 0 200 84" aria-hidden="true" focusable="false">
-              {VISUALS[step.visual]}
-            </svg>
+            <div className={`how-visual how-visual-${step.visual}`} aria-hidden="true">
+              <Visual name={step.visual} lang={lang} />
+            </div>
             <span className="how-number" aria-hidden="true">
               {index + 1}
             </span>

@@ -92,10 +92,10 @@ describe('one container', () => {
     expect(glass).not.toMatch(/max-width: (?:640|720|760)px;/);
   });
 
-  it('keeps one gap between the sections: 96, 64 and 48px', () => {
-    expect(glass).toMatch(/\.home \{[^}]*gap: 96px/);
-    expect(glass).toMatch(/@media \(max-width: 1099px\) \{\s*\.home \{\s*gap: 64px/);
-    expect(glass).toMatch(/\.home \{\s*gap: 48px/);
+  it('keeps one gap between the sections: 72, 56 and 40px', () => {
+    expect(glass).toMatch(/\.home \{[^}]*gap: 72px/);
+    expect(glass).toMatch(/@media \(max-width: 1099px\) \{\s*\.home \{\s*gap: 56px/);
+    expect(glass).toMatch(/\.home \{\s*gap: 40px/);
     expect(glass).toContain('max-width: 60ch');
   });
 });
@@ -112,15 +112,35 @@ describe('how it works', () => {
     }
   });
 
-  it('each has a small hidden-from-readers SVG with fewer than 60 shapes, and no words in it', () => {
-    const pictures = html.match(/<svg[\s\S]*?<\/svg>/g)!;
-    expect(pictures).toHaveLength(3);
-    for (const svg of pictures) {
-      expect(svg).toContain('aria-hidden="true"');
-      expect(svg).not.toContain('<text');
-      const shapes = svg.match(/<(rect|circle|path|line|ellipse|polygon|polyline)\b/g)!;
-      expect(shapes.length).toBeLessThan(60);
+  const pictures = (lang: Lang) =>
+    render(How, lang)
+      .split('class="how-visual how-visual-')
+      .slice(1)
+      .map((part) => part.slice(0, part.indexOf('class="how-number"')));
+
+  it('each has a small picture, hidden from a screen reader, with fewer than 60 shapes', () => {
+    expect(pictures('en')).toHaveLength(3);
+    expect(html.match(/class="how-visual how-visual-\w+" aria-hidden="true"/g)).toHaveLength(3);
+    for (const picture of pictures('en')) {
+      expect(picture.match(/<(span|div|svg|rect|circle|path)\b/g)!.length).toBeLessThan(60);
     }
+  });
+
+  it('the pictures hold real words: the field and its box, four checks, three verdicts, a prompt', () => {
+    const [paste, run, result] = pictures('en');
+    for (const text of ['github.com/you/your-app', 'I may scan these files', 'Check this repo']) {
+      expect(paste).toContain(text);
+    }
+    for (const name of ['Secret keys in files', '.env files', 'Database rules', 'Site headers']) {
+      expect(run).toContain(name);
+    }
+    for (const state of ['done', 'running', 'queued']) expect(run).toContain(`mv-row-${state}`);
+    expect(run).toContain('mv-progress');
+    for (const word of ['LEAKED', 'INCONCLUSIVE', 'BLOCKED']) expect(result).toContain(word);
+    expect(result).toContain('A Supabase secret key was');
+    const ur = pictures('ur');
+    expect(ur[0]).toContain('Ye repo check karein');
+    expect(ur[1]).toContain('Database ke rules');
   });
 
   it('draws no lock, tick or shield', () => {
@@ -128,6 +148,13 @@ describe('how it works', () => {
       /padlock|shackle|shield|checkmark/i,
     );
     for (const m of html.matchAll(/\bd="([^"]+)"/g)) expect(hasTick(m[1])).toBe(false);
+  });
+
+  it('the checks fill once, and show their last frame with reduced motion', () => {
+    const glass = read('app', 'glass.css');
+    expect(glass).toMatch(/\.mv-progress span \{[^}]*transform: scaleX\(0\.62\)/);
+    expect(glass).toMatch(/animation: mvFill [\d.]+s ease-out [\d.]+s both;/);
+    expect(glass).toContain('.how-steps[data-rise] .mv-progress span');
   });
 
   it('rises once, and not at all with reduced motion', () => {

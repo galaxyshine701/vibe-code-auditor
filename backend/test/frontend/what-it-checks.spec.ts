@@ -40,7 +40,7 @@ describe('what it checks', () => {
     ]);
     for (const lang of ['en', 'ur'] as const) {
       const out = render(lang);
-      expect(out.match(/<li\b/g)).toHaveLength(4);
+      expect(out.match(/<li class="glass"/g)).toHaveLength(4);
       for (const item of copy.WHAT_IT_CHECKS.items) {
         expect(out).toContain(item.title[lang]);
         expect(item.body[lang].length).toBeGreaterThan(20);
@@ -56,6 +56,15 @@ describe('what it checks', () => {
       expect(limits, part.en).toContain(part.limit);
       expect(part.ur.length).toBeGreaterThan(5);
     }
+  });
+
+  it('the limits are a band of their own: the words at the left, one chip for each limit', () => {
+    const out = render('en');
+    const band = out.slice(out.indexOf('checks-skipped glass'));
+    expect(band.match(/<li\b/g)).toHaveLength(copy.WHAT_IT_CHECKS.notChecked.length);
+    expect(band.indexOf('<strong>')).toBeLessThan(band.indexOf('<ul'));
+    const css = read('app', 'glass.css');
+    expect(css).toMatch(/\.checks-skipped \{[^}]*grid-template-columns: 13rem minmax\(0, 1fr\)/);
   });
 
   it('each card says what it reads, in a tag', () => {

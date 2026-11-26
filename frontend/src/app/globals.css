@@ -42,7 +42,7 @@
 }
 
 [data-theme="light"] {
-  --bg: #efefec;
+  --bg: #f4efe5;
   --bg-soft: #e9e9e5;
   --panel: rgba(255, 255, 255, 0.62);
   --panel-strong: rgba(255, 255, 255, 0.84);

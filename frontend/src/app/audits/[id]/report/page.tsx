@@ -42,20 +42,22 @@ import {
   bucketsOf,
   canRetest,
   gateWithoutSupabaseAsk,
+  gateWithoutWebsiteAsk,
   hasStages,
   headlineOf,
-  invitesWebsite,
   leakCount,
   pick,
   noTableCheck,
   repoFilesRead,
   withoutSupabaseAsk,
+  withoutWebsiteAsk,
 } from '@/lib/stage';
 import { t } from '@/lib/stage-copy';
 import type { StageBundle } from '@/lib/stage-types';
 import type { AuditStatusResponse, Finding } from '@/lib/types';
 import { useLang } from '@/lib/use-lang';
 import { useApiError } from '@/lib/use-api-error';
+import { uiText } from '@/lib/ui-copy';
 
 // Reads the three routes of the stages for a finished or failed run. A part that
 // answers 404 is null (hidden, R72); any other error is told, and the rest of
@@ -90,6 +92,7 @@ export default function ReportPage() {
   const [error, setError] = useState('');
   const [gone, setGone] = useState(false);
   const [language, setLanguage] = useLang();
+  const w = (text: string) => uiText(text, language);
   // The three routes of the stages (R72): a part that is null is hidden, never an error.
   const [stage, setStage] = useState<StageBundle | null>(null);
   const [stageError, setStageError] = useState('');
@@ -369,13 +372,12 @@ export default function ReportPage() {
     return (
       <div className="shell narrow-stack">
         <div className="card empty-card">
-          <h1>This audit no longer exists.</h1>
+          <h1>{w('This audit no longer exists.')}</h1>
           <p className="muted">
-            No audit with this id was found. The server keeps the newest 50
-            audits, so an older one is no longer there.
+            {w('No audit with this id was found. The server keeps the newest 50 audits, so an older one is no longer there.')}
           </p>
           <Link href="/" className="button button-primary">
-            Start a new audit
+            {w('Start a new audit')}
           </Link>
         </div>
       </div>
@@ -388,7 +390,7 @@ export default function ReportPage() {
         <div className="card loading-card" role="status">
           <span className="spinner" aria-hidden="true" />
           <div>
-            <strong>Reading the report…</strong>
+            <strong>{w('Reading the report…')}</strong>
           </div>
         </div>
       </div>
@@ -443,12 +445,21 @@ export default function ReportPage() {
   const buckets = stages
     ? bucketsOf(stage?.clientReport, stage?.evidence?.coverage, audit?.plan)
     : null;
-  // with no Supabase project the result never asks for one (see lib/stage.ts)
+  // what was not given is said once, in a plain line: the result does not ask
+  // for it anywhere else, and never for a project's keys (see lib/stage.ts)
+  const noSite = Boolean(audit && !audit.target.websiteUrl);
+  let items = stage?.roadmap?.items;
+  let gate = audit?.gate;
+  if (noTables) {
+    items = withoutSupabaseAsk(items);
+    gate = gateWithoutSupabaseAsk(gate);
+  }
+  if (noSite) {
+    items = withoutWebsiteAsk(items);
+    gate = gateWithoutWebsiteAsk(gate);
+  }
   const roadmap =
-    noTables && stage?.roadmap
-      ? { ...stage.roadmap, items: withoutSupabaseAsk(stage.roadmap.items) }
-      : (stage?.roadmap ?? null);
-  const gate = noTables ? gateWithoutSupabaseAsk(audit?.gate) : audit?.gate;
+    stage?.roadmap && items ? { ...stage.roadmap, items } : (stage?.roadmap ?? null);
   const findingIdSet = new Set((findings ?? []).map((finding) => finding.id));
   const evidenceIdSet = new Set(
     (stage?.evidence?.items ?? []).map((item) => item.id),
@@ -461,16 +472,16 @@ export default function ReportPage() {
     <div className="shell page-stack">
       <div className="report-heading">
         <div>
-          <h1>{audit?.target.label ?? 'Audit report'}</h1>
+          <h1>{audit?.target.label ?? w('Audit report')}</h1>
           {audit ? (
             <ul className="target-lines">
               {targetLines(audit.target).map((line) => (
                 <li key={line.kind}>
                   <span className="target-kind">
                     {line.kind === 'website'
-                      ? 'Website'
+                      ? w('Website')
                       : line.kind === 'repo'
-                        ? 'GitHub repo'
+                        ? w('GitHub repo')
                         : 'Supabase'}
                   </span>
                   <span className="muted break">{line.url}</span>
@@ -517,20 +528,20 @@ export default function ReportPage() {
             lang={language}
             findingIds={findingIdSet}
           />
-          {audit && invitesWebsite(audit) ? <InviteWebsite lang={language} /> : null}
+          {noSite ? <InviteWebsite lang={language} /> : null}
         </>
       ) : null}
 
       {failed ? (
         <>
           <section className="card empty-card">
-            <h1>The audit could not finish.</h1>
+            <h1>{w('The audit could not finish.')}</h1>
             <p className="muted">
               {audit?.error?.message ??
-                'The audit stopped before it could report findings.'}
+                w('The audit stopped before it could report findings.')}
             </p>
             <Link href="/" className="button button-primary">
-              Start a new audit
+              {w('Start a new audit')}
             </Link>
           </section>
           <Disclaimer />
@@ -546,7 +557,7 @@ export default function ReportPage() {
           <section className="card report-toolbar">
             <div className="toolbar-row">
               <div className="toolbar-group">
-                <span className="toolbar-label">Explanation</span>
+                <span className="toolbar-label">{w('Explanation')}</span>
                 <LangToggle lang={language} onChange={setLanguage} />
               </div>
 
@@ -563,9 +574,11 @@ export default function ReportPage() {
                     !findings
                   }
                 >
-                  {retestActive || retestStarting
-                    ? 'Re-test running…'
-                    : 'Re-test'}
+                  {w(
+                    retestActive || retestStarting
+                      ? 'Re-test running…'
+                      : 'Re-test',
+                  )}
                 </button>
                 {audit?.status === 'completed' ? (
                   <CertificateAction
@@ -597,8 +610,7 @@ export default function ReportPage() {
             {retestActive || retestStarting ? (
               <div className="notice notice-info" role="status">
                 <span className="spinner spinner-small" aria-hidden="true" />
-                Re-test is running. The page polls every 2 seconds and reads the
-                findings again when it finishes.
+                {w('Re-test is running. The page polls every 2 seconds and reads the findings again when it finishes.')}
               </div>
             ) : null}
 
@@ -626,22 +638,22 @@ export default function ReportPage() {
             <div className="summary-grid summary-grid-report">
               <div className="summary-item summary-leaked">
                 <span>{audit?.summary.leaked ?? 0}</span>
-                <strong>Leaked</strong>
+                <strong>{w('Leaked')}</strong>
               </div>
               <div className="summary-item summary-inconclusive">
                 <span>{audit?.summary.inconclusive ?? 0}</span>
-                <strong>Inconclusive</strong>
+                <strong>{w('Inconclusive')}</strong>
               </div>
               <div className="summary-item summary-blocked">
                 <span>{audit?.summary.blocked ?? 0}</span>
-                <strong>Blocked</strong>
+                <strong>{w('Blocked')}</strong>
               </div>
             </div>
             ) : null}
             <FixProgress findings={findings} retestActive={retestActive} />
             {!stages && leakedCount === 0 && blockedCount >= 1 ? (
               <>
-                <p className="no-leak-line">No leak found by these checks.</p>
+                <p className="no-leak-line">{w('No leak found by these checks.')}</p>
                 {inconclusiveCount > 0 ? (
                   <p className="muted small">
                     {unverifiedText(inconclusiveCount)}
@@ -664,15 +676,21 @@ export default function ReportPage() {
 
           {!retestActive && lastRetest?.status === 'completed' ? (
             <div className="notice notice-success" role="status">
-              Re-test finished. The findings below were read again.
+              {w('Re-test finished. The findings below were read again.')}
             </div>
           ) : null}
 
           {!retestActive && lastRetest?.status === 'failed' ? (
             <ErrorBanner
-              message={`Re-test failed: ${
-                lastRetest.error?.message ?? 'It stopped before it finished.'
-              } The findings below are from before the Re-test.`}
+              message={
+                language === 'ur'
+                  ? `Re-test nakaam: ${
+                      lastRetest.error?.message ?? w('It stopped before it finished.')
+                    } Neeche ki findings Re-test se pehle ki hain.`
+                  : `Re-test failed: ${
+                      lastRetest.error?.message ?? 'It stopped before it finished.'
+                    } The findings below are from before the Re-test.`
+              }
             />
           ) : null}
 
@@ -683,7 +701,10 @@ export default function ReportPage() {
                   role="status"
                   key={`added-${table}`}
                 >
-                  New table found in the last re-test: {table}
+                  {language === 'ur'
+                    ? 'Pichle re-test mein naya table mila: '
+                    : 'New table found in the last re-test: '}
+                  {table}
                 </div>
               ))
             : null}
@@ -695,7 +716,7 @@ export default function ReportPage() {
                   role="status"
                   key={`removed-${table}`}
                 >
-                  {table}: This table was not checked in the last re-test.
+                  {table}: {w('This table was not checked in the last re-test.')}
                 </div>
               ))
             : null}
@@ -705,18 +726,19 @@ export default function ReportPage() {
           ) : (
             <>
             <div className="findings-heading">
-              <h2>Findings</h2>
+              <h2>{w('Findings')}</h2>
               {findings ? (
                 <span className="muted small">
-                  {findings.length} {findings.length === 1 ? 'finding' : 'findings'}
+                  {findings.length}{' '}
+                  {findings.length === 1 ? 'finding' : 'findings'}
                 </span>
               ) : null}
             </div>
 
             {findings && findings.length === 0 ? (
               <div className="card empty-card">
-                <h3>No findings</h3>
-                <p className="muted">These checks returned no findings.</p>
+                <h3>{w('No findings')}</h3>
+                <p className="muted">{w('These checks returned no findings.')}</p>
               </div>
             ) : null}
 

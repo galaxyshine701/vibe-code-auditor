@@ -27,6 +27,8 @@ const stage = await load<{
   gateWithoutSupabaseAsk: (g: { decision: string; reasons: Text[] }) => { reasons: Text[] };
   mergeSameSteps: (items: Item[]) => Item[];
   topActionItems: (report: unknown, items: Item[]) => Item[];
+  withoutWebsiteAsk: (items: Item[]) => Item[];
+  gateWithoutWebsiteAsk: (g: { reasons: Text[] }) => { reasons: Text[] };
 }>('stage.ts');
 const limits = await load<{
   PLAIN_LIMITS: Record<string, Text[]>;
@@ -64,10 +66,36 @@ describe('"Do this first" and the next steps of a repo-only run', () => {
     expect(stage.gateWithoutSupabaseAsk(only).reasons).toHaveLength(1);
   });
 
-  it('the report page uses both only when there is no Supabase project', () => {
+  it('the report page leaves the asks out only for what was not given', () => {
     const page = read('app', 'audits', '[id]', 'report', 'page.tsx');
-    expect(page).toContain('noTables && stage?.roadmap');
-    expect(page).toContain('noTables ? gateWithoutSupabaseAsk(audit?.gate) : audit?.gate');
+    expect(page).toMatch(/if \(noTables\) \{\s*items = withoutSupabaseAsk\(items\);\s*gate = gateWithoutSupabaseAsk\(gate\);/);
+    expect(page).toMatch(/if \(noSite\) \{\s*items = withoutWebsiteAsk\(items\);\s*gate = gateWithoutWebsiteAsk\(gate\);/);
+  });
+
+  it('no step and no fix prompt that stays asks for a key of a project', () => {
+    const roadmap = kept as unknown as { fixPrompt?: Text }[];
+    const prompts = JSON.stringify(roadmap.map((i) => i.fixPrompt));
+    expect(prompts).not.toMatch(/service key|anon key|publishable key|test project/i);
+  });
+});
+
+describe('"the website was not checked" is in one place', () => {
+  const site = stage.withoutWebsiteAsk(stage.withoutSupabaseAsk(items));
+  const gateLeft = stage.gateWithoutWebsiteAsk(stage.gateWithoutSupabaseAsk(gate));
+
+  it('no step and no gate reason of the repo-only example repeats it', () => {
+    expect(JSON.stringify(site)).not.toMatch(/not provided|website address/i);
+    expect(gateLeft.reasons.map((r) => r.en).join()).not.toMatch(/not provided/i);
+    expect(gateLeft.reasons.length).toBeGreaterThan(0);
+  });
+
+  it('the scope rows give no reason and the summary has no empty website group', () => {
+    expect(read('components', 'scope-buckets.tsx')).toContain(
+      "const SAID_ONCE = ['data-access-prover', 'tls-headers', 'bundle-secrets'];",
+    );
+    expect(read('components', 'client-summary.tsx')).toContain(
+      'const showSite = hasWebsite || Boolean(report?.findings?.site);',
+    );
   });
 });
 
@@ -77,7 +105,7 @@ describe('"no table was checked" is in one place', () => {
     expect(line).toContain('className="optional-line"');
     expect(line).toContain('/#advanced-supabase');
     expect(read('components', 'scope-buckets.tsx')).toContain(
-      "const optional = check.id === 'data-access-prover' && addable;",
+      'const optional = addable && SAID_ONCE.includes(check.id);',
     );
     expect(read('components', 'client-summary.tsx')).toContain(
       'const showTables = hasSupabase || Boolean(report?.findings?.tables);',

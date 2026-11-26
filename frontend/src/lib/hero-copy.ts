@@ -11,10 +11,10 @@ import type { Lang } from './check-labels';
 
 type Pair = { en: string; ur: string };
 
-/** The headline. The English one has 8 words: its timing (the words come one after the other) is the same as before. */
+/** The headline: what to do, and what comes of it. */
 export const HEADLINE: Pair = {
-  en: 'Before you launch: what can a stranger reach?',
-  ur: 'Launch se pehle: ek ajnabi aap ki app mein kahan tak pahunch sakta hai?',
+  en: 'Paste a GitHub repo. See what a stranger could reach, and how to fix it.',
+  ur: 'GitHub repo ka link daalein. Dekhein ajnabi kya tak pahunch sakta hai, aur use kaise theek karein.',
 };
 
 export function headlineWords(lang: Lang): string[] {
@@ -45,10 +45,14 @@ export const THEME = {
   },
 } as const;
 
-/** The one line under the headline: the problem, in one plain sentence, no figures. */
+/**
+ * The one line under the headline: what is looked for, and what a finding comes
+ * with. Not every finding has a prompt (a table the checks could not judge has
+ * steps only, backend/src/stages/roadmap.ts), so it says "most".
+ */
 export const PROBLEM: Pair = {
-  en: 'An app built with AI tools can go live with its database or keys open to anyone.',
-  ur: 'AI tools se bani app is halat mein live ho sakti hai ke uska database ya keys kisi ke liye bhi khuli hon.',
+  en: 'Looks for secret keys, committed .env files, missing database rules and weak site headers. Findings come with steps to fix them, most also with a prompt you can paste into your AI tool.',
+  ur: 'Secret keys, commit ki hui .env files, database ke rules ki kami aur site ke kamzor headers dhoondta hai. Har masle ke saath theek karne ke qadam milte hain, aur zyada tar ke saath ek prompt bhi jo aap apne AI tool mein paste kar sakte hain.',
 };
 
 /**
@@ -127,8 +131,8 @@ export const SCENE_NOTE: Pair = {
 
 export const SCENE = {
   label: {
-    en: 'Example scene: a test marker on a post, an attempt stopped at a barrier, a key left in the open in a window of an app',
-    ur: 'Misaal ka manzar: post par test marker, barrier par ruki hui koshish, app ki khidki mein khuli reh gayi chabi',
+    en: 'Example scene: a test marker on a post, an attempt stopped at a barrier, a key left in the open in a window of an app, and a card with the steps that close it',
+    ur: 'Misaal ka manzar: post par test marker, barrier par ruki hui koshish, app ki khidki mein khuli reh gayi chabi, aur use band karne ke qadam wala card',
   },
   marker: {
     title: { en: 'Test marker', ur: 'Test marker' },
@@ -144,6 +148,11 @@ export const SCENE = {
     title: { en: 'Key left open', ur: 'Chabi khuli reh gayi' },
     note: { en: 'anyone can read it', ur: 'koi bhi parh sakta hai' },
     verdict: 'LEAKED',
+  },
+  fix: {
+    title: { en: 'Fix prompt:', ur: 'Fix prompt:' },
+    note: { en: 'steps that close it', ur: 'use band karne ke qadam' },
+    verdict: null,
   },
 } as const;
 
@@ -260,6 +269,30 @@ export const WHAT_IT_CHECKS = {
     },
   ],
 } as const;
+
+/** The words inside the small pictures of "How it works". */
+export const VISUAL_COPY = {
+  address: 'github.com/you/your-app',
+  agree: { en: 'I may scan these files', ur: 'Main ye files scan karwa sakta hoon' },
+  button: { en: 'Check this repo', ur: 'Ye repo check karein' },
+  rows: [
+    { state: 'done', name: { en: 'Secret keys in files', ur: 'Files mein secret keys' } },
+    { state: 'done', name: { en: '.env files', ur: '.env files' } },
+    { state: 'running', name: { en: 'Database rules', ur: 'Database ke rules' } },
+    { state: 'queued', name: { en: 'Site headers', ur: 'Site ke headers' } },
+  ],
+} as const;
+
+/** The card beside the example result: a real fix prompt (prompt-sample.tsx). */
+export const SAMPLE = {
+  title: { en: 'A fix prompt, for example', ur: 'Fix prompt ki ek misaal' },
+  about: {
+    en: 'The one made for the secret key in a file of the example.',
+    ur: 'Ye misaal ki file mein secret key ke liye banta hai.',
+  },
+  copy: { en: 'Copy prompt', ur: 'Prompt copy karein' },
+  copied: { en: 'Copied', ur: 'Copy ho gaya' },
+} as const satisfies Record<string, Pair>;
 
 export const STEPS = [
   {

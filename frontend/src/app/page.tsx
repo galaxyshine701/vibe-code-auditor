@@ -7,6 +7,7 @@ import { ErrorBanner } from '@/components/error-banner';
 import { HeroCard } from '@/components/hero-card';
 import { HeroScene } from '@/components/hero-scene';
 import { HowItWorks } from '@/components/how-it-works';
+import { PromptSample } from '@/components/prompt-sample';
 import { LangToggle } from '@/components/lang-toggle';
 import {
   RepoGroup,
@@ -36,7 +37,6 @@ import {
   GET,
   KICKER,
   PROBLEM,
-  SCENE_NOTE,
   SECTIONS,
   TABLE_STEPS,
   headlineWords,
@@ -230,7 +230,6 @@ export default function ConnectPage() {
           <div className="glass-wrap">
             <HeroScene lang={lang} />
           </div>
-          <p className="scene-note">{pickText(SCENE_NOTE, lang)}</p>
         </div>
       </section>
 
@@ -238,19 +237,24 @@ export default function ConnectPage() {
       <HowItWorks lang={lang} />
 
       <section className="home-section get" aria-labelledby="get-title">
-        <div className="get-text">
-          <SectionHead id="get-title" head={SECTIONS.get} lang={lang} />
-          <p>{pickText(GET.body, lang)}</p>
-          <ul className="get-points">
-            {GET.points.map((point) => (
-              <li key={point.en}>{pickText(point, lang)}</li>
-            ))}
-          </ul>
-          <p className="hero-honesty">{honestyLine(lang)}</p>
-        </div>
-        {/* the example result, here and nowhere else */}
-        <div className="hero-card-wrap glass-wrap">
-          <HeroCard lang={lang} />
+        <SectionHead id="get-title" head={SECTIONS.get} lang={lang} />
+        <div className="get-columns">
+          <div className="get-text">
+            <p>{pickText(GET.body, lang)}</p>
+            <ul className="get-points">
+              {GET.points.map((point) => (
+                <li key={point.en}>{pickText(point, lang)}</li>
+              ))}
+            </ul>
+            <p className="hero-honesty">{honestyLine(lang)}</p>
+            <div className="glass-wrap prompt-wrap">
+              <PromptSample lang={lang} />
+            </div>
+          </div>
+          {/* the example result, here and nowhere else */}
+          <div className="hero-card-wrap glass-wrap">
+            <HeroCard lang={lang} />
+          </div>
         </div>
       </section>
 
@@ -259,6 +263,7 @@ export default function ConnectPage() {
       {/* the Supabase test project: the last thing on the page, closed at first */}
       <section className="home-section" aria-labelledby="advanced-title">
         <SectionHead id="advanced-title" head={SECTIONS.advanced} lang={lang} />
+      <div className="glass-wrap">
       <details
         className="advanced glass"
         id="advanced-supabase"
@@ -291,6 +296,7 @@ export default function ConnectPage() {
           </ol>
         </div>
       </details>
+      </div>
       </section>
     </div>
   );

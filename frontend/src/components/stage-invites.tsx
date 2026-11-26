@@ -11,13 +11,12 @@ import { t } from '@/lib/stage-copy';
 // added with a new audit, not to this one.
 export function InviteWebsite({ lang }: { lang: Lang }) {
   return (
-    <section className="card invite-card" aria-labelledby="invite-website">
-      <h2 id="invite-website">{t(lang, 'inviteWebsite')}</h2>
-      <p className="muted">{t(lang, 'inviteWebsiteBody')}</p>
-      <Link href="/" className="button button-ghost">
+    <p className="optional-line" id="invite-website">
+      {t(lang, 'noSite')}{' '}
+      <Link href="/" className="text-link">
         {t(lang, 'newAudit')}
       </Link>
-    </section>
+    </p>
   );
 }
 

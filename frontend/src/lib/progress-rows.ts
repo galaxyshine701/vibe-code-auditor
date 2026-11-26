@@ -3,6 +3,7 @@
 // row's own status and progress come from the backend; nothing is counted here.
 import type { Lang } from './check-labels';
 import { pick } from './stage';
+import { uiText } from './ui-copy';
 import type { AuditModule, AuditTarget } from './types';
 
 export type RowTone =
@@ -96,7 +97,7 @@ export function activityOrder(modules: AuditModule[] | undefined | null): AuditM
 
 /** "Planner: completed". The name and the status are the backend's. */
 export function activityText(module: AuditModule, lang: Lang): string {
-  return `${module.name}: ${rowView(module, lang).statusLabel.toLowerCase()}`;
+  return `${module.name}: ${uiText(rowView(module, lang).statusLabel, lang).toLowerCase()}`;
 }
 
 /** The names of the modules that are running now (empty when none is). */

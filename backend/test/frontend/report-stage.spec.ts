@@ -313,12 +313,13 @@ describe('the empty and special states (R83), Re-test (R74) and the Re-test resu
     );
     expect(page).toContain('{noTables ? (');
     expect(page.indexOf('<NoTables')).toBeLessThan(
-      page.indexOf('<h3>No findings</h3>'),
+      page.indexOf("<h3>{w('No findings')}</h3>"),
     );
   });
 
-  it('a Supabase only audit invites to add a website, in place of the site evidence', () => {
-    expect(page).toContain('invitesWebsite(audit) ? <InviteWebsite');
+  it('an audit with no website says so in one line, after the evidence', () => {
+    expect(page).toContain('const noSite = Boolean(audit && !audit.target.websiteUrl);');
+    expect(page).toContain('{noSite ? <InviteWebsite');
     expect(page.indexOf('<EvidenceGroups')).toBeLessThan(
       page.indexOf('<InviteWebsite'),
     );
@@ -327,7 +328,7 @@ describe('the empty and special states (R83), Re-test (R74) and the Re-test resu
   it('the invitations lead to a new audit, where the Connect form has both groups', () => {
     const invites = read('components', 'stage-invites.tsx');
     expect(invites).toContain('href="/"');
-    expect(invites).toContain("'inviteWebsite'");
+    expect(invites).toContain("'noSite'");
     expect(invites).toContain("'noTables'");
   });
 
@@ -351,7 +352,7 @@ describe('the empty and special states (R83), Re-test (R74) and the Re-test resu
 
   it('with the flag off the page is the old one: the old summary and the old line are still there', () => {
     expect(page).toContain('{!stages ? (');
-    expect(page).toContain('<h3>No findings</h3>');
+    expect(page).toContain("<h3>{w('No findings')}</h3>");
     expect(page).toContain('summary-grid-report');
   });
 });

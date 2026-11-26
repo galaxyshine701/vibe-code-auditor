@@ -2,8 +2,10 @@
 
 import { useEffect } from 'react';
 import { BADGE_IDS, shouldAnimate, type BadgeId, type BadgeState } from '@/lib/badges';
-import { COVERAGE } from '@/lib/coverage';
+import { COVERAGE, COVERAGE_UR } from '@/lib/coverage';
 import { formatDate, unverifiedText } from '@/lib/format';
+import { uiText } from '@/lib/ui-copy';
+import { useLang } from '@/lib/use-lang';
 
 // The ids stay as they are (they are what is stored). These are the names the
 // user sees (R64). Wording (R38, R39): never "secure", "safe" or "certified".
@@ -61,6 +63,8 @@ function Badge({
   onCelebrated: (id: BadgeId) => void;
   inconclusiveCount: number;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   const record = state[id];
   const copy = BADGES[id];
   return (
@@ -71,9 +75,11 @@ function Badge({
       onAnimationEnd={() => onCelebrated(id)}
     >
       <span className="badge-dot" aria-hidden="true" />
-      <strong className="badge-name">{copy.name}</strong>
+      <strong className="badge-name">{w(copy.name)}</strong>
       <span className="badge-detail">
-        {record ? `Earned ${formatDate(record.at)}` : copy.locked}
+        {record
+          ? `${uiLang === 'ur' ? 'Mila' : 'Earned'} ${formatDate(record.at)}`
+          : w(copy.locked)}
       </span>
       {record && id === 'no_leak_found' && inconclusiveCount > 0 ? (
         <span className="badge-detail">{unverifiedText(inconclusiveCount)}</span>
@@ -95,6 +101,8 @@ export function BadgeStrip({
   /** tables the checks could not decide: said next to "Zero leaks reached" */
   inconclusiveCount: number;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   useCelebrations(state, celebrating, onCelebrated);
   const earnedNow = BADGE_IDS.filter((id) =>
     shouldAnimate(state, id, celebrating.includes(id)),
@@ -102,14 +110,13 @@ export function BadgeStrip({
 
   return (
     <section className="card badges-card" aria-labelledby="badges-heading">
-      <h2 id="badges-heading">Badges</h2>
+      <h2 id="badges-heading">{w('Badges')}</h2>
       <p className="muted small">
-        Saved in this browser only. They are not proof and are not part of the
-        re-test result or its record hash.
+        {w('Saved in this browser only. They are not proof and are not part of the re-test result or its record hash.')}
       </p>
       <p className="visually-hidden" role="status">
         {earnedNow.length > 0
-          ? `Badge earned: ${earnedNow.map((id) => BADGES[id].name).join(', ')}`
+          ? `${uiLang === 'ur' ? 'Badge mila' : 'Badge earned'}: ${earnedNow.map((id) => w(BADGES[id].name)).join(', ')}`
           : ''}
       </p>
       <ul className="badge-list">
@@ -124,7 +131,7 @@ export function BadgeStrip({
           />
         ))}
       </ul>
-      <p className="muted small">{COVERAGE.statement}</p>
+      <p className="muted small">{uiLang === 'ur' ? COVERAGE_UR.statement : COVERAGE.statement}</p>
     </section>
   );
 }
@@ -143,12 +150,15 @@ export function BadgeNotice({
   onCelebrated: (id: BadgeId) => void;
   inconclusiveCount: number;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   useCelebrations(state, celebrating, onCelebrated);
   if (justEarned.length === 0) return null;
   return (
     <div className="badge-notice">
       <p role="status">
-        Badge earned: {justEarned.map((id) => BADGES[id].name).join(', ')}
+        {uiLang === 'ur' ? 'Badge mila' : 'Badge earned'}:{' '}
+        {justEarned.map((id) => w(BADGES[id].name)).join(', ')}
       </p>
       <ul className="badge-list">
         {justEarned.map((id) => (
@@ -162,7 +172,7 @@ export function BadgeNotice({
           />
         ))}
       </ul>
-      <p className="muted small">{COVERAGE.statement}</p>
+      <p className="muted small">{uiLang === 'ur' ? COVERAGE_UR.statement : COVERAGE.statement}</p>
     </div>
   );
 }

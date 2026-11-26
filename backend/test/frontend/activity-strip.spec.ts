@@ -96,6 +96,8 @@ describe("the words of a chip are the backend's", () => {
     expect(rows.activityText(mod('repo-secrets', 'Repo scan', 'running'), 'en')).toBe('Repo scan: running');
     expect(rows.activityText(mod('planner', 'Planner', 'completed'), 'en')).toBe('Planner: completed');
     expect(rows.activityText(mod('ownership', 'Ownership', 'skipped'), 'en')).toBe('Ownership: skipped');
+    // the status speaks Roman Urdu; the name is the backend's
+    expect(rows.activityText(mod('planner', 'Planner', 'completed'), 'ur')).toBe('Planner: mukammal');
     expect(rows.activityText(mod('x', 'Guide', 'failed'), 'en')).toBe('Guide: failed');
     // a status the page does not know is shown as given, never a crash
     expect(rows.activityText(mod('x', 'Guide', 'TIMEOUT'), 'en')).toBe('Guide: timeout');
@@ -139,7 +141,7 @@ describe('the page and the styles', () => {
 
   it('says what is running from the modules that are running, as a status message', () => {
     expect(page).toContain('runningNow(audit.modules)');
-    expect(page).toMatch(/role="status">\s*Running now:/);
+    expect(page).toMatch(/role="status">\s*\{lang === 'ur' \? 'Abhi chal rahe: ' : 'Running now: '\}/);
   });
 
   it('each chip says its status in words (never colour alone); a skipped one is also dashed', () => {
