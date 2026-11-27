@@ -46,7 +46,7 @@ describe('the movement', () => {
   });
 
   it('runs once: a card that has started is not watched again', () => {
-    expect(code).toContain('watch?.unobserve(node)');
+    expect(code).toContain('watch.unobserve(node)');
     expect(code).toContain(':not([data-reveal-state])');
   });
 
@@ -73,19 +73,24 @@ describe('the movement', () => {
 describe('the fallbacks', () => {
   const layout = read('app', 'layout.tsx');
 
-  it('with no script nothing is hidden: only a state or the boot mark hides', () => {
+  it('nothing is hidden without the page code: only a state it sets hides', () => {
     const hidden = [...css.matchAll(/([^{}]*)\{[^{}]*opacity: 0;\s*transform: translateY\(28px\);/g)][0][1];
-    expect(hidden).toContain('html[data-reveal-boot]');
     expect(hidden).toContain('[data-reveal-state="wait"]');
-    expect(css).not.toMatch(/(?:^|\n)(\.reveal|\[data-reveal\]) \{[^}]*opacity: 0/);
+    expect(css).not.toContain('data-reveal-boot');
+    expect(css).not.toMatch(/^(\.reveal|\[data-reveal\]) \{[^}]*opacity: 0/m);
+    expect(layout).not.toContain('REVEAL');
   });
 
-  it('the boot script gives up if the page code never comes, and does nothing with reduced motion', () => {
-    expect(layout).toContain('REVEAL_BOOT_SCRIPT');
-    expect(reveal.REVEAL_BOOT_SCRIPT).toContain('prefers-reduced-motion: reduce');
-    expect(reveal.REVEAL_BOOT_SCRIPT).toContain("removeAttribute('data-reveal-boot')");
-    expect(reveal.REVEAL_BOOT_SCRIPT).toContain('4000');
-    expect(() => new Function(reveal.REVEAL_BOOT_SCRIPT)).not.toThrow();
+  it('only what is wholly below the screen waits', () => {
+    expect([0, 799, 800, 2000, -300].map((top) => reveal.isBelow(top, 800))).toEqual([
+      false, false, true, true, false,
+    ]);
+    expect(code).toContain('if (!below[i])');
+  });
+
+  it('an observer that never answers keeps nothing hidden: all is shown after 4 seconds', () => {
+    expect(reveal.REVEAL.fallbackMs).toBe(4000);
+    expect(code).toContain('if (answered) return;');
   });
 
   it('reduced motion: no animation, everything in place', () => {
@@ -94,8 +99,7 @@ describe('the fallbacks', () => {
     expect(read('components', 'reveal.tsx')).toContain('prefers-reduced-motion: reduce');
   });
 
-  it('waits for the intro, and shows what the keyboard reaches', () => {
-    expect(code).toContain('data-intro');
+  it('shows what the keyboard reaches', () => {
     expect(code).toContain('focusin');
   });
 });

@@ -1,7 +1,7 @@
 :root {
-  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --font-body: "Instrument Sans", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-display: var(--font-bricolage, "Bricolage Grotesque"), "Segoe UI", system-ui, sans-serif;
+  --font-body: var(--font-instrument, "Instrument Sans"), "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-jetbrains, "JetBrains Mono"), "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   --bg: #0f1114;
   --bg-soft: #13161a;
@@ -103,6 +103,7 @@ html[data-theme="light"] {
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100svh;
   color: var(--ink);
   background: var(--bg);
   font-family: var(--font-body);
@@ -312,6 +313,7 @@ h4 {
 
 .site-main {
   min-height: calc(100vh - 170px);
+  min-height: calc(100svh - 170px);
   padding: 42px 0 72px;
 }
 
@@ -528,7 +530,6 @@ h4 {
 
 .hero-word {
   display: inline-block;
-  opacity: 0;
   animation: heroWordIn 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 
@@ -1407,6 +1408,7 @@ h4 {
   display: grid;
   place-items: center;
   min-height: 55vh;
+  min-height: 55svh;
 }
 
 .gate-card {
@@ -2679,13 +2681,9 @@ h4 {
 
 @keyframes heroWordIn {
   from {
-    opacity: 0;
-    filter: blur(14px);
     transform: translateY(0.3em);
   }
   to {
-    opacity: 1;
-    filter: blur(0);
     transform: none;
   }
 }

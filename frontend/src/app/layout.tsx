@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
@@ -8,13 +9,33 @@ import { ServiceWorkerRegister } from '@/components/sw-register';
 import { SiteFooter } from '@/components/site-footer';
 import { PROJECT_DESCRIPTION, PROJECT_NAME, PROJECT_TITLE } from '@/lib/brand';
 import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
-import { REVEAL_BOOT_SCRIPT } from '@/lib/reveal';
 import './globals.css';
 import './intro.css';
 import './stage.css';
 import './report.css';
 import './hero.css';
 import './glass.css';
+
+// The three fonts are fetched at build time and served by this site, each with
+// "font-display: swap": the words are painted at once and take the font when it
+// is there. The mono font is only for code, so it is not asked for in advance.
+const displayFont = Bricolage_Grotesque({
+  subsets: ['latin'],
+  axes: ['opsz'],
+  display: 'swap',
+  variable: '--font-bricolage',
+});
+const bodyFont = Instrument_Sans({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-instrument',
+});
+const monoFont = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-jetbrains',
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: PROJECT_TITLE,
@@ -33,6 +54,11 @@ export const metadata: Metadata = {
 // inline in the head, so the theme is set before the first paint.
 export const viewport: Viewport = {
   themeColor: '#0f1114',
+  width: 'device-width',
+  initialScale: 1,
+  // the page may use the whole screen of a phone; glass.css keeps the words
+  // clear of its notch and home bar
+  viewportFit: 'cover',
   colorScheme: 'dark',
 };
 
@@ -40,23 +66,16 @@ const themeScript = `(function(){var t='dark';try{var q=new URLSearchParams(loca
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {/* decides before the first paint whether the intro runs (R70) */}
         <script dangerouslySetInnerHTML={{ __html: INTRO_BOOT_SCRIPT }} />
-        {/* hides the cards that will rise, before the first paint */}
-        <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOT_SCRIPT }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body>
         {/* directly in <body>, never in the page: see intro-overlay.tsx */}

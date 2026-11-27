@@ -535,7 +535,8 @@ describe('the words of the hero', () => {
 
   it('no lock, tick, "full audit", "autonomous", "safe" or "secure"', () => {
     for (const file of files) {
-      const text = stripComments(read(...file.split('/')));
+      // ("safe-area-inset" is a CSS name, not a word of the page)
+      const text = stripComments(read(...file.split('/'))).replace(/safe-area-inset/g, '');
       expect(text, file).not.toMatch(/\block\b|\btick\b|padlock|checkmark|full audit|autonomous/i);
       expect(text, file).not.toMatch(/\bsafe(ly|ty)?\b|\bsecure[ds]?\b|\bguarantee/i);
     }

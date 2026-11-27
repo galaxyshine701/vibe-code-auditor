@@ -1,11 +1,14 @@
-// The reveal on scroll: a card (its outer wrapper, `data-reveal`) comes up 28px
-// and fades in, once, when it comes into view. The glass with its backdrop blur
-// is a still layer inside that wrapper.
+// The reveal on scroll: a card (its outer wrapper, `data-reveal`) that is below
+// the screen when it appears comes up 28px and fades in, once, when it is
+// scrolled into view. The glass with its backdrop blur is a still layer inside
+// that wrapper.
 //
-// The wrapper carries `data-reveal-state`: "wait" (hidden, below its place),
-// "run" (the animation of glass.css; will-change only here) and "done" (no style
-// at all). Without a script no wrapper ever gets a state, so everything is there
-// from the start; with reduced motion, or with no IntersectionObserver, the same.
+// Nothing is hidden before this code runs, and nothing on the first screen is
+// ever hidden: the HTML of the server shows every card. The wrapper then carries
+// `data-reveal-state`: "wait" (below the screen: unseen, below its place), "run"
+// (the animation of glass.css; will-change only here) and "done" (no style at
+// all; also what is on the screen already). With no script, reduced motion or no
+// IntersectionObserver, no wrapper is ever hidden.
 //
 // A group (`data-reveal-group`, else the parent) is staggered a little. Its
 // heading (`data-reveal="head"`) does not come on its own: it rises with the
@@ -19,8 +22,8 @@ export const REVEAL = {
   durationMs: 650,
   staggerMs: 90,
   maxDelayMs: 450,
-  /** if the page's own code never takes over, the boot script shows all */
-  bootFallbackMs: 4000,
+  /** if the observer never answers, everything is shown after this long */
+  fallbackMs: 4000,
 } as const;
 
 /** The delay of the card at this place of its batch. */
@@ -28,21 +31,17 @@ export function delayOf(place: number): number {
   return Math.min(Math.max(0, place) * REVEAL.staggerMs, REVEAL.maxDelayMs);
 }
 
-/**
- * The inline script of the <head>: it hides the wrappers before the first paint,
- * so that what is on the first screen can rise once without a flash. If the
- * page's code does not take over in time, everything is shown.
- */
-export const REVEAL_BOOT_SCRIPT = `(function(){try{if(!window.IntersectionObserver||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var d=document.documentElement;d.setAttribute('data-reveal-boot','');setTimeout(function(){if(!window.__vcaRevealOwned)d.removeAttribute('data-reveal-boot');},${REVEAL.bootFallbackMs});}catch(e){}})();`;
-
-const INTRO_RUNNING = ['pending', 'opening'];
+/** Is a wrapper with this top wholly below a screen of this height? */
+export function isBelow(top: number, screen: number): boolean {
+  return top >= screen;
+}
 
 /** Starts the reveal for everything under `body`, now and later. Returns the stop. */
 export function startReveal(body: HTMLElement): () => void {
   const root = document.documentElement;
   const waiting = new Set<HTMLElement>();
   const timers = new Set<number>();
-  let watch: IntersectionObserver | null = null;
+  let answered = false;
 
   const isHead = (node: HTMLElement) => node.dataset.reveal === 'head';
   const groupOf = (node: HTMLElement): Element =>
@@ -55,7 +54,7 @@ export function startReveal(body: HTMLElement): () => void {
 
   const take = (node: HTMLElement) => {
     waiting.delete(node);
-    watch?.unobserve(node);
+    watch.unobserve(node);
   };
 
   const run = (node: HTMLElement, delay: number) => {
@@ -101,43 +100,62 @@ export function startReveal(body: HTMLElement): () => void {
     }
   };
 
+  const watch = new IntersectionObserver(
+    (entries) => {
+      answered = true;
+      show(
+        entries
+          .filter((entry) => {
+            const screen = entry.rootBounds?.height ?? window.innerHeight;
+            return (
+              entry.isIntersecting &&
+              (entry.intersectionRatio >= REVEAL.threshold - 0.001 ||
+                entry.intersectionRect.height >= screen * REVEAL.threshold)
+            );
+          })
+          .map((entry) => entry.target as HTMLElement)
+          .filter((node) => waiting.has(node)),
+      );
+    },
+    {
+      rootMargin: REVEAL.rootMargin,
+      // steps of 1%, so a card taller than the screen is told in time too
+      threshold: Array.from({ length: 16 }, (_, i) => i / 100),
+    },
+  );
+
+  /**
+   * New wrappers: the ones wholly below the screen wait to be scrolled to; the
+   * ones on it (or above it) stay as they are. All are measured before any is
+   * moved.
+   */
   const scan = () => {
-    if (!watch) return;
-    body
-      .querySelectorAll<HTMLElement>('[data-reveal]:not([data-reveal-state])')
-      .forEach((node) => {
-        node.dataset.revealState = 'wait';
-        waiting.add(node);
-        watch!.observe(node);
-      });
+    const fresh = [
+      ...body.querySelectorAll<HTMLElement>('[data-reveal]:not([data-reveal-state])'),
+    ];
+    const below = fresh.map((node) =>
+      isBelow(node.getBoundingClientRect().top, window.innerHeight),
+    );
+    fresh.forEach((node, i) => {
+      if (!below[i]) {
+        finish(node);
+        return;
+      }
+      node.dataset.revealState = 'wait';
+      waiting.add(node);
+      watch.observe(node);
+    });
   };
 
-  const observe = () => {
-    watch = new IntersectionObserver(
-      (entries) => {
-        show(
-          entries
-            .filter((entry) => {
-              const screen = entry.rootBounds?.height ?? window.innerHeight;
-              return (
-                entry.isIntersecting &&
-                (entry.intersectionRatio >= REVEAL.threshold - 0.001 ||
-                  entry.intersectionRect.height >= screen * REVEAL.threshold)
-              );
-            })
-            .map((entry) => entry.target as HTMLElement)
-            .filter((node) => waiting.has(node)),
-        );
-      },
-      {
-        rootMargin: REVEAL.rootMargin,
-        // steps of 1%, so a card taller than the screen is told in time too
-        threshold: Array.from({ length: 16 }, (_, i) => i / 100),
-      },
-    );
-    waiting.forEach((node) => watch!.observe(node));
-    scan();
-  };
+  // an observer answers at once for everything it is given; one that never does
+  // must not keep a card hidden
+  const fallback = window.setTimeout(() => {
+    if (answered) return;
+    [...waiting].forEach((node) => {
+      take(node);
+      finish(node);
+    });
+  }, REVEAL.fallbackMs);
 
   // at the end of the page nothing can be scrolled further in
   const atEnd = () => {
@@ -160,38 +178,16 @@ export function startReveal(body: HTMLElement): () => void {
     }
   };
 
-  // hidden at once; the watching starts when the intro is not over the page
-  body.querySelectorAll<HTMLElement>('[data-reveal]').forEach((node) => {
-    node.dataset.revealState = 'wait';
-    waiting.add(node);
-  });
-  const later = new MutationObserver(() => {
-    if (watch) return scan();
-    body
-      .querySelectorAll<HTMLElement>('[data-reveal]:not([data-reveal-state])')
-      .forEach((node) => {
-        node.dataset.revealState = 'wait';
-        waiting.add(node);
-      });
-  });
+  scan();
+  const later = new MutationObserver(scan);
   later.observe(body, { childList: true, subtree: true });
-  const intro = new MutationObserver(() => {
-    if (INTRO_RUNNING.includes(root.dataset.intro ?? '')) return;
-    intro.disconnect();
-    if (!watch) observe();
-  });
-  if (INTRO_RUNNING.includes(root.dataset.intro ?? '')) {
-    intro.observe(root, { attributes: true, attributeFilter: ['data-intro'] });
-  } else {
-    observe();
-  }
   window.addEventListener('scroll', atEnd, { passive: true });
   document.addEventListener('focusin', focused);
 
   return () => {
-    watch?.disconnect();
+    watch.disconnect();
     later.disconnect();
-    intro.disconnect();
+    window.clearTimeout(fallback);
     window.removeEventListener('scroll', atEnd);
     document.removeEventListener('focusin', focused);
     timers.forEach((timer) => window.clearTimeout(timer));

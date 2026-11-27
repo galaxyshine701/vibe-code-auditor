@@ -24,15 +24,10 @@ export function Reveal({
 /** Once, in the layout: watches every wrapper of every page. */
 export function RevealController() {
   useLayoutEffect(() => {
-    const root = document.documentElement;
     const still =
       typeof IntersectionObserver === 'undefined' ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    (window as Window & { __vcaRevealOwned?: boolean }).__vcaRevealOwned = true;
-    const stop = still ? undefined : startReveal(document.body);
-    // every wrapper has its own state now, or none is needed
-    root.removeAttribute('data-reveal-boot');
-    return stop;
+    return still ? undefined : startReveal(document.body);
   }, []);
   return null;
 }

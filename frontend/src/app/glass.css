@@ -1592,8 +1592,7 @@ html[data-intro="leaving"] .hero-scene::after {
   color: var(--ink-soft);
 }
 
-/* before the page's code is there (the head script says it will come) */
-html[data-reveal-boot] [data-reveal]:not([data-reveal-state]),
+/* below the screen, set by the page's code only: the HTML hides nothing */
 [data-reveal-state="wait"] {
   opacity: 0;
   transform: translateY(28px);
@@ -1625,4 +1624,118 @@ html[data-reveal-boot] [data-reveal]:not([data-reveal-state]),
 /* the words of the badges stand inside their card, not on its edge */
 .badges-card.glass {
   padding: 20px 22px;
+}
+
+/* ---- the screen of a phone (round 5) ---- */
+/* clear of the notch and the home bar (layout.tsx: viewport-fit=cover) */
+body {
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+}
+
+.site-header {
+  padding-top: env(safe-area-inset-top);
+}
+
+.site-footer {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.intro-skip {
+  top: max(0.75rem, 3vmin, env(safe-area-inset-top));
+  right: max(0.75rem, 3vmin, env(safe-area-inset-right));
+}
+
+/* a long repository name, address, table name or line of code stays inside its
+   card: it wraps */
+main,
+.site-header {
+  overflow-wrap: break-word;
+}
+
+main h1,
+main h2,
+main h3,
+main code,
+main pre,
+.target-lines span,
+.target-lines li,
+.table-chip,
+.roadmap-title,
+.evidence-subject,
+.bucket-name,
+.module-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+main pre {
+  max-width: 100%;
+  white-space: pre-wrap;
+}
+
+/* on a wide screen the lines of words stay short enough to read */
+.page-stack p,
+.gate-reasons li,
+.roadmap-steps > li,
+.limits li,
+.disclosure-body li,
+.fix-prompt-block {
+  max-width: 60ch;
+}
+
+/* a finger: every thing to press is at least 44 by 44 */
+@media (max-width: 640px), (max-height: 500px), (pointer: coarse) {
+  .brand,
+  .theme-toggle,
+  .segment,
+  .button,
+  .text-button,
+  .fix-prompt-copy,
+  .text-link,
+  .back-link,
+  main summary,
+  .advanced-summary,
+  .field input,
+  .start-box input:not([type="checkbox"]),
+  .advanced-body input:not([type="checkbox"]),
+  .access-field input,
+  .gate-card input,
+  .retest-form input:not([type="checkbox"]),
+  .check-line,
+  main label:has(> input[type="checkbox"]) {
+    min-height: 44px;
+  }
+
+  .theme-toggle,
+  .segment,
+  .button,
+  .fix-prompt-copy {
+    min-width: 44px;
+  }
+
+  .brand,
+  .text-link,
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  main summary:not(.advanced-summary) {
+    padding-block: 11px;
+  }
+}
+
+/* a long name beside it never squeezes the language switch */
+.segmented {
+  flex: none;
+  max-width: 100%;
+}
+
+.segment {
+  white-space: nowrap;
+}
+
+.finding-leaked .finding-explanation {
+  max-width: 60ch;
 }

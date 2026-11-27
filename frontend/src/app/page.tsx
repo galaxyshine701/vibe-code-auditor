@@ -144,98 +144,92 @@ export default function ConnectPage() {
     <div className="shell home">
       {/* wide screens: the words and the form on the left, the scene on the
           right; narrower: one column, the form first */}
-      <section className="hero hero-stage" data-reveal-group>
+      <section className="hero hero-stage">
         <div className="hero-copy">
-          <Reveal head>
-            <div className="hero-copy-top">
-              <p className="hero-kicker">{pickText(KICKER, lang)}</p>
-              <LangToggle lang={lang} onChange={setLang} />
-            </div>
-            <h1
-              className={lang === 'ur' ? 'hero-title hero-title-ur' : 'hero-title'}
-              aria-label={HEADLINE_TEXT}
-            >
-              {HEADLINE.map((word, index) => (
-                <span key={`${lang}-${index}`}>
-                  <span
-                    className="hero-word"
-                    style={{ animationDelay: `${150 + index * 90}ms` }}
-                  >
-                    {word}
-                  </span>
-                  {index < HEADLINE.length - 1 ? ' ' : null}
+          <div className="hero-copy-top">
+            <p className="hero-kicker">{pickText(KICKER, lang)}</p>
+            <LangToggle lang={lang} onChange={setLang} />
+          </div>
+          <h1
+            className={lang === 'ur' ? 'hero-title hero-title-ur' : 'hero-title'}
+            aria-label={HEADLINE_TEXT}
+          >
+            {HEADLINE.map((word, index) => (
+              <span key={`${lang}-${index}`}>
+                <span
+                  className="hero-word"
+                  style={{ animationDelay: `${150 + index * 90}ms` }}
+                >
+                  {word}
                 </span>
-              ))}
-            </h1>
-            <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
-          </Reveal>
+                {index < HEADLINE.length - 1 ? ' ' : null}
+              </span>
+            ))}
+          </h1>
+          <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
 
           {/* one field, one box, one button; the website opens under the button */}
           <div className="start-wrap glass-wrap">
-          <Reveal>
-            <form
-              id="start-box"
-              className="start-box glass"
-              aria-label={pickText(FORM.start, lang)}
-              onSubmit={submit}
-              noValidate
+          <form
+            id="start-box"
+            className="start-box glass"
+            aria-label={pickText(FORM.start, lang)}
+            onSubmit={submit}
+            noValidate
+          >
+            <RepoGroup fields={fields} check={check} onChange={change} lang={lang} />
+
+            <RateLimitNotice />
+            {error ? (
+              <ErrorBanner
+                message={error}
+                onRetry={canRetry ? () => void runAudit() : undefined}
+              />
+            ) : null}
+
+            <button
+              type="submit"
+              className="button button-primary button-large"
+              disabled={startDisabled}
+              aria-describedby={startHint ? 'start-hint' : undefined}
             >
-              <RepoGroup fields={fields} check={check} onChange={change} lang={lang} />
+              {submitting
+                ? pickText(FORM.starting, lang)
+                : startButtonLabel(check, lang)}
+            </button>
+            {willCheck ? (
+              <p className="will-check" id="will-check" role="status">
+                {willCheck}
+              </p>
+            ) : null}
+            {startHint ? (
+              <p className="muted small" id="start-hint" role="status">
+                {startHint}
+              </p>
+            ) : null}
 
-              <RateLimitNotice />
-              {error ? (
-                <ErrorBanner
-                  message={error}
-                  onRetry={canRetry ? () => void runAudit() : undefined}
-                />
-              ) : null}
+            <button
+              type="button"
+              className="text-button website-toggle"
+              aria-expanded={websiteOpen}
+              aria-controls="website-more"
+              onClick={() => setWebsiteAsked((open) => !open)}
+            >
+              {pickText(FORM.addWebsite, lang)}
+            </button>
+            <div id="website-more" hidden={!websiteOpen}>
+              <WebsiteGroup fields={fields} check={check} onChange={change} lang={lang} />
+            </div>
 
-              <button
-                type="submit"
-                className="button button-primary button-large"
-                disabled={startDisabled}
-                aria-describedby={startHint ? 'start-hint' : undefined}
-              >
-                {submitting
-                  ? pickText(FORM.starting, lang)
-                  : startButtonLabel(check, lang)}
-              </button>
-              {willCheck ? (
-                <p className="will-check" id="will-check" role="status">
-                  {willCheck}
-                </p>
-              ) : null}
-              {startHint ? (
-                <p className="muted small" id="start-hint" role="status">
-                  {startHint}
-                </p>
-              ) : null}
-
-              <button
-                type="button"
-                className="text-button website-toggle"
-                aria-expanded={websiteOpen}
-                aria-controls="website-more"
-                onClick={() => setWebsiteAsked((open) => !open)}
-              >
-                {pickText(FORM.addWebsite, lang)}
-              </button>
-              <div id="website-more" hidden={!websiteOpen}>
-                <WebsiteGroup fields={fields} check={check} onChange={change} lang={lang} />
-              </div>
-
-              <p className="fine-print">{pickText(FORM.noAi, lang)}</p>
-            </form>
-          </Reveal>
+            <p className="fine-print">{pickText(FORM.noAi, lang)}</p>
+          </form>
           </div>
         </div>
 
         {/* the picture of the three words: it plays again and again */}
         <div className="hero-visual">
           <div className="glass-wrap">
-            <Reveal>
-              <HeroScene lang={lang} />
-            </Reveal>
+            <HeroScene lang={lang} />
           </div>
         </div>
       </section>
