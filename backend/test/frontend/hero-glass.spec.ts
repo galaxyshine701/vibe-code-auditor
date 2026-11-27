@@ -150,15 +150,37 @@ describe('the glass cards', () => {
 });
 
 describe('the colours of the glows', () => {
-  it('every blob and halo is the brand amber, a status colour or a neutral tint of the theme', () => {
-    const declared = [...css.matchAll(/--(blob-[\w-]+|glass-tint|visual-glow):\s*([^;]+);/g)];
+  const declared = [...css.matchAll(/--(blob-[\w-]+|glass-tint|visual-glow):\s*([^;]+);/g)];
+
+  it('every blob and halo is one of two palette tokens: amber or the cool violet', () => {
     expect(declared.length).toBeGreaterThan(10);
     for (const [, name, value] of declared) {
       expect(value, name).toMatch(
-        /^(var\(--blob-(amber|green|neutral)\)|color-mix\(in srgb, var\(--(canary|ok|leak|ink)\) \d+%, transparent\))$/,
+        /^(var\(--blob-(amber|cool)\)|color-mix\(in srgb, var\(--halo-(amber|cool)\) \d+%, transparent\)|color-mix\(in srgb, color-mix\(in srgb, var\(--halo-amber\) \d+%, var\(--ink\)\) \d+%, transparent\))$/,
       );
     }
-    expect(css).not.toMatch(/violet|rgba\(1[35]0, (95|115)|rgba\(246, (190|201)/);
+    expect(css).not.toMatch(/blob-(green|neutral|violet)/);
+  });
+
+  it('both tokens are in the palette of both themes', () => {
+    for (const block of Object.values(themes)) {
+      expect(block).toMatch(/--halo-amber: #[0-9a-f]{6};/);
+      expect(block).toMatch(/--halo-cool: #[0-9a-f]{6};/);
+    }
+  });
+
+  it('are as strong as before the cards stopped moving (b2cf5a0): dark, light, phone dark, phone light', () => {
+    const strengths = (name: string) =>
+      [...css.matchAll(new RegExp(`--blob-${name}: color-mix\\(in srgb, var\\(--halo-${name}\\) (\\d+)%`, 'g'))].map((m) => Number(m[1]));
+    expect(strengths('amber')).toEqual([30, 40, 16, 22]);
+    expect(strengths('cool')).toEqual([34, 26, 18, 15]);
+  });
+
+  it('do not reach into the column of words and buttons beside them', () => {
+    expect(css).toMatch(/\.hero-visual > \.glass-wrap::before \{\s*left: -24px;/);
+    expect(css).toMatch(/\.get \.hero-card-wrap\.glass-wrap::before \{\s*left: -16px;/);
+    expect(css).toMatch(/\.start-wrap\.glass-wrap::before \{\s*right: -24px;/);
+    expect(css).toMatch(/\.prompt-wrap\.glass-wrap::before \{\s*right: -16px;/);
   });
 });
 
@@ -215,8 +237,8 @@ describe('text contrast (AA) in both themes, on the worst case of the glass', ()
     const token = (t: string) => value(t, block);
     const glass = (t: string) => value(t, glassBlock[name]);
     const page = token('bg');
-    // behind a card: the page alone, or a blob at its strongest (even all three on top of each other)
-    const blobs = ['blob-amber', 'blob-green', 'blob-neutral'].map(glass);
+    // behind a card: the page alone, or a blob at its strongest (even both on top of each other)
+    const blobs = ['blob-amber', 'blob-cool'].map(glass);
     const behind = [page, ...blobs.map((b) => over(page, b)), blobs.reduce(over, page)];
     const cards = behind.flatMap((back) => {
       const scrim = over(back, glass('glass-scrim'));

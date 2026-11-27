@@ -16,31 +16,29 @@
      drawings of the hero scene. */
 
 :root {
-  /* every glow is a design token at a low strength: the brand amber, the green
-     of BLOCKED and a neutral tint of the surface */
-  --blob-amber: color-mix(in srgb, var(--canary) 26%, transparent);
-  --blob-green: color-mix(in srgb, var(--ok) 20%, transparent);
-  --blob-neutral: color-mix(in srgb, var(--ink) 10%, transparent);
+  /* a halo has two colours only, both tokens of the theme: amber and a cool
+     violet. No status colour is in a halo */
+  --blob-amber: color-mix(in srgb, var(--halo-amber) 30%, transparent);
+  --blob-cool: color-mix(in srgb, var(--halo-cool) 34%, transparent);
   --glass-hi: rgba(255, 255, 255, 0.09);
   --glass-lo: rgba(255, 255, 255, 0.025);
   --glass-scrim: rgba(20, 22, 30, 0.66);
   --glass-edge: rgba(255, 255, 255, 0.22);
   --glass-top: rgba(255, 255, 255, 0.46);
-  --glass-tint: color-mix(in srgb, var(--canary) 34%, transparent);
+  --glass-tint: color-mix(in srgb, var(--halo-cool) 60%, transparent);
   --glass-blur: blur(18px) saturate(160%);
   --sweep: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="light"] {
-  --blob-amber: color-mix(in srgb, var(--canary) 34%, transparent);
-  --blob-green: color-mix(in srgb, var(--ok) 18%, transparent);
-  --blob-neutral: color-mix(in srgb, var(--ink) 8%, transparent);
+  --blob-amber: color-mix(in srgb, var(--halo-amber) 40%, transparent);
+  --blob-cool: color-mix(in srgb, var(--halo-cool) 26%, transparent);
   --glass-hi: rgba(255, 255, 255, 0.72);
   --glass-lo: rgba(255, 255, 255, 0.32);
   --glass-scrim: rgba(255, 255, 255, 0.42);
   --glass-edge: rgba(130, 100, 55, 0.18);
   --glass-top: rgba(255, 255, 255, 1);
-  --glass-tint: color-mix(in srgb, var(--canary) 42%, transparent);
+  --glass-tint: color-mix(in srgb, color-mix(in srgb, var(--halo-amber) 75%, var(--ink)) 50%, transparent);
   --sweep: rgba(255, 255, 255, 0.5);
 }
 
@@ -64,37 +62,38 @@
   pointer-events: none;
   background:
     radial-gradient(26% 50% at 26% 50%, var(--blob-a, var(--blob-amber)), transparent 100%),
-    radial-gradient(28% 50% at 72% 50%, var(--blob-b, var(--blob-neutral)), transparent 100%),
-    radial-gradient(18% 36% at 50% 36%, var(--blob-c, var(--blob-green)), transparent 100%);
+    radial-gradient(28% 50% at 72% 50%, var(--blob-b, var(--blob-cool)), transparent 100%),
+    radial-gradient(18% 36% at 50% 36%, var(--blob-c, var(--blob-amber)), transparent 100%);
 }
 
 /* each part of the page has its own mix */
 .hero-visual > .glass-wrap {
-  --blob-a: var(--blob-neutral);
+  --blob-a: var(--blob-cool);
   --blob-b: var(--blob-amber);
+  --glass-tint: color-mix(in srgb, var(--halo-cool) 55%, transparent);
 }
 
 .checks-list.glass-wrap {
-  --blob-a: var(--blob-green);
-  --blob-b: var(--blob-amber);
-  --blob-c: var(--blob-neutral);
+  --blob-a: var(--blob-amber);
+  --blob-b: var(--blob-cool);
+  --blob-c: var(--blob-cool);
 }
 
 .how-steps.glass-wrap {
   --blob-a: var(--blob-amber);
-  --blob-b: var(--blob-green);
-  --blob-c: var(--blob-neutral);
+  --blob-b: var(--blob-cool);
+  --blob-c: var(--blob-cool);
 }
 
 .hero-card-wrap.glass-wrap {
-  --blob-a: var(--blob-neutral);
-  --blob-b: var(--blob-green);
+  --blob-a: var(--blob-cool);
+  --blob-b: var(--blob-amber);
   --blob-c: var(--blob-amber);
 }
 
 .word-cards.glass-wrap {
-  --blob-a: var(--blob-neutral);
-  --blob-b: var(--blob-green);
+  --blob-a: var(--blob-cool);
+  --blob-b: var(--blob-amber);
   --blob-c: var(--blob-amber);
 }
 
@@ -868,11 +867,11 @@ html[data-intro="leaving"] .hero-scene::after {
 }
 
 .how-visual-run {
-  --visual-glow: var(--blob-green);
+  --visual-glow: var(--blob-cool);
 }
 
 .how-visual-result {
-  --visual-glow: var(--blob-neutral);
+  --visual-glow: var(--blob-cool);
 }
 
 .mv-input,
@@ -1268,15 +1267,13 @@ html[data-intro="leaving"] .hero-scene::after {
   /* a phone: a lighter blur and paler blobs */
   :root {
     --glass-blur: blur(8px) saturate(130%);
-    --blob-amber: color-mix(in srgb, var(--canary) 14%, transparent);
-    --blob-green: color-mix(in srgb, var(--ok) 11%, transparent);
-    --blob-neutral: color-mix(in srgb, var(--ink) 6%, transparent);
+    --blob-amber: color-mix(in srgb, var(--halo-amber) 16%, transparent);
+    --blob-cool: color-mix(in srgb, var(--halo-cool) 18%, transparent);
   }
 
   [data-theme="light"] {
-    --blob-amber: color-mix(in srgb, var(--canary) 20%, transparent);
-    --blob-green: color-mix(in srgb, var(--ok) 10%, transparent);
-    --blob-neutral: color-mix(in srgb, var(--ink) 5%, transparent);
+    --blob-amber: color-mix(in srgb, var(--halo-amber) 22%, transparent);
+    --blob-cool: color-mix(in srgb, var(--halo-cool) 15%, transparent);
   }
 
   .glass-wrap::before {
@@ -1486,13 +1483,15 @@ html[data-intro="leaving"] .hero-scene::after {
 }
 
 .result-cards.glass-wrap {
-  --blob-a: var(--blob-amber);
-  --blob-b: var(--blob-neutral);
-  --blob-c: var(--blob-neutral);
+  --blob-a: var(--blob-cool);
+  --blob-b: var(--blob-amber);
+  --blob-c: var(--blob-cool);
 }
 
+/* whole tiles only, so the halo never ends in a straight cut beside the last card */
 .result-cards.glass-wrap::before {
   background-size: 100% 720px;
+  background-repeat: no-repeat round;
 }
 
 /* these cards keep their own coloured edge and tint over the glass */
@@ -1544,4 +1543,26 @@ html[data-intro="leaving"] .hero-scene::after {
 /* the language switch of a narrow page is as wide as its words */
 .narrow-stack > .segmented {
   align-self: flex-start;
+}
+
+/* a wrapper with a column of words and buttons beside it does not reach into
+   it: the halo stops inside the gap (48px in the hero, 32px under it) */
+@media (min-width: 1100px) {
+  .hero-visual > .glass-wrap::before {
+    left: -24px;
+  }
+
+  .start-wrap.glass-wrap::before {
+    right: -24px;
+  }
+}
+
+@media (min-width: 900px) {
+  .get .hero-card-wrap.glass-wrap::before {
+    left: -16px;
+  }
+
+  .prompt-wrap.glass-wrap::before {
+    right: -16px;
+  }
 }

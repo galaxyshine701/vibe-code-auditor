@@ -39,6 +39,9 @@
   --streak-core: #ffffff;
   --code-bg: #0b0d10;
   --code-ink: #e7e4d9;
+  /* the only two colours of a halo behind the cards (glass.css) */
+  --halo-amber: #f6be32;
+  --halo-cool: #825feb;
 }
 
 [data-theme="light"] {
@@ -77,6 +80,9 @@
   --streak-core: #000000;
   --code-bg: #15171a;
   --code-ink: #eeece5;
+  /* the only two colours of a halo behind the cards (glass.css) */
+  --halo-amber: #ffbe3c;
+  --halo-cool: #9673f0;
 }
 
 *,
