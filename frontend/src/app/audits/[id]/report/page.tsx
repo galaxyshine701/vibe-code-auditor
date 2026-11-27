@@ -1,5 +1,6 @@
 'use client';
 
+import { Reveal } from '@/components/reveal';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -374,14 +375,18 @@ export default function ReportPage() {
   if (gone) {
     return (
       <div className="shell narrow-stack">
-        <div className="card empty-card glass">
-          <h1>{w('This audit no longer exists.')}</h1>
-          <p className="muted">
-            {w('No audit with this id was found. The server keeps the newest 50 audits, so an older one is no longer there.')}
-          </p>
-          <Link href="/" className="button button-primary">
-            {w('Start a new audit')}
-          </Link>
+        <div className="result-cards glass-wrap">
+          <Reveal>
+            <div className="card empty-card glass">
+              <h1>{w('This audit no longer exists.')}</h1>
+              <p className="muted">
+                {w('No audit with this id was found. The server keeps the newest 50 audits, so an older one is no longer there.')}
+              </p>
+              <Link href="/" className="button button-primary">
+                {w('Start a new audit')}
+              </Link>
+            </div>
+          </Reveal>
         </div>
       </div>
     );
@@ -390,11 +395,15 @@ export default function ReportPage() {
   if (loading) {
     return (
       <div className="shell narrow-stack">
-        <div className="card loading-card glass" role="status">
-          <span className="spinner" aria-hidden="true" />
-          <div>
-            <strong>{w('Reading the report…')}</strong>
-          </div>
+        <div className="result-cards glass-wrap">
+          <Reveal>
+            <div className="card loading-card glass" role="status">
+              <span className="spinner" aria-hidden="true" />
+              <div>
+                <strong>{w('Reading the report…')}</strong>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </div>
     );
@@ -481,7 +490,7 @@ export default function ReportPage() {
   );
 
   return (
-    <div className="shell page-stack">
+    <div className="shell page-stack" data-reveal-group>
       <div className="report-heading">
         <div>
           <h1>{audit?.target.label ?? w('Audit report')}</h1>
@@ -511,7 +520,11 @@ export default function ReportPage() {
 
       {stages ? (
         <>
-          <GateBanner gate={gate} headline={headline} lang={language} />
+          <div className="result-cards glass-wrap">
+            <Reveal>
+              <GateBanner gate={gate} headline={headline} lang={language} />
+            </Reveal>
+          </div>
           {stageError ? (
             <div className="notice notice-info" role="status">
               {t(language, 'stageError')} {stageError}
@@ -519,31 +532,39 @@ export default function ReportPage() {
           ) : null}
           {/* cards only: the halo of this wrapper has no loose words over it */}
           <div className="result-cards glass-wrap">
-          <ClientSummary
-            report={stage?.clientReport ?? null}
-            roadmapItems={roadmap?.items}
-            summary={audit?.summary}
-            hasWebsite={Boolean(audit?.target.websiteUrl)}
-            hasSupabase={Boolean(audit?.target.projectUrl)}
-            hasRepo={Boolean(audit?.target.repoUrl)}
-            repoFilesRead={repoFilesRead(stage?.evidence?.coverage)}
-            lang={language}
-          />
-          <ScopeBuckets buckets={buckets} lang={language} />
+          <Reveal>
+            <ClientSummary
+              report={stage?.clientReport ?? null}
+              roadmapItems={roadmap?.items}
+              summary={audit?.summary}
+              hasWebsite={Boolean(audit?.target.websiteUrl)}
+              hasSupabase={Boolean(audit?.target.projectUrl)}
+              hasRepo={Boolean(audit?.target.repoUrl)}
+              repoFilesRead={repoFilesRead(stage?.evidence?.coverage)}
+              lang={language}
+            />
+          </Reveal>
+          <Reveal>
+            <ScopeBuckets buckets={buckets} lang={language} />
+          </Reveal>
           {nothing ? null : (
             <>
-              <RoadmapList
-                roadmap={roadmap}
-                report={stage?.clientReport ?? null}
-                lang={language}
-                findingIds={findingIdSet}
-                evidenceIds={evidenceIdSet}
-              />
-              <EvidenceGroups
-                evidence={stage?.evidence ?? null}
-                lang={language}
-                findingIds={findingIdSet}
-              />
+              <Reveal>
+                <RoadmapList
+                  roadmap={roadmap}
+                  report={stage?.clientReport ?? null}
+                  lang={language}
+                  findingIds={findingIdSet}
+                  evidenceIds={evidenceIdSet}
+                />
+              </Reveal>
+              <Reveal>
+                <EvidenceGroups
+                  evidence={stage?.evidence ?? null}
+                  lang={language}
+                  findingIds={findingIdSet}
+                />
+              </Reveal>
             </>
           )}
           </div>
@@ -556,145 +577,161 @@ export default function ReportPage() {
 
       {failed ? (
         <>
-          <section className="card empty-card glass">
-            <h1>{w('The audit could not finish.')}</h1>
-            <p className="muted">
-              {audit?.error?.message ??
-                w('The audit stopped before it could report findings.')}
-            </p>
-            <Link href="/" className="button button-primary">
-              {w('Start a new audit')}
-            </Link>
-          </section>
-          <Disclaimer />
+          <div className="result-cards glass-wrap">
+            <Reveal>
+              <section className="card empty-card glass">
+                <h1>{w('The audit could not finish.')}</h1>
+                <p className="muted">
+                  {audit?.error?.message ??
+                    w('The audit stopped before it could report findings.')}
+                </p>
+                <Link href="/" className="button button-primary">
+                  {w('Start a new audit')}
+                </Link>
+              </section>
+            </Reveal>
+            <Reveal>
+              <Disclaimer />
+            </Reveal>
+          </div>
         </>
       ) : (
         <>
-          <BeforeAfter
-            findings={findings}
-            lastRetest={retestActive ? null : lastRetest}
-          />
+          <div className="result-cards glass-wrap">
+          <Reveal>
+            <BeforeAfter
+              findings={findings}
+              lastRetest={retestActive ? null : lastRetest}
+            />
+          </Reveal>
 
           {retestAllowed ? (
-          <section className="card report-toolbar glass">
-            <div className="toolbar-row">
-              <div className="toolbar-group">
-                <span className="toolbar-label">{w('Explanation')}</span>
-                <LangToggle lang={language} onChange={setLanguage} />
+          <Reveal>
+            <section className="card report-toolbar glass">
+              <div className="toolbar-row">
+                <div className="toolbar-group">
+                  <span className="toolbar-label">{w('Explanation')}</span>
+                  <LangToggle lang={language} onChange={setLanguage} />
+                </div>
+
+                <div className="toolbar-actions">
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    onClick={() => setShowRetestForm((open) => !open)}
+                    disabled={
+                      retestActive ||
+                      retestStarting ||
+                      audit?.status !== 'completed' ||
+                      rateLimitSecondsLeft > 0 ||
+                      !findings
+                    }
+                  >
+                    {w(
+                      retestActive || retestStarting
+                        ? 'Re-test running…'
+                        : 'Re-test',
+                    )}
+                  </button>
+                  {audit?.status === 'completed' ? (
+                    <CertificateAction
+                      auditId={id}
+                      lock={lock}
+                      playUnlock={playUnlock}
+                      onPlayed={finishUnlock}
+                    />
+                  ) : null}
+                </div>
               </div>
 
-              <div className="toolbar-actions">
-                <button
-                  type="button"
-                  className="button button-primary"
-                  onClick={() => setShowRetestForm((open) => !open)}
-                  disabled={
-                    retestActive ||
-                    retestStarting ||
-                    audit?.status !== 'completed' ||
-                    rateLimitSecondsLeft > 0 ||
-                    !findings
+              {showRetestForm && !retestActive ? (
+                <RetestForm
+                  anonKey={retestAnonKey}
+                  serviceKey={retestServiceKey}
+                  confirmed={retestConfirmed}
+                  onAnonKey={setRetestAnonKey}
+                  onServiceKey={setRetestServiceKey}
+                  onConfirmed={setRetestConfirmed}
+                  onSubmit={() => void startRetest()}
+                  onCancel={() => setShowRetestForm(false)}
+                  submitting={retestStarting}
+                  blocked={rateLimitSecondsLeft > 0}
+                  error={retestError}
+                />
+              ) : null}
+
+              {retestActive || retestStarting ? (
+                <div className="notice notice-info" role="status">
+                  <span className="spinner spinner-small" aria-hidden="true" />
+                  {w('Re-test is running. The page polls every 2 seconds and reads the findings again when it finishes.')}
+                </div>
+              ) : null}
+
+              {pollError ? (
+                <ErrorBanner
+                  message={pollError}
+                  onRetry={
+                    rateLimitSecondsLeft === 0
+                      ? () => setPollTick((tick) => tick + 1)
+                      : undefined
                   }
-                >
-                  {w(
-                    retestActive || retestStarting
-                      ? 'Re-test running…'
-                      : 'Re-test',
-                  )}
-                </button>
-                {audit?.status === 'completed' ? (
-                  <CertificateAction
-                    auditId={id}
-                    lock={lock}
-                    playUnlock={playUnlock}
-                    onPlayed={finishUnlock}
-                  />
-                ) : null}
-              </div>
-            </div>
+                />
+              ) : null}
 
-            {showRetestForm && !retestActive ? (
-              <RetestForm
-                anonKey={retestAnonKey}
-                serviceKey={retestServiceKey}
-                confirmed={retestConfirmed}
-                onAnonKey={setRetestAnonKey}
-                onServiceKey={setRetestServiceKey}
-                onConfirmed={setRetestConfirmed}
-                onSubmit={() => void startRetest()}
-                onCancel={() => setShowRetestForm(false)}
-                submitting={retestStarting}
-                blocked={rateLimitSecondsLeft > 0}
-                error={retestError}
-              />
-            ) : null}
-
-            {retestActive || retestStarting ? (
-              <div className="notice notice-info" role="status">
-                <span className="spinner spinner-small" aria-hidden="true" />
-                {w('Re-test is running. The page polls every 2 seconds and reads the findings again when it finishes.')}
-              </div>
-            ) : null}
-
-            {pollError ? (
-              <ErrorBanner
-                message={pollError}
-                onRetry={
-                  rateLimitSecondsLeft === 0
-                    ? () => setPollTick((tick) => tick + 1)
-                    : undefined
-                }
-              />
-            ) : null}
-
-            {!showRetestForm && retestError ? (
-              <ErrorBanner message={retestError} />
-            ) : null}
-            <RateLimitNotice />
-          </section>
+              {!showRetestForm && retestError ? (
+                <ErrorBanner message={retestError} />
+              ) : null}
+              <RateLimitNotice />
+            </section>
+          </Reveal>
           ) : null}
 
           {!stages || (findings && findings.length > 0) ? (
-          <section className="card summary-card glass">
-            {!stages ? (
-            <div className="summary-grid summary-grid-report">
-              <div className="summary-item summary-leaked">
-                <span>{audit?.summary.leaked ?? 0}</span>
-                <strong>{w('Leaked')}</strong>
+          <Reveal>
+            <section className="card summary-card glass">
+              {!stages ? (
+              <div className="summary-grid summary-grid-report">
+                <div className="summary-item summary-leaked">
+                  <span>{audit?.summary.leaked ?? 0}</span>
+                  <strong>{w('Leaked')}</strong>
+                </div>
+                <div className="summary-item summary-inconclusive">
+                  <span>{audit?.summary.inconclusive ?? 0}</span>
+                  <strong>{w('Inconclusive')}</strong>
+                </div>
+                <div className="summary-item summary-blocked">
+                  <span>{audit?.summary.blocked ?? 0}</span>
+                  <strong>{w('Blocked')}</strong>
+                </div>
               </div>
-              <div className="summary-item summary-inconclusive">
-                <span>{audit?.summary.inconclusive ?? 0}</span>
-                <strong>{w('Inconclusive')}</strong>
-              </div>
-              <div className="summary-item summary-blocked">
-                <span>{audit?.summary.blocked ?? 0}</span>
-                <strong>{w('Blocked')}</strong>
-              </div>
-            </div>
-            ) : null}
-            <FixProgress findings={findings} retestActive={retestActive} />
-            {!stages && leakedCount === 0 && blockedCount >= 1 ? (
-              <>
-                <p className="no-leak-line">{w('No leak found by these checks.')}</p>
-                {inconclusiveCount > 0 ? (
-                  <p className="muted small">
-                    {unverifiedText(inconclusiveCount)}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-          </section>
+              ) : null}
+              <FixProgress findings={findings} retestActive={retestActive} />
+              {!stages && leakedCount === 0 && blockedCount >= 1 ? (
+                <>
+                  <p className="no-leak-line">{w('No leak found by these checks.')}</p>
+                  {inconclusiveCount > 0 ? (
+                    <p className="muted small">
+                      {unverifiedText(inconclusiveCount)}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+            </section>
+          </Reveal>
           ) : null}
 
           {/* the badges are about tables: a website only audit has none */}
           {!noTables ? (
-            <BadgeStrip
-              state={badges.state}
-              celebrating={badges.celebrating}
-              onCelebrated={badges.finishCelebration}
-              inconclusiveCount={inconclusiveCount}
-            />
+            <Reveal>
+              <BadgeStrip
+                state={badges.state}
+                celebrating={badges.celebrating}
+                onCelebrated={badges.finishCelebration}
+                inconclusiveCount={inconclusiveCount}
+              />
+            </Reveal>
           ) : null}
+          </div>
 
           {!retestActive && lastRetest?.status === 'completed' ? (
             <div className="notice notice-success" role="status">
@@ -758,44 +795,51 @@ export default function ReportPage() {
             </div>
 
             {findings && findings.length === 0 ? (
-              <div className="card empty-card glass">
-                <h3>{w('No findings')}</h3>
-                <p className="muted">{w('These checks returned no findings.')}</p>
-              </div>
+              <Reveal>
+                <div className="card empty-card glass">
+                  <h3>{w('No findings')}</h3>
+                  <p className="muted">{w('These checks returned no findings.')}</p>
+                </div>
+              </Reveal>
             ) : null}
 
             <div className="findings-grid result-cards glass-wrap">
               {shownFindings?.map((finding) => (
-                <FindingCard
-                  key={finding.id}
-                  auditId={id}
-                  finding={finding}
-                  language={language}
-                  actionsDisabled={
-                    retestActive || retestStarting || audit?.status === 'running'
-                  }
-                  sealed={fixedIds.has(finding.id)}
-                  sealAnimate={sealAnimating.includes(finding.id)}
-                  onSealDone={finishSeal}
-                  onUpdated={updateFinding}
-                  onNotFound={() => void checkAuditStillExists()}
-                />
+                <Reveal key={finding.id}>
+                  <FindingCard
+                    auditId={id}
+                    finding={finding}
+                    language={language}
+                    actionsDisabled={
+                      retestActive || retestStarting || audit?.status === 'running'
+                    }
+                    sealed={fixedIds.has(finding.id)}
+                    sealAnimate={sealAnimating.includes(finding.id)}
+                    onSealDone={finishSeal}
+                    onUpdated={updateFinding}
+                    onNotFound={() => void checkAuditStillExists()}
+                  />
+                </Reveal>
               ))}
             </div>
 
             </>
           )}
 
-          <Disclaimer statement={stages ? '' : undefined}>
-            {stage?.clientReport?.disclaimer ? (
-              <p className="muted small">
-                {pick(stage.clientReport.disclaimer, language)}
-              </p>
-            ) : null}
-            {!stages || audit?.target.projectUrl ? (
-              <CoverageNotes lang={language} />
-            ) : null}
-          </Disclaimer>
+          <div className="result-cards glass-wrap">
+          <Reveal>
+            <Disclaimer statement={stages ? '' : undefined}>
+              {stage?.clientReport?.disclaimer ? (
+                <p className="muted small">
+                  {pick(stage.clientReport.disclaimer, language)}
+                </p>
+              ) : null}
+              {!stages || audit?.target.projectUrl ? (
+                <CoverageNotes lang={language} />
+              ) : null}
+            </Disclaimer>
+          </Reveal>
+          </div>
         </>
       )}
     </div>

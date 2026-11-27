@@ -95,7 +95,7 @@ describe('the glass cards', () => {
     for (const name of ['start-box glass', 'hero-scene glass', 'hero-card glass', 'how-step glass', 'advanced glass']) {
       expect(source).toContain(name);
     }
-    expect(source).toContain('<li className="glass"');
+    expect(source).toContain('"checks-card glass"');
     expect(source).toMatch(/word-card word-\$\{kind\} glass/);
   });
 
@@ -335,7 +335,7 @@ describe('the result page and the run page', () => {
   });
 
   it('the halo is only around the wrappers of cards, and the page cuts it at its edge', () => {
-    expect(css).toMatch(/\.site-main:has\(\.page-stack\) \{\s*overflow-x: clip;/);
+    expect(css).toMatch(/\.site-main:has\(\.page-stack\),[^{]*\{\s*overflow-x: clip;/);
     expect(css).not.toMatch(/\.page-stack::before|\.report-heading::before/);
   });
 
@@ -357,8 +357,8 @@ describe('motion', () => {
   const scene = ['sceneCard', 'sceneDown', 'sceneFade', 'sceneKey', 'sceneLand', 'sceneShine', 'sceneWalk'];
 
   it('every animation of the page style moves only transform and opacity', () => {
-    const names = [...new Set([...css.matchAll(/animation: (\w+) /g)].map((m) => m[1]))];
-    expect(names.sort()).toEqual([...scene, 'heroSweep', 'howFade'].sort());
+    const names = [...new Set([...css.matchAll(/animation: (\w+) /g)].map((m) => m[1]).filter((n) => n !== 'none'))];
+    expect(names.sort()).toEqual([...scene, 'heroSweep', 'revealUp'].sort());
     for (const name of names) {
       const body = new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}\\n`).exec(css)![1];
       for (const prop of [...body.matchAll(/^\s+([a-z-]+):/gm)].map((m) => m[1])) {
@@ -382,19 +382,19 @@ describe('motion', () => {
       expect(block).toContain(`.scene-${part}`);
     }
     expect(block).toContain('.hero-scene::after');
-    expect(block).toContain('.how-steps[data-rise] .how-step');
+    expect(block).toContain('[data-reveal]');
     expect(block).toContain('animation: none');
   });
 
-  it('a card never moves: every fade of a card or a row is opacity only, once', () => {
+  it('the only thing that moves a card is the reveal: its wrapper, by opacity and transform', () => {
     const sheets = [css, globals, read('app', 'report.css'), read('app', 'stage.css')].join('\n');
-    for (const name of ['howFade', 'rise', 'textReveal', 'gateRise', 'evidenceIn', 'rowIn']) {
+    for (const name of ['textReveal', 'gateRise', 'evidenceIn', 'rowIn']) {
       const body = new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}`).exec(sheets)![1];
-      expect(body, name).toContain('opacity');
       expect(body, name).not.toMatch(/transform|translate|scale/);
     }
-    expect(css).not.toMatch(/animation: howFade[^;]*infinite/);
-    expect(sheets).not.toContain('will-change');
+    expect(css).not.toMatch(/\.glass[^{,]*\{[^}]*(animation|will-change)/);
+    // the page no longer fades as a whole: its cards rise
+    expect(globals).not.toMatch(/animation: rise /);
   });
 });
 

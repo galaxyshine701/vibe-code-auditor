@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef, type CSSProperties } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import { SECTIONS, STEPS, VISUAL_COPY, pickText } from '@/lib/hero-copy';
 import { SAMPLE_PROMPT } from './prompt-sample';
@@ -10,9 +9,8 @@ import { SectionHead } from './section-head';
 // each with a small picture of that moment, with real words in it: the field and
 // its box, the checks running, the verdicts and a piece of a fix prompt. The
 // pictures are hidden from a screen reader (the step says the same), and have no
-// lock, no tick and no shield. The steps fade in once when they come into view
-// (opacity only, nothing moves); with no script, or with reduced motion, they are
-// simply there.
+// lock, no tick and no shield. The steps rise into view with the other cards of
+// the page (reveal.tsx).
 
 /** The first words of the real prompt, in three short lines; "…" says there is more. */
 export function promptLines(prompt: string, width = 30, count = 3): string[] {
@@ -75,41 +73,22 @@ function Visual({ name, lang }: { name: (typeof STEPS)[number]['visual']; lang: 
 }
 
 export function HowItWorks({ lang }: { lang: Lang }) {
-  const list = useRef<HTMLOListElement>(null);
-
-  useEffect(() => {
-    const node = list.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    // already on the screen: leave it as it is
-    if (node.getBoundingClientRect().top < window.innerHeight) return;
-    node.dataset.rise = 'waiting';
-    const watch = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      node.dataset.rise = 'up';
-      watch.disconnect();
-    });
-    watch.observe(node);
-    return () => {
-      watch.disconnect();
-      delete node.dataset.rise;
-    };
-  }, []);
-
   return (
-    <section className="home-section how" aria-labelledby="how-title">
+    <section className="home-section how" aria-labelledby="how-title" data-reveal-group>
       <SectionHead id="how-title" head={SECTIONS.how} lang={lang} />
-      <ol className="how-steps glass-wrap" ref={list}>
+      <ol className="how-steps glass-wrap">
         {STEPS.map((step, index) => (
-          <li className="how-step glass" key={step.visual} style={{ '--i': index } as CSSProperties}>
-            <div className={`how-visual how-visual-${step.visual}`} aria-hidden="true">
-              <Visual name={step.visual} lang={lang} />
+          <li className="reveal" data-reveal="card" key={step.visual}>
+            <div className="how-step glass">
+              <div className={`how-visual how-visual-${step.visual}`} aria-hidden="true">
+                <Visual name={step.visual} lang={lang} />
+              </div>
+              <span className="how-number" aria-hidden="true">
+                {index + 1}
+              </span>
+              <h3>{pickText(step.title, lang)}</h3>
+              <p>{pickText(step.body, lang)}</p>
             </div>
-            <span className="how-number" aria-hidden="true">
-              {index + 1}
-            </span>
-            <h3>{pickText(step.title, lang)}</h3>
-            <p>{pickText(step.body, lang)}</p>
           </li>
         ))}
       </ol>

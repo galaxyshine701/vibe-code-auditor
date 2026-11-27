@@ -12,8 +12,8 @@
    - A phone has a lighter blur and no light sweep; without backdrop-filter the
      card is a plain, more solid translucent card; with prefers-reduced-motion
      nothing moves.
-   - A card never moves: it fades in at most. Transform is used only inside the
-     drawings of the hero scene. */
+   - A card rises into view once (the reveal, at the end of this file). What
+     moves is its outer wrapper; the glass with its blur is a still layer in it. */
 
 :root {
   /* a halo has two colours only, both tokens of the theme: amber and a cool
@@ -736,7 +736,7 @@ html[data-intro="leaving"] .hero-scene::after {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.checks-list li {
+.checks-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -824,7 +824,7 @@ html[data-intro="leaving"] .hero-scene::after {
   padding: 20px;
 }
 
-.how-step:not(:last-child)::after {
+.how-steps > :not(:last-child) > .how-step::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -998,25 +998,6 @@ html[data-intro="leaving"] .hero-scene::after {
   font-weight: 700;
 }
 
-/* the steps fade in once, when they come into view (how-it-works.tsx). Opacity
-   only: a card with a backdrop blur never moves */
-.how-steps[data-rise="waiting"] .how-step {
-  opacity: 0;
-}
-
-.how-steps[data-rise="up"] .how-step {
-  animation: howFade 0.6s ease-out calc(var(--i, 0) * 0.12s) both;
-}
-
-@keyframes howFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* ---- what you get: the words and a real prompt beside the example result ---- */
 .get-columns {
   display: grid;
@@ -1029,11 +1010,6 @@ html[data-intro="leaving"] .hero-scene::after {
   flex-direction: column;
   gap: 14px;
   min-width: 0;
-}
-
-.get-text > p {
-  margin: 0;
-  color: var(--ink-soft);
 }
 
 .get-points {
@@ -1299,7 +1275,7 @@ html[data-intro="leaving"] .hero-scene::after {
   }
 
   /* the line between the steps stands upright */
-  .how-step:not(:last-child)::after {
+  .how-steps > :not(:last-child) > .how-step::after {
     top: 100%;
     left: 36px;
     width: 2px;
@@ -1384,9 +1360,11 @@ html[data-intro="leaving"] .hero-scene::after {
     animation: none;
   }
 
-  .how-steps[data-rise] .how-step {
-    opacity: 1;
-    animation: none;
+  /* nothing rises: every card is in its place from the start */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
   }
 }
 
@@ -1470,7 +1448,9 @@ html[data-intro="leaving"] .hero-scene::after {
    The cards carry the class "glass" (the tokens above). A halo is drawn only by a
    wrapper that holds cards and nothing else, so no loose text has it behind it;
    it repeats down a long list of cards. */
-.site-main:has(.page-stack) {
+.site-main:has(.page-stack),
+.site-main:has(.narrow-stack),
+.site-main:has(.gate-wrap) {
   overflow-x: clip;
 }
 
@@ -1565,4 +1545,84 @@ html[data-intro="leaving"] .hero-scene::after {
   .prompt-wrap.glass-wrap::before {
     right: -16px;
   }
+}
+
+/* ---- the reveal: cards rise into view, once (lib/reveal.ts) ---- */
+.reveal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.reveal > * {
+  flex: 1 1 auto;
+}
+
+.reveal:empty,
+.result-cards:not(:has(> .reveal > *, > :not(.reveal))) {
+  display: none;
+}
+
+.findings-grid > .reveal:has(> .finding-leaked) {
+  grid-column: 1 / -1;
+}
+
+/* a card that fills its column still does, inside its wrapper */
+.prompt-wrap > .reveal {
+  flex: 1 1 auto;
+}
+
+/* the access code card of a run or result page */
+.gate-wrap > .glass-wrap {
+  width: min(460px, 100%);
+}
+
+.gate-wrap .gate-card {
+  width: 100%;
+}
+
+.get-words {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.get-words > p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* before the page's code is there (the head script says it will come) */
+html[data-reveal-boot] [data-reveal]:not([data-reveal-state]),
+[data-reveal-state="wait"] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+[data-reveal-state="run"] {
+  animation: revealUp 650ms ease-out var(--reveal-delay, 0ms) both;
+  will-change: opacity, transform;
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media print {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* the words of the badges stand inside their card, not on its edge */
+.badges-card.glass {
+  padding: 20px 22px;
 }

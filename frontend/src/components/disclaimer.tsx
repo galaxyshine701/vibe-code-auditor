@@ -21,7 +21,7 @@ export function Disclaimer({
   const [uiLang] = useLang();
   const w = (text: string) => uiText(text, uiLang);
   return (
-    <div className="disclaimer-card">
+    <div className="disclaimer-card glass">
       <span className="disclaimer-label">{w('What these checks cover')}</span>
       {statement !== '' ? <p>{statement ?? (uiLang === 'ur' ? COVERAGE_UR.statement : DISCLAIMER)}</p> : null}
       {children}

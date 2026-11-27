@@ -1,4 +1,5 @@
 import type { Lang } from '@/lib/check-labels';
+import { Reveal } from './reveal';
 import { SECTIONS, WHAT_IT_CHECKS, pickText } from '@/lib/hero-copy';
 import { SectionHead } from './section-head';
 
@@ -18,43 +19,47 @@ const ICONS = {
 
 export function WhatItChecks({ lang }: { lang: Lang }) {
   return (
-    <section className="home-section checks-strip" aria-labelledby="checks-title">
+    <section className="home-section checks-strip" aria-labelledby="checks-title" data-reveal-group>
       <SectionHead id="checks-title" head={SECTIONS.checks} lang={lang} />
       <ul className="checks-list glass-wrap">
         {WHAT_IT_CHECKS.items.map((item) => (
-          <li className="glass" key={item.icon}>
-            <svg
-              className="checks-icon"
-              viewBox="0 0 24 24"
-              width="22"
-              height="22"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              {ICONS[item.icon]}
-            </svg>
-            <h3>{pickText(item.title, lang)}</h3>
-            <p>{pickText(item.body, lang)}</p>
-            <span className="reads-tag">{pickText(item.reads, lang)}</span>
+          <li className="reveal" data-reveal="card" key={item.icon}>
+            <div className="checks-card glass">
+              <svg
+                className="checks-icon"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                {ICONS[item.icon]}
+              </svg>
+              <h3>{pickText(item.title, lang)}</h3>
+              <p>{pickText(item.body, lang)}</p>
+              <span className="reads-tag">{pickText(item.reads, lang)}</span>
+            </div>
           </li>
         ))}
       </ul>
       <div className="glass-wrap">
-        <div className="checks-skipped glass">
-          <p>
-            <strong>{pickText(WHAT_IT_CHECKS.notCheckedLead, lang)}</strong>
-          </p>
-          <ul>
-            {WHAT_IT_CHECKS.notChecked.map((part) => (
-              <li key={part.en}>{pickText(part, lang)}</li>
-            ))}
-          </ul>
-        </div>
+        <Reveal>
+          <div className="checks-skipped glass">
+            <p>
+              <strong>{pickText(WHAT_IT_CHECKS.notCheckedLead, lang)}</strong>
+            </p>
+            <ul>
+              {WHAT_IT_CHECKS.notChecked.map((part) => (
+                <li key={part.en}>{pickText(part, lang)}</li>
+              ))}
+            </ul>
+          </div>
+        </Reveal>
       </div>
     </section>
   );

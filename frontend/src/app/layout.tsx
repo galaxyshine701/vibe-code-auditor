@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
 import { IntroOverlay } from '@/components/intro-overlay';
+import { RevealController } from '@/components/reveal';
 import { ServiceWorkerRegister } from '@/components/sw-register';
 import { SiteFooter } from '@/components/site-footer';
 import { PROJECT_DESCRIPTION, PROJECT_NAME, PROJECT_TITLE } from '@/lib/brand';
 import { INTRO_BOOT_SCRIPT } from '@/lib/intro';
+import { REVEAL_BOOT_SCRIPT } from '@/lib/reveal';
 import './globals.css';
 import './intro.css';
 import './stage.css';
@@ -43,6 +45,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {/* decides before the first paint whether the intro runs (R70) */}
         <script dangerouslySetInnerHTML={{ __html: INTRO_BOOT_SCRIPT }} />
+        {/* hides the cards that will rise, before the first paint */}
+        <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOT_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -62,6 +66,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <AppHeader />
           <main className="site-main">{children}</main>
           <SiteFooter />
+          <RevealController />
         </AppProvider>
       </body>
     </html>

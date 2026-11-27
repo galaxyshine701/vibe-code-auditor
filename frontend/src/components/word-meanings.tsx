@@ -1,4 +1,5 @@
 import type { Lang } from '@/lib/check-labels';
+import { Reveal } from './reveal';
 import { MEANING, SECTIONS, pickText } from '@/lib/hero-copy';
 import { SectionHead } from './section-head';
 import { VerdictBadge } from './verdict';
@@ -14,21 +15,25 @@ const VERDICT = {
 
 export function WordMeanings({ lang }: { lang: Lang }) {
   return (
-    <section className="home-section words" aria-labelledby="words-title">
+    <section className="home-section words" aria-labelledby="words-title" data-reveal-group>
       <SectionHead id="words-title" head={SECTIONS.words} lang={lang} />
       <ul className="word-cards glass-wrap">
         {KINDS.map((kind) => (
-          <li className={`word-card word-${kind} glass`} key={kind}>
-            <VerdictBadge verdict={VERDICT[kind]} />
-            <h3>{pickText(MEANING[kind].word, lang)}</h3>
-            <p>{pickText(MEANING[kind].body, lang)}</p>
+          <li className="reveal" data-reveal="card" key={kind}>
+            <div className={`word-card word-${kind} glass`}>
+              <VerdictBadge verdict={VERDICT[kind]} />
+              <h3>{pickText(MEANING[kind].word, lang)}</h3>
+              <p>{pickText(MEANING[kind].body, lang)}</p>
+            </div>
           </li>
         ))}
       </ul>
-      <p className="words-clean">
-        {pickText(MEANING.cleanLead, lang)}{' '}
-        <strong>{pickText(MEANING.clean, lang)}</strong>.
-      </p>
+      <Reveal>
+        <p className="words-clean">
+          {pickText(MEANING.cleanLead, lang)}{' '}
+          <strong>{pickText(MEANING.clean, lang)}</strong>.
+        </p>
+      </Reveal>
     </section>
   );
 }

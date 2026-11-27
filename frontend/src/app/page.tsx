@@ -1,5 +1,6 @@
 'use client';
 
+import { Reveal } from '@/components/reveal';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
@@ -143,92 +144,98 @@ export default function ConnectPage() {
     <div className="shell home">
       {/* wide screens: the words and the form on the left, the scene on the
           right; narrower: one column, the form first */}
-      <section className="hero hero-stage">
+      <section className="hero hero-stage" data-reveal-group>
         <div className="hero-copy">
-          <div className="hero-copy-top">
-            <p className="hero-kicker">{pickText(KICKER, lang)}</p>
-            <LangToggle lang={lang} onChange={setLang} />
-          </div>
-          <h1
-            className={lang === 'ur' ? 'hero-title hero-title-ur' : 'hero-title'}
-            aria-label={HEADLINE_TEXT}
-          >
-            {HEADLINE.map((word, index) => (
-              <span key={`${lang}-${index}`}>
-                <span
-                  className="hero-word"
-                  style={{ animationDelay: `${150 + index * 90}ms` }}
-                >
-                  {word}
+          <Reveal head>
+            <div className="hero-copy-top">
+              <p className="hero-kicker">{pickText(KICKER, lang)}</p>
+              <LangToggle lang={lang} onChange={setLang} />
+            </div>
+            <h1
+              className={lang === 'ur' ? 'hero-title hero-title-ur' : 'hero-title'}
+              aria-label={HEADLINE_TEXT}
+            >
+              {HEADLINE.map((word, index) => (
+                <span key={`${lang}-${index}`}>
+                  <span
+                    className="hero-word"
+                    style={{ animationDelay: `${150 + index * 90}ms` }}
+                  >
+                    {word}
+                  </span>
+                  {index < HEADLINE.length - 1 ? ' ' : null}
                 </span>
-                {index < HEADLINE.length - 1 ? ' ' : null}
-              </span>
-            ))}
-          </h1>
-          <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
+              ))}
+            </h1>
+            <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
+          </Reveal>
 
           {/* one field, one box, one button; the website opens under the button */}
           <div className="start-wrap glass-wrap">
-          <form
-            id="start-box"
-            className="start-box glass"
-            aria-label={pickText(FORM.start, lang)}
-            onSubmit={submit}
-            noValidate
-          >
-            <RepoGroup fields={fields} check={check} onChange={change} lang={lang} />
-
-            <RateLimitNotice />
-            {error ? (
-              <ErrorBanner
-                message={error}
-                onRetry={canRetry ? () => void runAudit() : undefined}
-              />
-            ) : null}
-
-            <button
-              type="submit"
-              className="button button-primary button-large"
-              disabled={startDisabled}
-              aria-describedby={startHint ? 'start-hint' : undefined}
+          <Reveal>
+            <form
+              id="start-box"
+              className="start-box glass"
+              aria-label={pickText(FORM.start, lang)}
+              onSubmit={submit}
+              noValidate
             >
-              {submitting
-                ? pickText(FORM.starting, lang)
-                : startButtonLabel(check, lang)}
-            </button>
-            {willCheck ? (
-              <p className="will-check" id="will-check" role="status">
-                {willCheck}
-              </p>
-            ) : null}
-            {startHint ? (
-              <p className="muted small" id="start-hint" role="status">
-                {startHint}
-              </p>
-            ) : null}
+              <RepoGroup fields={fields} check={check} onChange={change} lang={lang} />
 
-            <button
-              type="button"
-              className="text-button website-toggle"
-              aria-expanded={websiteOpen}
-              aria-controls="website-more"
-              onClick={() => setWebsiteAsked((open) => !open)}
-            >
-              {pickText(FORM.addWebsite, lang)}
-            </button>
-            <div id="website-more" hidden={!websiteOpen}>
-              <WebsiteGroup fields={fields} check={check} onChange={change} lang={lang} />
-            </div>
+              <RateLimitNotice />
+              {error ? (
+                <ErrorBanner
+                  message={error}
+                  onRetry={canRetry ? () => void runAudit() : undefined}
+                />
+              ) : null}
 
-            <p className="fine-print">{pickText(FORM.noAi, lang)}</p>
-          </form>
+              <button
+                type="submit"
+                className="button button-primary button-large"
+                disabled={startDisabled}
+                aria-describedby={startHint ? 'start-hint' : undefined}
+              >
+                {submitting
+                  ? pickText(FORM.starting, lang)
+                  : startButtonLabel(check, lang)}
+              </button>
+              {willCheck ? (
+                <p className="will-check" id="will-check" role="status">
+                  {willCheck}
+                </p>
+              ) : null}
+              {startHint ? (
+                <p className="muted small" id="start-hint" role="status">
+                  {startHint}
+                </p>
+              ) : null}
+
+              <button
+                type="button"
+                className="text-button website-toggle"
+                aria-expanded={websiteOpen}
+                aria-controls="website-more"
+                onClick={() => setWebsiteAsked((open) => !open)}
+              >
+                {pickText(FORM.addWebsite, lang)}
+              </button>
+              <div id="website-more" hidden={!websiteOpen}>
+                <WebsiteGroup fields={fields} check={check} onChange={change} lang={lang} />
+              </div>
+
+              <p className="fine-print">{pickText(FORM.noAi, lang)}</p>
+            </form>
+          </Reveal>
           </div>
         </div>
 
         {/* the picture of the three words: it plays again and again */}
         <div className="hero-visual">
           <div className="glass-wrap">
-            <HeroScene lang={lang} />
+            <Reveal>
+              <HeroScene lang={lang} />
+            </Reveal>
           </div>
         </div>
       </section>
@@ -236,24 +243,32 @@ export default function ConnectPage() {
       <WhatItChecks lang={lang} />
       <HowItWorks lang={lang} />
 
-      <section className="home-section get" aria-labelledby="get-title">
+      <section className="home-section get" aria-labelledby="get-title" data-reveal-group>
         <SectionHead id="get-title" head={SECTIONS.get} lang={lang} />
         <div className="get-columns">
           <div className="get-text">
-            <p>{pickText(GET.body, lang)}</p>
-            <ul className="get-points">
-              {GET.points.map((point) => (
-                <li key={point.en}>{pickText(point, lang)}</li>
-              ))}
-            </ul>
-            <p className="hero-honesty">{honestyLine(lang)}</p>
+            <Reveal>
+              <div className="get-words">
+                <p>{pickText(GET.body, lang)}</p>
+                <ul className="get-points">
+                  {GET.points.map((point) => (
+                    <li key={point.en}>{pickText(point, lang)}</li>
+                  ))}
+                </ul>
+                <p className="hero-honesty">{honestyLine(lang)}</p>
+              </div>
+            </Reveal>
             <div className="glass-wrap prompt-wrap">
-              <PromptSample lang={lang} />
+              <Reveal>
+                <PromptSample lang={lang} />
+              </Reveal>
             </div>
           </div>
           {/* the example result, here and nowhere else */}
           <div className="hero-card-wrap glass-wrap">
-            <HeroCard lang={lang} />
+            <Reveal>
+              <HeroCard lang={lang} />
+            </Reveal>
           </div>
         </div>
       </section>
@@ -261,41 +276,43 @@ export default function ConnectPage() {
       <WordMeanings lang={lang} />
 
       {/* the Supabase test project: the last thing on the page, closed at first */}
-      <section className="home-section" aria-labelledby="advanced-title">
+      <section className="home-section" aria-labelledby="advanced-title" data-reveal-group>
         <SectionHead id="advanced-title" head={SECTIONS.advanced} lang={lang} />
       <div className="glass-wrap">
-      <details
-        className="advanced glass"
-        id="advanced-supabase"
-        open={advancedOpen}
-        onToggle={(event) => setAdvancedAsked(event.currentTarget.open)}
-      >
-        <summary className="advanced-summary">
-          {pickText(ADVANCED.link, lang)}
-        </summary>
-        <div className="advanced-body">
-          <SupabaseGroup fields={fields} check={check} onChange={change} lang={lang} />
-          <p className="fine-print">{pickText(ADVANCED.keys, lang)}</p>
-          <p className="fine-print">{pickText(ADVANCED.groq, lang)}</p>
-          <p>
-            <a className="text-link" href="#start-box">
-              {pickText(ADVANCED.back, lang)}
-            </a>
-          </p>
-          <h2>{pickText(ADVANCED.howTitle, lang)}</h2>
-          <ol className="steps">
-            {TABLE_STEPS.map((step, index) => (
-              <li key={index}>
-                <span>{index + 1}</span>
-                <div>
-                  <strong>{pickText(step.title, lang)}</strong>
-                  <p>{pickText(step.body, lang)}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </details>
+      <Reveal>
+        <details
+          className="advanced glass"
+          id="advanced-supabase"
+          open={advancedOpen}
+          onToggle={(event) => setAdvancedAsked(event.currentTarget.open)}
+        >
+          <summary className="advanced-summary">
+            {pickText(ADVANCED.link, lang)}
+          </summary>
+          <div className="advanced-body">
+            <SupabaseGroup fields={fields} check={check} onChange={change} lang={lang} />
+            <p className="fine-print">{pickText(ADVANCED.keys, lang)}</p>
+            <p className="fine-print">{pickText(ADVANCED.groq, lang)}</p>
+            <p>
+              <a className="text-link" href="#start-box">
+                {pickText(ADVANCED.back, lang)}
+              </a>
+            </p>
+            <h2>{pickText(ADVANCED.howTitle, lang)}</h2>
+            <ol className="steps">
+              {TABLE_STEPS.map((step, index) => (
+                <li key={index}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{pickText(step.title, lang)}</strong>
+                    <p>{pickText(step.body, lang)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </details>
+      </Reveal>
       </div>
       </section>
     </div>

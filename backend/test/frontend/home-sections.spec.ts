@@ -152,17 +152,13 @@ describe('how it works', () => {
     for (const m of html.matchAll(/\bd="([^"]+)"/g)) expect(hasTick(m[1])).toBe(false);
   });
 
-  it('the checks and their bar stand still: nothing in the pictures moves', () => {
+  it('the checks and their bar stand still: the steps rise with the other cards', () => {
     const glass = read('app', 'glass.css');
     expect(glass).toMatch(/\.mv-progress span \{[^}]*transform: scaleX\(0\.62\)/);
-    expect(glass).not.toMatch(/mvFill|howRise/);
-  });
-
-  it('fades in once, and not at all with reduced motion', () => {
+    expect(glass).not.toMatch(/mvFill|howRise|howFade/);
     const source = read('components', 'how-it-works.tsx');
-    expect(source).toContain('IntersectionObserver');
-    expect(source).toContain('watch.disconnect()');
-    expect(source).toContain('prefers-reduced-motion: reduce');
+    expect(source).not.toContain('IntersectionObserver');
+    expect(html.match(/data-reveal="card"/g)).toHaveLength(3);
   });
 });
 

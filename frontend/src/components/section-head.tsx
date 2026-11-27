@@ -1,4 +1,5 @@
 import type { Lang } from '@/lib/check-labels';
+import { Reveal } from './reveal';
 import { pickText } from '@/lib/hero-copy';
 
 // The one style of a section heading on the home page: a small label, then the
@@ -13,9 +14,11 @@ export function SectionHead({
   lang: Lang;
 }) {
   return (
-    <header className="section-head">
-      <p className="section-label">{pickText(head.label, lang)}</p>
-      <h2 id={id}>{pickText(head.title, lang)}</h2>
-    </header>
+    <Reveal head>
+      <header className="section-head">
+        <p className="section-label">{pickText(head.label, lang)}</p>
+        <h2 id={id}>{pickText(head.title, lang)}</h2>
+      </header>
+    </Reveal>
   );
 }

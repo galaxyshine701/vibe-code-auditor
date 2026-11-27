@@ -151,7 +151,7 @@ describe('"Findings are read only after the audit is completed"', () => {
 
   it('is not next to the "View report" button of a completed run', () => {
     const completed = run.slice(
-      run.indexOf("{status === 'completed' ? (\n              <div className=\"action-row\">"),
+      run.search(/\{status === 'completed' \? \(\s*<div className="action-row">/),
     );
     expect(completed.slice(0, 500)).toContain('View report');
     expect(completed.slice(0, 500)).not.toContain('Findings are read only');

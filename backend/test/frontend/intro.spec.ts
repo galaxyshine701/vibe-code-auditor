@@ -537,14 +537,13 @@ describe('the intro and the headline never run together', () => {
 });
 
 describe('the overlay belongs to the whole screen (the reason it was cut off)', () => {
-  // The page's wrapper (.page-stack) has an animation. An animation on a wrapper
-  // can give a `position: fixed` child its own stacking context, below the
-  // header, so the overlay must not live in a page.
-  it('the wrapper of a page only fades: no transform, and nothing held after it', () => {
-    expect(css).toMatch(/\.page-stack \{[^}]*animation: rise [^;]*backwards;/);
-    const body = /@keyframes rise \{([\s\S]*?)\n\}/.exec(css)![1];
-    expect(body).toContain('opacity: 0');
-    expect(body).not.toContain('transform');
+  // A wrapper of a card is moved and faded when it comes into view. A
+  // `position: fixed` child of such a wrapper would be fixed to it, not to the
+  // screen, so the overlay must not live in a page.
+  it('the cards of a page are moved by their wrapper (so the rule matters)', () => {
+    expect(read('app', 'glass.css')).toMatch(
+      /@keyframes revealUp \{[\s\S]*?transform: translateY\(28px\)/,
+    );
   });
 
   it('is rendered directly in <body> of the layout, before the header and the page, not in <main>', () => {

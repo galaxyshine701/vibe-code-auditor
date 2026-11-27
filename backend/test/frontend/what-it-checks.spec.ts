@@ -40,7 +40,7 @@ describe('what it checks', () => {
     ]);
     for (const lang of ['en', 'ur'] as const) {
       const out = render(lang);
-      expect(out.match(/<li class="glass"/g)).toHaveLength(4);
+      expect(out.match(/<div class="checks-card glass"/g)).toHaveLength(4);
       for (const item of copy.WHAT_IT_CHECKS.items) {
         expect(out).toContain(item.title[lang]);
         expect(item.body[lang].length).toBeGreaterThan(20);
