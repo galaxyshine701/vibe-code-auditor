@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import type { ClientReport, RoadmapItem } from '@/lib/stage-types';
 import { mergeSameSteps, pick, topActionItems } from '@/lib/stage';
-import { filesReadText, t } from '@/lib/stage-copy';
+import { filesReadText, severityText, t } from '@/lib/stage-copy';
 import type { AuditSummary } from '@/lib/types';
 
 // The summary block of the client report (R80), above the details: the counts
@@ -104,7 +104,7 @@ export function ClientSummary({
   const showRepo = hasRepo || report?.findings?.repo !== undefined;
 
   return (
-    <section className="card client-summary" aria-labelledby="summary-heading">
+    <section className="card client-summary glass" aria-labelledby="summary-heading">
       <h2 id="summary-heading">{t(lang, 'summaryHeading')}</h2>
       <div className="summary-groups">
         {showTables ? (
@@ -183,7 +183,7 @@ export function ClientSummary({
               <li key={item.id}>
                 <a href={`#roadmap-${item.id}`}>
                   <span className={`severity severity-${item.severity}`}>
-                    {String(item.severity)}
+                    {severityText(String(item.severity), lang)}
                   </span>
                   <span>{pick(item.title, lang)}</span>
                 </a>

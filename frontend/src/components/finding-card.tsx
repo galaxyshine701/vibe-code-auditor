@@ -3,7 +3,8 @@
 import { useCallback, useState } from 'react';
 import { approveFix } from '@/lib/api';
 import { formatDate } from '@/lib/format';
-import { severityLabel, verdictLabel } from '@/lib/findings';
+import { verdictLabel } from '@/lib/findings';
+import { severityText } from '@/lib/stage-copy';
 import { ApiError } from '@/lib/errors';
 import type {
   Finding,
@@ -144,7 +145,7 @@ export function FindingCard({
   return (
     <article
       id={`finding-${finding.id}`}
-      className={`finding-card finding-${finding.verdict.toLowerCase()}`}
+      className={`finding-card finding-${finding.verdict.toLowerCase()} glass`}
     >
       <div className="finding-top">
         <div className="finding-badges">
@@ -153,7 +154,7 @@ export function FindingCard({
             label={verdictLabel(finding.verdict)}
           />
           <span className={`severity severity-${finding.severity}`}>
-            {severityLabel(finding.severity)}
+            {severityText(finding.severity, language)}
           </span>
           <span className="table-chip">{finding.table}</span>
           {retest.previousVerdict &&

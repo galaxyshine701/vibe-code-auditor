@@ -537,16 +537,14 @@ describe('the intro and the headline never run together', () => {
 });
 
 describe('the overlay belongs to the whole screen (the reason it was cut off)', () => {
-  // The page's wrapper (.page-stack) has an animation that ends with
-  // `transform: translateY(0)` and `both`. A `position: fixed` child of an
-  // element with a transform is fixed to that element, not to the screen, and
-  // its z-index stays inside that element's own stacking context, below the
-  // header. So the overlay must not live in a page.
-  it('the animation of the page wrapper that does this is still there (so the rule matters)', () => {
-    expect(css).toMatch(/\.page-stack \{[^}]*animation: rise [^;]*both;/);
-    expect(css).toMatch(
-      /@keyframes rise \{[\s\S]*?to \{[^}]*transform: translateY\(0\)/,
-    );
+  // The page's wrapper (.page-stack) has an animation. An animation on a wrapper
+  // can give a `position: fixed` child its own stacking context, below the
+  // header, so the overlay must not live in a page.
+  it('the wrapper of a page only fades: no transform, and nothing held after it', () => {
+    expect(css).toMatch(/\.page-stack \{[^}]*animation: rise [^;]*backwards;/);
+    const body = /@keyframes rise \{([\s\S]*?)\n\}/.exec(css)![1];
+    expect(body).toContain('opacity: 0');
+    expect(body).not.toContain('transform');
   });
 
   it('is rendered directly in <body> of the layout, before the header and the page, not in <main>', () => {

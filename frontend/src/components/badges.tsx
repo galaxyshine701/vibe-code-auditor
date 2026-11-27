@@ -109,7 +109,7 @@ export function BadgeStrip({
   );
 
   return (
-    <section className="card badges-card" aria-labelledby="badges-heading">
+    <section className="card badges-card glass" aria-labelledby="badges-heading">
       <h2 id="badges-heading">{w('Badges')}</h2>
       <p className="muted small">
         {w('Saved in this browser only. They are not proof and are not part of the re-test result or its record hash.')}

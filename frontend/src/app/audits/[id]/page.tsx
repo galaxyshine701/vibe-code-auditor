@@ -126,7 +126,7 @@ export default function ProgressPage() {
   if (gone) {
     return (
       <div className="shell narrow-stack">
-        <div className="card empty-card">
+        <div className="card empty-card glass">
           <h1>{w('This audit no longer exists.')}</h1>
           <p className="muted">
             {w('No audit with this id was found. The server keeps the newest 50 audits, so an older one is no longer there.')}
@@ -194,7 +194,7 @@ export default function ProgressPage() {
       <RateLimitNotice />
 
       {!error && waiting && !audit ? (
-        <div className="card loading-card" role="status">
+        <div className="card loading-card glass" role="status">
           <span className="spinner" aria-hidden="true" />
           <div>
             <strong>{w('Waiting for the first status answer.')}</strong>
@@ -207,7 +207,8 @@ export default function ProgressPage() {
 
       {audit ? (
         <>
-          <section className="card progress-card">
+          <div className="result-cards glass-wrap">
+          <section className="card progress-card glass">
             <div className="progress-top">
               <div>
                 <div className="status-line">
@@ -428,6 +429,7 @@ export default function ProgressPage() {
               </div>
             ) : null}
           </section>
+          </div>
 
           {audit.cleanup === 'failed' ? (
             <CleanupWarning note={audit.cleanupNote} />

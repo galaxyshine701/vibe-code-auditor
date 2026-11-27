@@ -121,7 +121,7 @@ export function ScopeBuckets({
     [...buckets.checked, ...buckets.partial].map((check) => check.id),
   );
   return (
-    <section className="card scope-card" id="scope" aria-labelledby="scope-heading">
+    <section className="card scope-card glass" id="scope" aria-labelledby="scope-heading">
       <h2 id="scope-heading">{t(lang, 'scopeHeading')}</h2>
       <p className="muted small">{t(lang, 'scopeIntro')}</p>
       <div className="bucket-grid">

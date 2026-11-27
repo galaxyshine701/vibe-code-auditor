@@ -12,32 +12,35 @@
    - A phone has a lighter blur and no light sweep; without backdrop-filter the
      card is a plain, more solid translucent card; with prefers-reduced-motion
      nothing moves.
-   - Motion: transform and opacity only. */
+   - A card never moves: it fades in at most. Transform is used only inside the
+     drawings of the hero scene. */
 
 :root {
-  --blob-amber: rgba(246, 190, 50, 0.3);
-  --blob-green: rgba(45, 190, 125, 0.26);
-  --blob-violet: rgba(130, 95, 235, 0.34);
+  /* every glow is a design token at a low strength: the brand amber, the green
+     of BLOCKED and a neutral tint of the surface */
+  --blob-amber: color-mix(in srgb, var(--canary) 26%, transparent);
+  --blob-green: color-mix(in srgb, var(--ok) 20%, transparent);
+  --blob-neutral: color-mix(in srgb, var(--ink) 10%, transparent);
   --glass-hi: rgba(255, 255, 255, 0.09);
   --glass-lo: rgba(255, 255, 255, 0.025);
   --glass-scrim: rgba(20, 22, 30, 0.66);
   --glass-edge: rgba(255, 255, 255, 0.22);
   --glass-top: rgba(255, 255, 255, 0.46);
-  --glass-tint: rgba(130, 95, 235, 0.6);
+  --glass-tint: color-mix(in srgb, var(--canary) 34%, transparent);
   --glass-blur: blur(18px) saturate(160%);
   --sweep: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="light"] {
-  --blob-amber: rgba(255, 190, 60, 0.4);
-  --blob-green: rgba(70, 195, 140, 0.28);
-  --blob-violet: rgba(150, 115, 240, 0.26);
+  --blob-amber: color-mix(in srgb, var(--canary) 34%, transparent);
+  --blob-green: color-mix(in srgb, var(--ok) 18%, transparent);
+  --blob-neutral: color-mix(in srgb, var(--ink) 8%, transparent);
   --glass-hi: rgba(255, 255, 255, 0.72);
   --glass-lo: rgba(255, 255, 255, 0.32);
   --glass-scrim: rgba(255, 255, 255, 0.42);
   --glass-edge: rgba(130, 100, 55, 0.18);
   --glass-top: rgba(255, 255, 255, 1);
-  --glass-tint: rgba(190, 130, 50, 0.5);
+  --glass-tint: color-mix(in srgb, var(--canary) 42%, transparent);
   --sweep: rgba(255, 255, 255, 0.5);
 }
 
@@ -61,37 +64,36 @@
   pointer-events: none;
   background:
     radial-gradient(26% 50% at 26% 50%, var(--blob-a, var(--blob-amber)), transparent 100%),
-    radial-gradient(28% 50% at 72% 50%, var(--blob-b, var(--blob-violet)), transparent 100%),
+    radial-gradient(28% 50% at 72% 50%, var(--blob-b, var(--blob-neutral)), transparent 100%),
     radial-gradient(18% 36% at 50% 36%, var(--blob-c, var(--blob-green)), transparent 100%);
 }
 
 /* each part of the page has its own mix */
 .hero-visual > .glass-wrap {
-  --blob-a: var(--blob-violet);
+  --blob-a: var(--blob-neutral);
   --blob-b: var(--blob-amber);
-  --glass-tint: rgba(130, 95, 235, 0.55);
 }
 
 .checks-list.glass-wrap {
   --blob-a: var(--blob-green);
   --blob-b: var(--blob-amber);
-  --blob-c: var(--blob-violet);
+  --blob-c: var(--blob-neutral);
 }
 
 .how-steps.glass-wrap {
   --blob-a: var(--blob-amber);
   --blob-b: var(--blob-green);
-  --blob-c: var(--blob-violet);
+  --blob-c: var(--blob-neutral);
 }
 
 .hero-card-wrap.glass-wrap {
-  --blob-a: var(--blob-violet);
+  --blob-a: var(--blob-neutral);
   --blob-b: var(--blob-green);
   --blob-c: var(--blob-amber);
 }
 
 .word-cards.glass-wrap {
-  --blob-a: var(--blob-violet);
+  --blob-a: var(--blob-neutral);
   --blob-b: var(--blob-green);
   --blob-c: var(--blob-amber);
 }
@@ -135,7 +137,7 @@ html:not([data-theme="light"]) .glass .verdict-badge {
 }
 
 html:not([data-theme="light"]) .scene-canary {
-  filter: drop-shadow(0 0 5px rgba(246, 201, 69, 0.55));
+  filter: drop-shadow(0 0 5px var(--canary-glow));
 }
 
 /* ---- the page: one gap between the sections ---- */
@@ -260,8 +262,8 @@ html:not([data-theme="light"]) .scene-canary {
    (not a dead grey one) while something is missing, with the line under it */
 .start-box .button-primary:not(:disabled) {
   box-shadow:
-    0 0 0 3px rgba(246, 190, 50, 0.45),
-    0 0 28px -4px rgba(246, 190, 50, 0.75);
+    0 0 0 3px color-mix(in srgb, var(--canary) 45%, transparent),
+    0 0 28px -4px color-mix(in srgb, var(--canary) 75%, transparent);
 }
 
 .start-box .button-primary:disabled {
@@ -598,7 +600,8 @@ html {
   animation: sceneShine 7s ease-in-out infinite both;
 }
 
-/* the card comes out of the window, from its side */
+/* the card appears after the window. It only fades, so it stays in the middle of
+   its panel in every frame */
 .scene-fix {
   animation: sceneCard 7s ease-in-out infinite both;
 }
@@ -607,16 +610,13 @@ html {
   0%,
   52% {
     opacity: 0.3;
-    transform: translateX(-26px);
   }
   66%,
   92% {
     opacity: 1;
-    transform: none;
   }
   100% {
     opacity: 0.3;
-    transform: none;
   }
 }
 
@@ -872,7 +872,7 @@ html[data-intro="leaving"] .hero-scene::after {
 }
 
 .how-visual-result {
-  --visual-glow: var(--blob-violet);
+  --visual-glow: var(--blob-neutral);
 }
 
 .mv-input,
@@ -999,41 +999,22 @@ html[data-intro="leaving"] .hero-scene::after {
   font-weight: 700;
 }
 
-/* the steps rise once, when they come into view (how-it-works.tsx) */
+/* the steps fade in once, when they come into view (how-it-works.tsx). Opacity
+   only: a card with a backdrop blur never moves */
 .how-steps[data-rise="waiting"] .how-step {
   opacity: 0;
 }
 
 .how-steps[data-rise="up"] .how-step {
-  animation: howRise 0.6s ease-out calc(var(--i, 0) * 0.12s) both;
+  animation: howFade 0.6s ease-out calc(var(--i, 0) * 0.12s) both;
 }
 
-/* the checks fill once, when the steps come into view */
-.how-steps[data-rise="up"] .mv-row {
-  animation: howRise 0.4s ease-out calc(0.35s + var(--r, 0) * 0.22s) both;
-}
-
-.how-steps[data-rise="up"] .mv-progress span {
-  animation: mvFill 1.4s ease-out 0.4s both;
-}
-
-@keyframes mvFill {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(0.62);
-  }
-}
-
-@keyframes howRise {
+@keyframes howFade {
   from {
     opacity: 0;
-    transform: translateY(14px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -1143,8 +1124,8 @@ html[data-intro="leaving"] .hero-scene::after {
     padding: 6px 8px;
   }
 
-  .get .dot-numeral {
-    height: 26px;
+  .get .hero-tile-count {
+    font-size: 1.6rem;
   }
 }
 
@@ -1217,7 +1198,7 @@ html[data-intro="leaving"] .hero-scene::after {
   gap: 16px;
 }
 
-/* ---- the verdict tiles, with dot-matrix numerals ---- */
+/* ---- the verdict tiles and their counts ---- */
 .hero-tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1256,21 +1237,13 @@ html[data-intro="leaving"] .hero-scene::after {
   --tone: #8a6400;
 }
 
-.dot-numeral {
-  height: 40px;
-  width: auto;
+.hero-tile-count {
   color: var(--tone);
-  overflow: visible;
-  filter: drop-shadow(0 0 4px var(--tone-glow));
-}
-
-.dot-on {
-  fill: currentColor;
-}
-
-.dot-off {
-  fill: currentColor;
-  opacity: 0.14;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .hero-tile-word {
@@ -1295,15 +1268,15 @@ html[data-intro="leaving"] .hero-scene::after {
   /* a phone: a lighter blur and paler blobs */
   :root {
     --glass-blur: blur(8px) saturate(130%);
-    --blob-amber: rgba(246, 190, 50, 0.16);
-    --blob-green: rgba(45, 190, 125, 0.14);
-    --blob-violet: rgba(130, 95, 235, 0.18);
+    --blob-amber: color-mix(in srgb, var(--canary) 14%, transparent);
+    --blob-green: color-mix(in srgb, var(--ok) 11%, transparent);
+    --blob-neutral: color-mix(in srgb, var(--ink) 6%, transparent);
   }
 
   [data-theme="light"] {
-    --blob-amber: rgba(255, 190, 60, 0.22);
-    --blob-green: rgba(70, 195, 140, 0.16);
-    --blob-violet: rgba(150, 115, 240, 0.15);
+    --blob-amber: color-mix(in srgb, var(--canary) 20%, transparent);
+    --blob-green: color-mix(in srgb, var(--ok) 10%, transparent);
+    --blob-neutral: color-mix(in srgb, var(--ink) 5%, transparent);
   }
 
   .glass-wrap::before {
@@ -1376,8 +1349,8 @@ html[data-intro="leaving"] .hero-scene::after {
     gap: 6px;
   }
 
-  .dot-numeral {
-    height: 34px;
+  .hero-tile-count {
+    font-size: 1.9rem;
   }
 
   .hero-tile-word {
@@ -1411,11 +1384,6 @@ html[data-intro="leaving"] .hero-scene::after {
   .scene-key,
   .scene-glow-key,
   .scene-fix {
-    animation: none;
-  }
-
-  .how-steps[data-rise] .mv-row,
-  .how-steps[data-rise] .mv-progress span {
     animation: none;
   }
 
@@ -1501,3 +1469,79 @@ html[data-intro="leaving"] .hero-scene::after {
   }
 }
 
+/* ---- the result page and the run page: the same glass ----
+   The cards carry the class "glass" (the tokens above). A halo is drawn only by a
+   wrapper that holds cards and nothing else, so no loose text has it behind it;
+   it repeats down a long list of cards. */
+.site-main:has(.page-stack) {
+  overflow-x: clip;
+}
+
+/* the findings keep their own grid; the other wrappers stack like the page */
+.result-cards:not(.findings-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  min-width: 0;
+}
+
+.result-cards.glass-wrap {
+  --blob-a: var(--blob-amber);
+  --blob-b: var(--blob-neutral);
+  --blob-c: var(--blob-neutral);
+}
+
+.result-cards.glass-wrap::before {
+  background-size: 100% 720px;
+}
+
+/* these cards keep their own coloured edge and tint over the glass */
+.gate-banner.glass {
+  border-color: var(--tone);
+  background:
+    linear-gradient(135deg, var(--tone-soft), transparent 70%),
+    linear-gradient(150deg, var(--glass-hi), var(--glass-lo)),
+    var(--glass-scrim);
+}
+
+.finding-card.glass {
+  border-left-width: 3px;
+}
+
+.finding-leaked.glass {
+  border-left-color: var(--leak);
+  background:
+    linear-gradient(180deg, var(--leak-soft), transparent 140px),
+    linear-gradient(150deg, var(--glass-hi), var(--glass-lo)),
+    var(--glass-scrim);
+}
+
+.finding-blocked.glass {
+  border-left-color: var(--ok);
+}
+
+.finding-inconclusive.glass {
+  border-left-color: var(--grey);
+}
+
+[data-theme="light"] .page-stack .glass {
+  --muted-2: #4d535b;
+}
+
+/* nothing to do and nothing to show: one line, not two empty cards */
+.nothing-line {
+  margin: 0;
+  padding: 14px 20px;
+  color: var(--ink);
+}
+
+/* a heading is not a place to type: no text cursor stands beside it */
+.page-heading h1,
+.report-heading h1 {
+  caret-color: transparent;
+}
+
+/* the language switch of a narrow page is as wide as its words */
+.narrow-stack > .segmented {
+  align-self: flex-start;
+}

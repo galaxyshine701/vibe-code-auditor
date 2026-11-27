@@ -8,7 +8,7 @@ import {
   roadmapUnavailable,
   showsRequiredLabel,
 } from '@/lib/stage';
-import { kindLabel, moreSteps, t } from '@/lib/stage-copy';
+import { kindLabel, moreSteps, severityText, t } from '@/lib/stage-copy';
 import { FixPrompt } from './fix-prompt';
 
 // The roadmap (R81): the next steps, already in the order to follow, so they are
@@ -43,7 +43,7 @@ export function RoadmapList({
   const truncated = roadmap?.truncated ?? 0;
 
   return (
-    <section className="card roadmap-card" id="roadmap" aria-labelledby="roadmap-heading">
+    <section className="card roadmap-card glass" id="roadmap" aria-labelledby="roadmap-heading">
       <h2 id="roadmap-heading">{t(lang, 'roadmapHeading')}</h2>
       <p className="muted small">{t(lang, 'roadmapIntro')}</p>
 
@@ -75,7 +75,7 @@ export function RoadmapList({
                   <summary>
                     <span className="roadmap-chips">
                       <span className={`severity severity-${item.severity}`}>
-                        {String(item.severity)}
+                        {severityText(String(item.severity), lang)}
                       </span>
                       <span className="roadmap-kind">{kindLabel(item.kind, lang)}</span>
                       {showsRequiredLabel(item) ? (

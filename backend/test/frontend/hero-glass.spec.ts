@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 // The look of the home page: no frame and no background around the hero (one
 // background for the whole page, in both themes), glass cards with soft blobs
 // behind them only, the scene of the hero, the verdict tiles and their
-// dot-matrix numerals, and the contrast of the words in both themes on the worst
+// counts, and the contrast of the words in both themes on the worst
 // case of the glass. The frontend has no test runner of its own, so its files
 // are read by path.
 const FRONTEND = join(__dirname, '..', '..', '..', 'frontend');
@@ -37,13 +37,6 @@ const sceneModule = (await import(
 const cardModule = (await import(
   /* @vite-ignore */ href('components', 'hero-card.tsx')
 )) as { HeroCard: (p: { lang: Lang }) => unknown };
-const numeral = (await import(
-  /* @vite-ignore */ href('components', 'dot-numeral.tsx')
-)) as {
-  DotNumeral: (p: { value: number }) => unknown;
-  digitsOf: (v: number) => string[];
-};
-
 /** The body of the first rule written with exactly this selector. */
 const rule = (selector: string, text = css) => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -156,6 +149,19 @@ describe('the glass cards', () => {
   });
 });
 
+describe('the colours of the glows', () => {
+  it('every blob and halo is the brand amber, a status colour or a neutral tint of the theme', () => {
+    const declared = [...css.matchAll(/--(blob-[\w-]+|glass-tint|visual-glow):\s*([^;]+);/g)];
+    expect(declared.length).toBeGreaterThan(10);
+    for (const [, name, value] of declared) {
+      expect(value, name).toMatch(
+        /^(var\(--blob-(amber|green|neutral)\)|color-mix\(in srgb, var\(--(canary|ok|leak|ink)\) \d+%, transparent\))$/,
+      );
+    }
+    expect(css).not.toMatch(/violet|rgba\(1[35]0, (95|115)|rgba\(246, (190|201)/);
+  });
+});
+
 // ---- contrast of the words, on the page of each theme ----
 type Rgba = [number, number, number, number];
 function color(value: string): Rgba {
@@ -168,6 +174,14 @@ function color(value: string): Rgba {
   if (!rgba) throw new Error(`not a colour: ${value}`);
   const [r, g, b, a = '1'] = rgba[1].split(',').map((p) => p.trim());
   return [Number(r), Number(g), Number(b), Number(a)];
+}
+/** A colour of a theme: written out, or `color-mix` of a token with transparent. */
+function resolve(value: string, theme: string): Rgba {
+  const mix = /^color-mix\(in srgb, var\(--([\w-]+)\) (\d+)%, transparent\)$/.exec(value);
+  if (!mix) return color(value);
+  const base = new RegExp(`--${mix[1]}:\\s*([^;]+);`).exec(theme)![1].trim();
+  const [r, g, b, a] = color(base);
+  return [r, g, b, (a * Number(mix[2])) / 100];
 }
 const over = (bg: Rgba, top: Rgba): Rgba => [
   bg[0] * (1 - top[3]) + top[0] * top[3],
@@ -197,12 +211,12 @@ describe('text contrast (AA) in both themes, on the worst case of the glass', ()
   };
   for (const [name, block] of Object.entries(themes) as ['dark' | 'light', string][]) {
     const value = (t: string, text: string) =>
-      color(new RegExp(`--${t}:\\s*([^;]+);`).exec(text)![1].trim());
+      resolve(new RegExp(`--${t}:\\s*([^;]+);`).exec(text)![1].trim(), block);
     const token = (t: string) => value(t, block);
     const glass = (t: string) => value(t, glassBlock[name]);
     const page = token('bg');
     // behind a card: the page alone, or a blob at its strongest (even all three on top of each other)
-    const blobs = ['blob-amber', 'blob-green', 'blob-violet'].map(glass);
+    const blobs = ['blob-amber', 'blob-green', 'blob-neutral'].map(glass);
     const behind = [page, ...blobs.map((b) => over(page, b)), blobs.reduce(over, page)];
     const cards = behind.flatMap((back) => {
       const scrim = over(back, glass('glass-scrim'));
@@ -269,12 +283,60 @@ describe('text contrast (AA) in both themes, on the worst case of the glass', ()
   });
 });
 
+describe('the result page and the run page', () => {
+  const report = read('app', 'audits', '[id]', 'report', 'page.tsx');
+  const run = read('app', 'audits', '[id]', 'page.tsx');
+
+  it('their cards are the glass of the home page', () => {
+    for (const [file, name] of [
+      ['gate-banner', 'gate-banner gate-${tone} glass'],
+      ['client-summary', 'card client-summary glass'],
+      ['scope-buckets', 'card scope-card glass'],
+      ['roadmap-list', 'card roadmap-card glass'],
+      ['evidence-groups', 'card evidence-card glass'],
+      ['badges', 'card badges-card glass'],
+      ['before-after', 'card before-after glass'],
+      ['finding-card', 'finding-${finding.verdict.toLowerCase()} glass'],
+    ]) {
+      expect(read('components', `${file}.tsx`), file).toContain(name);
+    }
+    expect(run).toContain('card progress-card glass');
+    for (const text of [report, run]) {
+      expect(text).toContain('result-cards glass-wrap');
+      expect(text).not.toMatch(/className="card [\w-]+-card"/);
+    }
+  });
+
+  it('the wrapper of the findings leaves their two columns as they are', () => {
+    expect(css).toMatch(/\.result-cards:not\(\.findings-grid\) \{\s*display: grid;/);
+    expect(css).not.toMatch(/^\.result-cards \{/m);
+  });
+
+  it('the halo is only around the wrappers of cards, and the page cuts it at its edge', () => {
+    expect(css).toMatch(/\.site-main:has\(\.page-stack\) \{\s*overflow-x: clip;/);
+    expect(css).not.toMatch(/\.page-stack::before|\.report-heading::before/);
+  });
+
+  it('no next step and no evidence: one line instead of two empty cards, never for a failed run', () => {
+    expect(report).toContain('{nothing ? null : (');
+    expect(report).toContain('{nothing && !failed ? (');
+    expect(report).toContain("t(language, 'nothingToShow')");
+  });
+
+  it('a focus ring is only for :focus-visible, and no text cursor stands beside a heading', () => {
+    for (const file of ['globals.css', 'glass.css', 'report.css', 'stage.css', 'hero.css']) {
+      expect(stripComments(read('app', file)), file).not.toMatch(/:focus(?!-visible)/);
+    }
+    expect(css).toMatch(/\.report-heading h1 \{\s*caret-color: transparent;/);
+  });
+});
+
 describe('motion', () => {
   const scene = ['sceneCard', 'sceneDown', 'sceneFade', 'sceneKey', 'sceneLand', 'sceneShine', 'sceneWalk'];
 
   it('every animation of the page style moves only transform and opacity', () => {
     const names = [...new Set([...css.matchAll(/animation: (\w+) /g)].map((m) => m[1]))];
-    expect(names.sort()).toEqual([...scene, 'heroSweep', 'howRise', 'mvFill'].sort());
+    expect(names.sort()).toEqual([...scene, 'heroSweep', 'howFade'].sort());
     for (const name of names) {
       const body = new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}\\n`).exec(css)![1];
       for (const prop of [...body.matchAll(/^\s+([a-z-]+):/gm)].map((m) => m[1])) {
@@ -300,6 +362,17 @@ describe('motion', () => {
     expect(block).toContain('.hero-scene::after');
     expect(block).toContain('.how-steps[data-rise] .how-step');
     expect(block).toContain('animation: none');
+  });
+
+  it('a card never moves: every fade of a card or a row is opacity only, once', () => {
+    const sheets = [css, globals, read('app', 'report.css'), read('app', 'stage.css')].join('\n');
+    for (const name of ['howFade', 'rise', 'textReveal', 'gateRise', 'evidenceIn', 'rowIn']) {
+      const body = new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}`).exec(sheets)![1];
+      expect(body, name).toContain('opacity');
+      expect(body, name).not.toMatch(/transform|translate|scale/);
+    }
+    expect(css).not.toMatch(/animation: howFade[^;]*infinite/);
+    expect(sheets).not.toContain('will-change');
   });
 });
 
@@ -329,7 +402,7 @@ describe('the scene of the hero', () => {
     });
   });
 
-  it('has a fourth thing, after the window: a card "Fix prompt: steps that close it" that slides out', () => {
+  it('has a fourth thing, after the window: a card "Fix prompt: steps that close it" that fades in, in the middle', () => {
     expect(copy.SCENE.fix.title.en).toBe('Fix prompt:');
     expect(copy.SCENE.fix.note.en).toBe('steps that close it');
     expect(copy.SCENE.fix.note.ur.length).toBeGreaterThan(8);
@@ -338,7 +411,7 @@ describe('the scene of the hero', () => {
     expect(out.indexOf('scene-panel-fix')).toBeGreaterThan(out.indexOf('scene-panel-key'));
     expect(out).toContain('scene-card');
     const moves = /@keyframes sceneCard \{([\s\S]*?)\n\}\n/.exec(css)![1];
-    expect(moves).toContain('translateX(-26px)');
+    expect(moves).not.toContain('transform');
   });
 
   it('is two by two, and fills the height of its column: the two columns of the hero are one height', () => {
@@ -399,36 +472,14 @@ describe('the scene of the hero', () => {
   });
 });
 
-describe('the dot-matrix numerals and the verdict tiles', () => {
-  const render = (value: number) =>
-    renderToStaticMarkup(
-      React.createElement(numeral.DotNumeral as never, { value }),
+describe('the verdict tiles', () => {
+  it('write their count as a plain number that can be read', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(cardModule.HeroCard as never, { lang: 'en' }),
     );
-
-  it('draws a digit as a 5 by 7 grid of dots, and says the number in its label', () => {
-    const one = render(1);
-    expect(one.match(/<circle/g)).toHaveLength(35);
-    expect(one.match(/class="dot-on"/g)).toHaveLength(10);
-    expect(one).toContain('aria-label="1"');
-    expect(one).toContain('role="img"');
-    const twelve = render(12);
-    expect(twelve.match(/<circle/g)).toHaveLength(70);
-    expect(twelve).toContain('aria-label="12"');
-  });
-
-  it('a count that is not a whole number from 0 up is drawn as 0, never as a broken picture', () => {
-    expect(numeral.digitsOf(-3)).toEqual(['0']);
-    expect(numeral.digitsOf(Number.NaN)).toEqual(['0']);
-    expect(numeral.digitsOf(7.9)).toEqual(['7']);
-    expect(render(Number.NaN)).toContain('aria-label="0"');
-  });
-
-  it('every digit 0 to 9 has a glyph of 7 rows of 5 cells with at least one dot', () => {
-    for (let d = 0; d <= 9; d++) {
-      const out = render(d);
-      expect(out.match(/<circle/g), String(d)).toHaveLength(35);
-      expect(out.match(/class="dot-on"/g)!.length, String(d)).toBeGreaterThan(5);
-    }
+    const counts = [...out.matchAll(/<span class="hero-tile-count">(\d+)<\/span>/g)].map((m) => Number(m[1]));
+    expect(counts).toEqual(copy.TILES.map((tile) => tile.count));
+    expect(rule('.hero-tile-count')).toMatch(/font-size: [\d.]+rem/);
   });
 
   it('the two tiles are LEAKED and INCONCLUSIVE, and their counts are the verdict badges of the rows', () => {
@@ -452,7 +503,6 @@ describe('the dot-matrix numerals and the verdict tiles', () => {
 describe('the words of the hero', () => {
   const files = [
     'components/hero-scene.tsx',
-    'components/dot-numeral.tsx',
     'components/hero-card.tsx',
     'components/how-it-works.tsx',
     'components/word-meanings.tsx',

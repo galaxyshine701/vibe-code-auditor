@@ -7,6 +7,7 @@ import { AccessGate } from '@/components/access-gate';
 import { useApp } from '@/components/app-provider';
 import { Disclaimer } from '@/components/disclaimer';
 import { ErrorBanner } from '@/components/error-banner';
+import { LangToggle } from '@/components/lang-toggle';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
 import { getCertificate } from '@/lib/api';
 import { PROJECT_NAME } from '@/lib/brand';
@@ -16,13 +17,17 @@ import {
 } from '@/lib/errors';
 import { formatDate, unverifiedText } from '@/lib/format';
 import type { Certificate } from '@/lib/types';
+import { uiText } from '@/lib/ui-copy';
 import { useApiError } from '@/lib/use-api-error';
+import { useLang } from '@/lib/use-lang';
 
 export default function CertificatePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const { accessCode, rateLimitSecondsLeft } = useApp();
   const handleApiError = useApiError();
+  const [lang, setLang] = useLang();
+  const w = (text: string) => uiText(text, lang);
 
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [error, setError] = useState('');
@@ -90,8 +95,8 @@ export default function CertificatePage() {
         <div className="card loading-card" role="status">
           <span className="spinner" aria-hidden="true" />
           <div>
-            <strong>Checking the re-test result…</strong>
-            <p className="muted">This view stays inside the app.</p>
+            <strong>{w('Checking the re-test result…')}</strong>
+            <p className="muted">{w('This view stays inside the app.')}</p>
           </div>
         </div>
         <Disclaimer />
@@ -103,13 +108,12 @@ export default function CertificatePage() {
     return (
       <div className="shell narrow-stack">
         <div className="card empty-card">
-          <h1>This audit no longer exists.</h1>
+          <h1>{w('This audit no longer exists.')}</h1>
           <p className="muted">
-            No audit with this id was found. Audits are kept in server memory,
-            so a server restart removes them.
+            {w('No audit with this id was found. Audits are kept in server memory, so a server restart removes them.')}
           </p>
           <Link href="/" className="button button-primary">
-            Start a new audit
+            {w('Start a new audit')}
           </Link>
         </div>
         <Disclaimer />
@@ -119,20 +123,22 @@ export default function CertificatePage() {
 
   return (
     <div className="shell narrow-stack">
+      <LangToggle lang={lang} onChange={setLang} />
+
       <Link href={`/audits/${id}/report`} className="back-link">
-        <span aria-hidden="true">←</span> Back to report
+        <span aria-hidden="true">←</span> {w('Back to report')}
       </Link>
 
       {notEligible ? (
         <section className="card empty-card">
-          <h1>This audit is not eligible yet.</h1>
+          <h1>{w('This audit is not eligible yet.')}</h1>
           <p className="muted">{error}</p>
           <div className="action-row">
             <Link
               href={`/audits/${id}/report`}
               className="button button-primary"
             >
-              Back to report
+              {w('Back to report')}
             </Link>
             <button
               type="button"
@@ -140,7 +146,7 @@ export default function CertificatePage() {
               onClick={() => setRetryTick((tick) => tick + 1)}
               disabled={rateLimitSecondsLeft > 0}
             >
-              Check again
+              {w('Check again')}
             </button>
           </div>
           <RateLimitNotice />
@@ -169,44 +175,49 @@ export default function CertificatePage() {
               {PROJECT_NAME.charAt(0)}
             </span>
             <div>
-              <p className="certificate-eyebrow">Re-test result</p>
-              <h1>No leak found by these checks</h1>
+              <p className="certificate-eyebrow">{w('Re-test result')}</p>
+              <h1>{w('No leak found by these checks')}</h1>
             </div>
           </div>
           <p className="certificate-sub">
-            For audit <span className="mono-small">{certificate.auditId}</span>
+            {w('For audit')} <span className="mono-small">{certificate.auditId}</span>
           </p>
 
           <dl className="certificate-grid">
             <div>
-              <dt>Recorded at</dt>
+              <dt>{w('Recorded at')}</dt>
               <dd>{formatDate(certificate.issuedAt)}</dd>
             </div>
             <div>
-              <dt>Result code</dt>
+              <dt>{w('Result code')}</dt>
               <dd className="mono-small">{certificate.result}</dd>
             </div>
             <div>
-              <dt>Checks run</dt>
+              <dt>{w('Checks run')}</dt>
               <dd>{certificate.checksRun.join(', ')}</dd>
             </div>
             {certificate.summary ? (
               <div>
-                <dt>Summary</dt>
+                <dt>{w('Summary')}</dt>
                 <dd>
-                  {certificate.summary.blocked} blocked,{' '}
-                  {certificate.summary.inconclusive} inconclusive
+                  {certificate.summary.blocked} {lang === 'ur' ? 'band' : 'blocked'},{' '}
+                  {certificate.summary.inconclusive}{' '}
+                  {lang === 'ur' ? 'par faisla nahi' : 'inconclusive'}
                 </dd>
               </div>
             ) : null}
             {certificate.summary && certificate.summary.inconclusive > 0 ? (
               <div>
-                <dt>Not verified</dt>
-                <dd>{unverifiedText(certificate.summary.inconclusive)}</dd>
+                <dt>{w('Not verified')}</dt>
+                <dd>
+                  {lang === 'ur'
+                    ? `${certificate.summary.inconclusive} tables verify nahi ho sake.`
+                    : unverifiedText(certificate.summary.inconclusive)}
+                </dd>
               </div>
             ) : null}
             <div className="certificate-hash">
-              <dt>Record hash (integrity fingerprint, not a signature)</dt>
+              <dt>{w('Record hash (integrity fingerprint, not a signature)')}</dt>
               <dd className="mono-small break">{certificate.recordHash}</dd>
             </div>
           </dl>
@@ -218,8 +229,7 @@ export default function CertificatePage() {
       ) : null}
 
       <p className="muted center small">
-        This view lives inside the app. There is no public link or share
-        address.
+        {w('This view lives inside the app. There is no public link or share address.')}
       </p>
     </div>
   );

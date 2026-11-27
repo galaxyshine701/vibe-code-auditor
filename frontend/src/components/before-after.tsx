@@ -32,7 +32,7 @@ export function BeforeAfter({
   ).join(', ');
 
   return (
-    <section className="card before-after" aria-label={w('Before and after the Re-test')}>
+    <section className="card before-after glass" aria-label={w('Before and after the Re-test')}>
       <h2 className="before-after-title">{w('Before and after the Re-test')}</h2>
       <ul className="ba-grid" aria-label={summary}>
         {ROWS.map((row) => {

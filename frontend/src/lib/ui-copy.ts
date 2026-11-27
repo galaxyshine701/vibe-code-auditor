@@ -64,6 +64,27 @@ const UR: Record<string, string> = {
   'View report': 'Report dekhein',
   'You can leave this page. Findings are read only after the audit is completed.': 'Aap ye page chhod sakte hain. Findings audit mukammal hone ke baad hi parhi jati hain.',
   'Open result view': 'Result view kholein',
+  'Enter the access code to open this re-test result. It stays in this page’s memory only.':
+    'Re-test ka natija kholne ke liye access code likhein. Ye sirf is page ki memory mein rehta hai.',
+  'Checking the re-test result…': 'Re-test ka natija dekha ja raha hai…',
+  'This view stays inside the app.': 'Ye view app ke andar hi rehta hai.',
+  'No audit with this id was found. Audits are kept in server memory, so a server restart removes them.':
+    'Is id ka koi audit nahi mila. Audit server ki memory mein rehte hain, isliye server restart hone par mit jate hain.',
+  'Back to report': 'Report par wapas',
+  'This audit is not eligible yet.': 'Ye audit abhi eligible nahi.',
+  'Check again': 'Dobara dekhein',
+  'Re-test result': 'Re-test ka natija',
+  'No leak found by these checks': 'In checks mein koi leak nahi mila',
+  'For audit': 'Audit:',
+  'Recorded at': 'Darj hone ka waqt',
+  'Result code': 'Nateeje ka code',
+  'Checks run': 'Chale hue checks',
+  'Summary': 'Khulasa',
+  'Not verified': 'Verify nahi hue',
+  'Record hash (integrity fingerprint, not a signature)':
+    'Record hash (integrity fingerprint, dastakhat nahi)',
+  'This view lives inside the app. There is no public link or share address.':
+    'Ye view app ke andar hi hai. Koi public link ya share address nahi.',
   'The audit has not finished.': 'Audit abhi khatam nahi hua.',
   'A Re-test is running. Wait until it has finished.': 'Re-test chal raha hai. Khatam hone ka intezar karein.',
   'Fix the leaks and Re-test to open the result view.': 'Leaks theek karke Re-test karein, phir result view khulega.',

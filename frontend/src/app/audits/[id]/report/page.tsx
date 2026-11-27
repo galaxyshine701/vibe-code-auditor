@@ -41,6 +41,7 @@ import { targetLines } from '@/lib/progress-rows';
 import {
   bucketsOf,
   canRetest,
+  groupEvidence,
   gateWithoutSupabaseAsk,
   gateWithoutWebsiteAsk,
   hasStages,
@@ -49,6 +50,8 @@ import {
   pick,
   noTableCheck,
   repoFilesRead,
+  roadmapItems,
+  roadmapUnavailable,
   withoutSupabaseAsk,
   withoutWebsiteAsk,
 } from '@/lib/stage';
@@ -371,7 +374,7 @@ export default function ReportPage() {
   if (gone) {
     return (
       <div className="shell narrow-stack">
-        <div className="card empty-card">
+        <div className="card empty-card glass">
           <h1>{w('This audit no longer exists.')}</h1>
           <p className="muted">
             {w('No audit with this id was found. The server keeps the newest 50 audits, so an older one is no longer there.')}
@@ -387,7 +390,7 @@ export default function ReportPage() {
   if (loading) {
     return (
       <div className="shell narrow-stack">
-        <div className="card loading-card" role="status">
+        <div className="card loading-card glass" role="status">
           <span className="spinner" aria-hidden="true" />
           <div>
             <strong>{w('Reading the report…')}</strong>
@@ -460,6 +463,15 @@ export default function ReportPage() {
   }
   const roadmap =
     stage?.roadmap && items ? { ...stage.roadmap, items } : (stage?.roadmap ?? null);
+  // no step and no evidence: one line instead of two empty cards. A run that
+  // failed says so in its own card, and gets no such line.
+  const nothing =
+    stage?.roadmap &&
+    stage.evidence &&
+    !roadmapUnavailable(stage.clientReport) &&
+    roadmapItems(roadmap?.items).length === 0 &&
+    !stage.roadmap.truncated &&
+    groupEvidence(stage.evidence.items).length === 0;
   const findingIdSet = new Set((findings ?? []).map((finding) => finding.id));
   const evidenceIdSet = new Set(
     (stage?.evidence?.items ?? []).map((item) => item.id),
@@ -505,6 +517,8 @@ export default function ReportPage() {
               {t(language, 'stageError')} {stageError}
             </div>
           ) : null}
+          {/* cards only: the halo of this wrapper has no loose words over it */}
+          <div className="result-cards glass-wrap">
           <ClientSummary
             report={stage?.clientReport ?? null}
             roadmapItems={roadmap?.items}
@@ -516,25 +530,33 @@ export default function ReportPage() {
             lang={language}
           />
           <ScopeBuckets buckets={buckets} lang={language} />
-          <RoadmapList
-            roadmap={roadmap}
-            report={stage?.clientReport ?? null}
-            lang={language}
-            findingIds={findingIdSet}
-            evidenceIds={evidenceIdSet}
-          />
-          <EvidenceGroups
-            evidence={stage?.evidence ?? null}
-            lang={language}
-            findingIds={findingIdSet}
-          />
+          {nothing ? null : (
+            <>
+              <RoadmapList
+                roadmap={roadmap}
+                report={stage?.clientReport ?? null}
+                lang={language}
+                findingIds={findingIdSet}
+                evidenceIds={evidenceIdSet}
+              />
+              <EvidenceGroups
+                evidence={stage?.evidence ?? null}
+                lang={language}
+                findingIds={findingIdSet}
+              />
+            </>
+          )}
+          </div>
+          {nothing && !failed ? (
+            <p className="nothing-line">{t(language, 'nothingToShow')}</p>
+          ) : null}
           {noSite ? <InviteWebsite lang={language} /> : null}
         </>
       ) : null}
 
       {failed ? (
         <>
-          <section className="card empty-card">
+          <section className="card empty-card glass">
             <h1>{w('The audit could not finish.')}</h1>
             <p className="muted">
               {audit?.error?.message ??
@@ -554,7 +576,7 @@ export default function ReportPage() {
           />
 
           {retestAllowed ? (
-          <section className="card report-toolbar">
+          <section className="card report-toolbar glass">
             <div className="toolbar-row">
               <div className="toolbar-group">
                 <span className="toolbar-label">{w('Explanation')}</span>
@@ -633,7 +655,7 @@ export default function ReportPage() {
           ) : null}
 
           {!stages || (findings && findings.length > 0) ? (
-          <section className="card summary-card">
+          <section className="card summary-card glass">
             {!stages ? (
             <div className="summary-grid summary-grid-report">
               <div className="summary-item summary-leaked">
@@ -736,13 +758,13 @@ export default function ReportPage() {
             </div>
 
             {findings && findings.length === 0 ? (
-              <div className="card empty-card">
+              <div className="card empty-card glass">
                 <h3>{w('No findings')}</h3>
                 <p className="muted">{w('These checks returned no findings.')}</p>
               </div>
             ) : null}
 
-            <div className="findings-grid">
+            <div className="findings-grid result-cards glass-wrap">
               {shownFindings?.map((finding) => (
                 <FindingCard
                   key={finding.id}

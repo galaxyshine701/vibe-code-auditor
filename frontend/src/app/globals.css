@@ -336,7 +336,7 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  animation: rise 0.45s ease both;
+  animation: rise 0.45s ease backwards;
 }
 
 .narrow-stack {
@@ -344,7 +344,7 @@ h4 {
   flex-direction: column;
   gap: 20px;
   max-width: 780px;
-  animation: rise 0.4s ease both;
+  animation: rise 0.4s ease backwards;
 }
 
 .stack {
@@ -589,7 +589,7 @@ h4 {
   border-color: color-mix(in srgb, var(--ink) 35%, transparent);
 }
 
-.field input:focus {
+.field input:focus-visible {
   border-color: var(--ink);
   background: var(--field-focus);
   box-shadow: 0 0 0 3px var(--focus);
@@ -2735,13 +2735,9 @@ h4 {
 @keyframes textReveal {
   from {
     opacity: 0;
-    filter: blur(5px);
-    transform: translateY(3px);
   }
   to {
     opacity: 1;
-    filter: blur(0);
-    transform: none;
   }
 }
 
@@ -2760,11 +2756,9 @@ h4 {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 

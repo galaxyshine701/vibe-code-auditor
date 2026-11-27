@@ -142,6 +142,11 @@ export const COPY = {
   },
   language: { en: 'Language', ur: 'Zabaan' },
 
+  nothingToShow: {
+    en: 'Nothing to fix or show from these checks.',
+    ur: 'In checks se theek karne ya dikhane ko kuch nahi.',
+  },
+
   // the re-test result (R35, R74, R87)
   retestResult: { en: 'Re-test result', ur: 'Re-test ka natija' },
 } as const satisfies Record<string, Pair>;
@@ -171,6 +176,20 @@ const KIND_LABELS: Record<string, Pair> = {
 
 export function kindLabel(kind: string, lang: Lang): string {
   return KIND_LABELS[kind]?.[lang] ?? kind;
+}
+
+// The severity of a step or a finding. The API decides it; the UI only writes
+// the word. One the UI does not know is shown as given.
+const SEVERITY_LABELS: Record<string, Pair> = {
+  critical: { en: 'Critical', ur: 'Bohat sangeen' },
+  high: { en: 'High', ur: 'Sangeen' },
+  medium: { en: 'Medium', ur: 'Darmiyana' },
+  low: { en: 'Low', ur: 'Halka' },
+  info: { en: 'Info', ur: 'Maloomat' },
+};
+
+export function severityText(severity: string, lang: Lang): string {
+  return SEVERITY_LABELS[severity]?.[lang] ?? severity;
 }
 
 /** "N more steps are not shown." (R81) */

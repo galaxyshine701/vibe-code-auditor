@@ -40,7 +40,7 @@ export function GateBanner({
 
   return (
     <section
-      className={`gate-banner gate-${tone}`}
+      className={`gate-banner gate-${tone} glass`}
       aria-labelledby="gate-status"
       data-decision={gate.decision}
     >

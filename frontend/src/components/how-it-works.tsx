@@ -10,11 +10,11 @@ import { SectionHead } from './section-head';
 // each with a small picture of that moment, with real words in it: the field and
 // its box, the checks running, the verdicts and a piece of a fix prompt. The
 // pictures are hidden from a screen reader (the step says the same), and have no
-// lock, no tick and no shield. The steps rise once when they come into view, and
-// the checks fill once (transform and opacity only); with no script, or with
-// reduced motion, they are simply there.
+// lock, no tick and no shield. The steps fade in once when they come into view
+// (opacity only, nothing moves); with no script, or with reduced motion, they are
+// simply there.
 
-/** The first words of the real prompt, in three short lines. */
+/** The first words of the real prompt, in three short lines; "…" says there is more. */
 export function promptLines(prompt: string, width = 30, count = 3): string[] {
   const lines: string[] = [''];
   for (const word of prompt.split(/\s+/)) {
@@ -22,7 +22,10 @@ export function promptLines(prompt: string, width = 30, count = 3): string[] {
     if (!last) lines[lines.length - 1] = word;
     else if (last.length + word.length < width) lines[lines.length - 1] = `${last} ${word}`;
     else if (lines.length < count) lines.push(word);
-    else break;
+    else {
+      lines[lines.length - 1] = `${lines[lines.length - 1].replace(/[.,:;]$/, '')}…`;
+      break;
+    }
   }
   return lines;
 }
@@ -43,12 +46,8 @@ function Visual({ name, lang }: { name: (typeof STEPS)[number]['visual']; lang: 
   if (name === 'run') {
     return (
       <>
-        {VISUAL_COPY.rows.map((row, index) => (
-          <span
-            className={`mv-row mv-row-${row.state}`}
-            key={row.name.en}
-            style={{ '--r': index } as CSSProperties}
-          >
+        {VISUAL_COPY.rows.map((row) => (
+          <span className={`mv-row mv-row-${row.state}`} key={row.name.en}>
             <span className="mv-dot" />
             {pickText(row.name, lang)}
           </span>

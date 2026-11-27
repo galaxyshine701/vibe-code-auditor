@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import { CARD, TILES, TILES_LABEL, pickText } from '@/lib/hero-copy';
-import { DotNumeral } from './dot-numeral';
 import { GateBar, LaneDot, LaneNode } from './checkpoint-lane';
 import { ScanBeam } from './scan-beam';
 import { VerdictBadge } from './verdict';
@@ -173,14 +172,14 @@ export function HeroCard({ lang }: { lang: Lang }) {
         </Row>
       </div>
 
-      {/* how many verdicts of each kind the example has (dot-matrix numerals) */}
+      {/* how many verdicts of each kind the example has */}
       <ul className="hero-tiles" aria-label={pickText(TILES_LABEL, lang)}>
         {TILES.map((tile) => (
           <li
             key={tile.verdict}
             className={`hero-tile hero-tile-${tile.verdict.toLowerCase()}`}
           >
-            <DotNumeral value={tile.count} />
+            <span className="hero-tile-count">{tile.count}</span>
             <span className="hero-tile-word">{tile.verdict}</span>
           </li>
         ))}
