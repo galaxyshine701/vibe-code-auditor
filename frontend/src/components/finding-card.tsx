@@ -286,7 +286,9 @@ export function FindingCard({
                 copiedLabel={w('Copied')}
               />
             </div>
-            <pre className="code-block">{finding.fix.sql}</pre>
+            <pre className="code-block code-sql" tabIndex={0} aria-label="SQL">
+              {finding.fix.sql}
+            </pre>
 
             {finding.fix.status === 'approved' ? (
               <div className="approved-note">

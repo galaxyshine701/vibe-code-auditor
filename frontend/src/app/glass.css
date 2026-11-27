@@ -1641,13 +1641,6 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.intro-skip {
-  top: max(0.75rem, 3vmin, env(safe-area-inset-top));
-  right: max(0.75rem, 3vmin, env(safe-area-inset-right));
-}
-
-/* a long repository name, address, table name or line of code stays inside its
-   card: it wraps */
 main,
 .site-header {
   overflow-wrap: break-word;
@@ -1738,4 +1731,68 @@ main pre {
 
 .finding-leaked .finding-explanation {
   max-width: 60ch;
+}
+
+/* ---- round 6 ---- */
+/* a phone: a smaller headline and line, so the repo field is on the first screen */
+@media (max-width: 639px) {
+  .hero-stage .hero-title {
+    margin-bottom: 10px;
+    font-size: clamp(1.55rem, 7.4vw, 2.2rem);
+    line-height: 1.1;
+  }
+
+  .hero-stage .hero-title-ur {
+    font-size: clamp(1.4rem, 6.6vw, 1.8rem);
+    line-height: 1.15;
+  }
+
+  .hero-stage .hero-problem {
+    margin-bottom: 12px;
+    font-size: 0.94rem;
+    line-height: 1.4;
+  }
+}
+
+/* the SQL keeps its own lines, and scrolls inside its box */
+.page-stack pre.code-sql {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.finding-card .disclosure-body {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* no line of words longer than about 90 characters */
+.start-box p,
+.start-box label,
+.start-box small,
+.advanced-body p,
+.advanced-body label,
+.advanced-body small,
+.narrow-stack p {
+  max-width: 58ch;
+}
+
+.page-stack .fix-prompt-text,
+.prompt-sample .prompt-text {
+  max-width: calc(86ch + 30px);
+}
+
+.page-stack .fix-prompt-block {
+  max-width: 51ch;
+}
+
+.page-stack .limits li,
+.page-stack .disclosure-body li {
+  max-width: 54ch;
+}
+
+.page-stack p,
+.page-stack .finding-card .finding-explanation {
+  max-width: 57ch;
 }

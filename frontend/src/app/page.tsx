@@ -1,5 +1,6 @@
 'use client';
 
+import { IntroOverlay } from '@/components/intro-overlay';
 import { Reveal } from '@/components/reveal';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -231,6 +232,8 @@ export default function ConnectPage() {
           <div className="glass-wrap">
             <HeroScene lang={lang} />
           </div>
+          {/* the intro plays here, over the picture and nowhere else */}
+          <IntroOverlay />
         </div>
       </section>
 

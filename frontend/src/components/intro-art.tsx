@@ -72,6 +72,8 @@ const LAYOUTS: Record<'wide' | 'tall', Layout> = {
   },
 };
 
+/** The drawing-on delays below are written for a longer scene; this fits them in. */
+const DRAW_SCALE = 0.3;
 const BEAM_START = INTRO_SCENE_MS.beam / 1000;
 const BEAM_DUR = (INTRO_SCENE_MS.contract - INTRO_SCENE_MS.beam) / 1000;
 
@@ -82,7 +84,7 @@ function passAt(layout: Layout, along: number): number {
 }
 
 const dash = (seconds: number): CSSProperties =>
-  ({ '--d': `${seconds.toFixed(2)}s` }) as CSSProperties;
+  ({ '--d': `${(seconds * DRAW_SCALE).toFixed(2)}s` }) as CSSProperties;
 
 export function IntroArt({ layout: name }: { layout: 'wide' | 'tall' }) {
   const L = LAYOUTS[name];

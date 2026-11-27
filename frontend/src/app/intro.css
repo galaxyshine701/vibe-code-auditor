@@ -1,23 +1,23 @@
-/* The intro of the home page (R70): the scene, under 3 s, SVG and CSS only.
-   The rules of the layer itself (fixed, the whole screen, above the header, the
-   way out) are in globals.css; this file is what happens inside it. Colours are
-   the tokens of the theme, nothing else.
+/* The intro of the home page (R70): the scene, under 1 s, SVG and CSS only.
+   The rules of the layer itself (over the picture of the hero, the way out) are
+   in globals.css; this file is what happens inside it. Colours are the tokens of
+   the theme, nothing else.
 
-     0 to 0.7 s    a grid; a website and a database draw on; rings turn
-     0.7 to 2 s    a beam sweeps; callouts and a counter appear as it passes
-     2 to 2.95 s   rings contract into a thin gate line; the name appears word by
+     0 to 0.1 s    a grid; a website and a database draw on; rings turn
+     0.1 to 0.5 s  a beam sweeps; callouts and a counter appear as it passes
+     0.5 to 0.85 s rings contract into a thin gate line; the name appears word by
                    word; the gate splits open from the centre (the two halves
-                   slide away) and the page shows
+                   slide away) and the picture shows
 
    The times are custom properties on .intro-scene (--t-*); lib/intro.ts has the
    same numbers (INTRO_SCENE_MS) and a test compares them. */
 
 .intro-scene {
   --t-draw: 0s;
-  --t-beam: 0.7s;
-  --t-contract: 2s;
-  --t-word: 2.1s;
-  --t-open: 2.5s;
+  --t-beam: 0.1s;
+  --t-contract: 0.5s;
+  --t-word: 0.52s;
+  --t-open: 0.7s;
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -35,12 +35,12 @@
 
 .intro-panel-top {
   top: 0;
-  animation: introPanelUp 0.45s cubic-bezier(0.7, 0, 0.2, 1) var(--t-open) both;
+  animation: introPanelUp 0.15s cubic-bezier(0.7, 0, 0.2, 1) var(--t-open) both;
 }
 
 .intro-panel-bottom {
   bottom: 0;
-  animation: introPanelDown 0.45s cubic-bezier(0.7, 0, 0.2, 1) var(--t-open) both;
+  animation: introPanelDown 0.15s cubic-bezier(0.7, 0, 0.2, 1) var(--t-open) both;
 }
 
 @keyframes introPanelUp {
@@ -61,7 +61,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  animation: introFadeOut 0.3s ease-in var(--t-open) forwards;
+  animation: introFadeOut 0.1s ease-in var(--t-open) forwards;
 }
 
 .intro-art {
@@ -71,15 +71,17 @@
 }
 
 .intro-art-wide {
-  width: min(92vw, 130dvh);
+  width: 94%;
   height: auto;
+  max-height: 100%;
   aspect-ratio: 640 / 360;
 }
 
 .intro-art-tall {
   display: none;
-  height: min(84dvh, 160vw);
+  height: 88%;
   width: auto;
+  max-width: 94%;
   aspect-ratio: 320 / 600;
 }
 
@@ -95,8 +97,8 @@
 
 .intro-grid {
   opacity: 0;
-  animation: introGridIn 0.7s ease-out var(--t-draw) both,
-    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+  animation: introGridIn 0.2s ease-out var(--t-draw) both,
+    introFadeOut 0.15s ease-in var(--t-contract) forwards;
 }
 
 .intro-grid-line {
@@ -116,8 +118,8 @@
   transform-box: fill-box;
   transform-origin: center;
   opacity: 0;
-  animation: introFade 0.6s ease-out var(--t-draw) both,
-    introRingsFlat 0.4s cubic-bezier(0.6, 0, 0.8, 0.4) var(--t-contract) forwards;
+  animation: introFade 0.2s ease-out var(--t-draw) both,
+    introRingsFlat 0.15s cubic-bezier(0.6, 0, 0.8, 0.4) var(--t-contract) forwards;
 }
 
 .intro-ring {
@@ -151,7 +153,7 @@
 
 /* the website and the database draw on, line by line */
 .intro-objects {
-  animation: introFadeOut 0.35s ease-in var(--t-contract) forwards;
+  animation: introFadeOut 0.15s ease-in var(--t-contract) forwards;
 }
 
 .intro-draw {
@@ -162,13 +164,13 @@
   stroke-linejoin: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: introDraw 0.55s ease-out var(--d, 0s) both;
+  animation: introDraw 0.18s ease-out var(--d, 0s) both;
 }
 
 .intro-dot-mark {
   fill: var(--muted);
   opacity: 0;
-  animation: introFade 0.3s ease-out var(--d, 0s) both;
+  animation: introFade 0.1s ease-out var(--d, 0s) both;
 }
 
 @keyframes introDraw {
@@ -236,8 +238,8 @@
 /* ---- what the beam looks at: a callout and a label, as it passes (--at) ---- */
 .intro-callout {
   opacity: 0;
-  animation: introFade 0.3s ease-out var(--at, 1s) both,
-    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+  animation: introFade 0.1s ease-out var(--at, 0.3s) both,
+    introFadeOut 0.15s ease-in var(--t-contract) forwards;
 }
 
 .intro-callout-line {
@@ -281,8 +283,8 @@
   font-family: var(--font-mono);
   font-size: 8px;
   opacity: 0;
-  animation: introFragment 0.5s ease-out var(--at, 1s) both,
-    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+  animation: introFragment 0.15s ease-out var(--at, 0.3s) both,
+    introFadeOut 0.15s ease-in var(--t-contract) forwards;
 }
 
 .intro-art-tall .intro-fragment {
@@ -298,8 +300,8 @@
 /* the counter: 0/3, 1/3, 2/3, 3/3. Each number shows from its moment (--t1 to --t3) */
 .intro-counter {
   opacity: 0;
-  animation: introFade 0.3s ease-out var(--t-beam) both,
-    introFadeOut 0.3s ease-in var(--t-contract) forwards;
+  animation: introFade 0.1s ease-out var(--t-beam) both,
+    introFadeOut 0.15s ease-in var(--t-contract) forwards;
 }
 
 .intro-count {
@@ -360,8 +362,8 @@
   box-shadow: 0 0 1.2rem var(--canary-glow), 0 0 0.3rem var(--canary);
   opacity: 0;
   transform: scaleX(0);
-  animation: introGate 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--t-contract) + 0.1s) both,
-    introFadeOut 0.2s ease-in calc(var(--t-open) + 0.05s) forwards;
+  animation: introGate 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--t-contract) + 0.03s) both,
+    introFadeOut 0.1s ease-in calc(var(--t-open) + 0.03s) forwards;
 }
 
 @keyframes introGate {
@@ -381,12 +383,12 @@
   transform: translateY(calc(-100% - 0.7rem));
   color: var(--ink);
   font-family: var(--font-display, var(--font-body));
-  font-size: max(1.8rem, 9vmin);
+  font-size: max(1.4rem, 5vmin);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
   text-align: center;
-  animation: introFadeOut 0.3s ease-in var(--t-open) forwards;
+  animation: introFadeOut 0.15s ease-in var(--t-open) forwards;
 }
 
 .intro-word {
@@ -394,8 +396,8 @@
   margin: 0 0.12em;
   opacity: 0;
   clip-path: inset(0 100% 0 0);
-  animation: introWord 0.5s cubic-bezier(0.2, 0.7, 0.2, 1)
-    calc(var(--t-word) + var(--w, 0) * 0.14s) both;
+  animation: introWord 0.15s cubic-bezier(0.2, 0.7, 0.2, 1)
+    calc(var(--t-word) + var(--w, 0) * 0.04s) both;
 }
 
 @keyframes introWord {
@@ -430,7 +432,7 @@
 html[data-intro="opening"] .intro-skip,
 html[data-intro="opening"] .intro-hint {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.1s ease;
 }
 
 /* reduced motion: no intro (the head script does not start it; this holds even

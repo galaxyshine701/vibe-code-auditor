@@ -1,17 +1,17 @@
-// The opening of the home page (R70): a short scene fills the screen once per
-// tab (a scan beam passes over a website and a database, a gate opens, the name
-// appears), then the page shows its headline. The rules of "when" are here, in
-// plain functions, so they can be tested. The boot script at the bottom is the
-// same rule written as text: it runs in the <head> before the first paint (like
-// the theme script), so the page never shows before the intro.
+// The opening of the home page (R70): a short scene plays once per tab over the
+// picture of the hero, and nowhere else: the headline and the form are there and
+// can be used from the first paint, nothing is locked and no click is taken. The
+// rules of "when" are here, in plain functions, so they can be tested. The boot
+// script at the bottom is the same rule written as text: it runs in the <head>
+// before the first paint (like the theme script).
 //
 // When it is shown: only on the home page, only once per tab (the flag is in
 // sessionStorage and is written at once, so a refresh does not repeat it), and
 // only when the flag can be stored (otherwise it would repeat on every load).
 // With reduced motion there is no intro at all.
-// How it ends: the end of the scene; a tap, a click, Esc or the Skip button; the
-// time limit of the page's code; the timer of the head script (3 s); and a CSS
-// animation that hides the overlay after 3 s with no script.
+// How it ends, within 1 s: the end of the scene; a tap, a click, Esc or the Skip
+// button; the time limit of the page's code; the timer of the head script; and a
+// CSS animation that hides it with no script.
 
 /** sessionStorage key: set when the intro starts, so a refresh in the same tab skips it. */
 export const INTRO_KEY = 'vca-intro-v1';
@@ -22,32 +22,32 @@ export type IntroMode = 'full';
 
 /** When each part of the scene starts, in ms. The CSS (intro.css) uses the same times. */
 export const INTRO_SCENE_MS = {
-  /** the grid, the two objects draw on, the rings turn: 0 to 0.8 s */
+  /** the grid, the two objects draw on, the rings turn */
   draw: 0,
-  /** the beam sweeps, the callouts and the counter appear as it passes: 0.8 to 2.3 s */
-  beam: 700,
-  /** the rings contract into the gate line: 2.3 s */
-  contract: 2000,
+  /** the beam sweeps, the callouts and the counter appear as it passes */
+  beam: 100,
+  /** the rings contract into the gate line */
+  contract: 500,
   /** the name appears, word by word */
-  word: 2100,
+  word: 520,
   /** the gate splits open from the centre and the page shows */
-  open: 2500,
+  open: 700,
 } as const;
 
 /** The name is fully shown and the gate starts to open at this time. */
 export const INTRO_STORY_MS = INTRO_SCENE_MS.open;
 /** The gate opens for this long. */
-export const INTRO_HOLD_MS = 450;
+export const INTRO_HOLD_MS = 150;
 /** The fade of the overlay (nothing is left to see by then). */
-export const INTRO_FADE_MS = 350;
-/** The scene ends here: under 3 s. */
+export const INTRO_FADE_MS = 150;
+/** The scene ends here: under 1 s. */
 export const INTRO_END_MS = INTRO_STORY_MS + INTRO_HOLD_MS;
 /** The whole intro, fade included. */
 export const INTRO_TOTAL_MS = INTRO_END_MS + INTRO_FADE_MS;
 /** If nothing has ended the intro by then, it is removed anyway (the head script and the CSS use it too). */
-export const INTRO_FALLBACK_MS = 3000;
+export const INTRO_FALLBACK_MS = 1000;
 /** After the page's own code has taken over, it gets this long beyond the normal end. */
-export const INTRO_GRACE_MS = 1500;
+export const INTRO_GRACE_MS = 150;
 
 // ---- The card of the example run (the hero's last frame). Its own timeline, kept for its "intro" mode. ----
 
@@ -128,8 +128,7 @@ export function remainingMs(elapsedMs: number): number {
 
 /**
  * The same rule, as the inline script of the <head>. It sets
- * `data-intro="pending"` on <html> (the CSS shows the overlay and locks the
- * scroll). With reduced motion it does nothing. It writes the flag at once (a refresh during the intro
+ * `data-intro="pending"` on <html> (the CSS shows the scene). With reduced motion it does nothing. It writes the flag at once (a refresh during the intro
  * does not repeat it), remembers when it started (`window.__vcaIntroAt`) and
  * arms a timer that sets `data-intro="done"` if the page's own code never ends
  * the intro. The timer id is kept in `window.__vcaIntroTimer` so that the page's
