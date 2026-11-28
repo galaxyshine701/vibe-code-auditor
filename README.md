@@ -64,8 +64,11 @@ The full rules are in [`docs/prover-spec.md`](docs/prover-spec.md).
 ```
 Browser (Next.js, Vercel)  --HTTPS-->  API (NestJS, Railway)  --HTTPS-->  your Supabase TEST project
                                           |
-                                          +--> pipeline runner: Prover agent, then Report agent
-                                                                (Report agent calls Groq, off by default)
+                                          +--> pipeline runner, step by step:
+                                                 1. Planner, Ownership (skipped today, contract only)
+                                                 2. Data Access Prover, Site headers, Bundle scan, Repo scan
+                                                 3. Report agent (calls Groq, off by default)
+                                                 4. Evidence   5. Roadmap   6. Guide
 
 Claude Code  --stdio-->  MCP server (mcp/)  --HTTPS-->  the same API
 ```
@@ -73,7 +76,7 @@ Claude Code  --stdio-->  MCP server (mcp/)  --HTTPS-->  the same API
 - **Frontend** (`frontend/`): Next.js and React, deployed on Vercel. Dark theme by default with a light option, and an installable app (PWA) whose only offline feature is a fallback page.
 - **Backend** (`backend/`): NestJS and TypeScript, deployed on Railway. Audits are kept in a table in the platform's own Supabase project (never the project being tested), so they survive a restart; the newest 50 are kept. The routes are in [`docs/api-contract.md`](docs/api-contract.md).
 - **Data Access Prover**: the part that creates the temporary users, plants the canary rows, runs the attacks, and always cleans up. Data goes through `@supabase/supabase-js`. It can also be run alone with `npm run prove` in `backend/`.
-- **Pipeline runner**: runs the agents one after another. If a critical agent (the Prover) fails, the run stops. If a non-critical agent fails, the audit still completes and the failed agent is shown in the `modules` list.
+- **Pipeline runner**: runs the agents in the steps shown above; the agents of one step run side by side. The Data Access Prover runs only when a Supabase project is given, the Report agent only after it and only with `REPORT_AGENT=groq`, Site headers and Bundle scan only when a website is given, and Repo scan only when a repository is given. Planner, Ownership, the three inspectors, Evidence, Roadmap and Guide are added by `LOCK_C_AGENTS=on` (the default is off) and use no AI model. Ownership is skipped today, contract only. If a critical agent (the Prover is the only one) fails, the steps that have not started do not run; Evidence, Roadmap and Guide, when they are on, still run. If a non-critical agent fails, the audit still completes and the failed agent is shown in the `modules` list.
 - **Report agent (Groq), off by default**: with `REPORT_AGENT=groq` it may rewrite only the English explanation text of a finding. The verdict, severity, evidence, fix SQL and Urdu text always stay as the Prover made them. Its text must pass checks (a closed word list, two sentences, no claims such as "secure" or "safe", no severity words); text that fails is replaced by the Prover's own template text. What is sent to Groq: table names and check results, never keys.
 - **MCP server** (`mcp/`): lets Claude Code start an audit, read the report, ask for a Re-test and get the result record, through five tools. It has no tool to approve a fix; that stays a human decision. Keys are read from its own `.env` at start-up and never pass through the model. See [`mcp/README.md`](mcp/README.md).
 
