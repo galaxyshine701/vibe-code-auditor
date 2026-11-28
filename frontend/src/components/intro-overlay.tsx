@@ -7,8 +7,9 @@ import {
   INTRO_GRACE_MS,
   INTRO_STORY_MS,
   remainingMs,
-  type IntroMode,
 } from '@/lib/intro';
+import { INTRO_COPY, pickText } from '@/lib/hero-copy';
+import { useLang } from '@/lib/use-lang';
 import { IntroScene } from './intro-scene';
 
 type IntroWindow = Window & {
@@ -19,17 +20,17 @@ type IntroWindow = Window & {
 
 // The intro of the home page (R70): a scene on the whole screen, once per tab.
 // The <head> script (lib/intro.ts) has already decided and set
-// `data-intro="pending"` (and `data-intro-mode`) on <html> before the first
-// paint; the CSS shows this overlay only then.
+// `data-intro="pending"` on <html> before the first
+// paint; the CSS shows this overlay only then. With reduced motion there is no
+// intro: the head script never says "pending", and a replay does nothing.
 //
 //   pending  the scene runs; the headline waits (CSS)
 //   opening  the gate splits open by CSS; the headline starts to rise
-//   leaving  the overlay fades out: after a skip, and with reduced motion
+//   leaving  the overlay fades out after a skip
 //   done     the overlay is gone
 //
-// With reduced motion (data-intro-mode="reduced") the scene is only the name,
-// still, for a short time. A skip (tap, click, Esc, the Skip button) works in
-// both modes.//
+// A tap, a click, Esc or the Skip button ends it at any moment.
+//
 // This component sits directly in <body> (layout.tsx), never inside the page:
 // the page's wrapper has an animation with a `transform`, and a `position:
 // fixed` child of such an element is fixed to the wrapper, not to the screen
@@ -39,10 +40,13 @@ type IntroWindow = Window & {
 // animation hides the overlay by itself: the app is never blocked.
 export function IntroOverlay() {
   const [mounted, setMounted] = useState(true);
+  const [lang] = useLang();
   const [runId, setRunId] = useState(0);
   const skipButton = useRef<HTMLButtonElement>(null);
   const timers = useRef<number[]>([]);
   const active = useRef(false);
+  /** waiting for the first paint, before the time of the intro can start */
+  const frame = useRef(0);
   const returnFocus = useRef<HTMLElement | null>(null);
 
   const clearTimers = useCallback(() => {
@@ -62,9 +66,6 @@ export function IntroOverlay() {
   }, []);
 
   const root = () => document.documentElement;
-  const modeNow = (): IntroMode =>
-    root().getAttribute('data-intro-mode') === 'reduced' ? 'reduced' : 'full';
-
   /** Ends the intro with a fade (the scene ended, or the user skipped it). */
   const close = useCallback(() => {
     if (!active.current) return;
@@ -98,12 +99,22 @@ export function IntroOverlay() {
 
   /**
    * Starts (or restarts) the intro. The end is counted from when the scene
-   * started (the head script, or now for a replay), and this code now owns the
-   * time limit.
+   * was first on the screen (its CSS starts at the first paint; for a replay:
+   * now), and this code now owns the time limit.
    */
   const begin = useCallback(
     (replay: boolean) => {
       const scoped = window as IntroWindow;
+      // not painted yet: the head script keeps the moment of the paint, and the
+      // time of the intro is counted from there
+      if (!replay && scoped.__vcaIntroAt === undefined) {
+        frame.current = window.requestAnimationFrame(() => {
+          const state = root().getAttribute('data-intro');
+          if (state === 'pending') begin(false);
+          else if (state === 'done') setMounted(false);
+        });
+        return;
+      }
       // from now on this code handles a skip (the head script stops doing it)
       scoped.__vcaIntroOwned = true;
       if (scoped.__vcaIntroTimer !== undefined) {
@@ -112,28 +123,31 @@ export function IntroOverlay() {
       }
       clearTimers();
       const now = window.performance.now();
-      if (replay || scoped.__vcaIntroAt === undefined) scoped.__vcaIntroAt = now;
-      const mode = modeNow();
+      if (replay || scoped.__vcaIntroAt === undefined) {
+        scoped.__vcaIntroAt = now;
+      } else {
+        // a slow first paint must not cut the end of the scene
+        const painted = window.performance.getEntriesByType('paint')[0];
+        if (painted) {
+          scoped.__vcaIntroAt = Math.max(scoped.__vcaIntroAt, painted.startTime);
+        }
+      }
       const elapsed = now - scoped.__vcaIntroAt;
-      const left = remainingMs(elapsed, mode);
+      const left = remainingMs(elapsed);
       active.current = true;
       root().setAttribute('data-intro', 'pending');
       setMounted(true);
-      if (mode === 'full') {
-        // the gate opens at the end of the story, and the scene is over a moment later
-        timers.current.push(
-          window.setTimeout(
-            () => {
-              if (active.current) root().setAttribute('data-intro', 'opening');
-            },
-            Math.max(0, INTRO_STORY_MS - elapsed),
-          ),
-        );
-        timers.current.push(window.setTimeout(finish, left));
-      } else {
-        timers.current.push(window.setTimeout(close, left));
-      }
-      // the limit: the normal end plus 1.5 s, then it is gone whatever happened
+      // the gate opens at the end of the story, and the scene is over a moment later
+      timers.current.push(
+        window.setTimeout(
+          () => {
+            if (active.current) root().setAttribute('data-intro', 'opening');
+          },
+          Math.max(0, INTRO_STORY_MS - elapsed),
+        ),
+      );
+      timers.current.push(window.setTimeout(finish, left));
+      // the limit: never more than 3 s from here, then it is gone whatever happened
       timers.current.push(
         window.setTimeout(
           () => {
@@ -148,7 +162,7 @@ export function IntroOverlay() {
         skipButton.current?.focus({ preventScroll: true }),
       );
     },
-    [clearTimers, close, finish],
+    [clearTimers, finish],
   );
 
   useEffect(() => {
@@ -157,13 +171,7 @@ export function IntroOverlay() {
 
     const replay = () => {
       if (active.current) return;
-      // reduced motion replays the still name, not the scene
-      root().setAttribute(
-        'data-intro-mode',
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches
-          ? 'reduced'
-          : 'full',
-      );
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       const focused = document.activeElement;
       returnFocus.current =
         focused instanceof HTMLElement && focused !== document.body ? focused : null;
@@ -181,9 +189,18 @@ export function IntroOverlay() {
         skipButton.current?.focus({ preventScroll: true });
       }
     };
+    // the first paint came too late: the head script has taken the intro away
+    const late = () => {
+      active.current = false;
+      clearTimers();
+      setMounted(false);
+    };
+    window.addEventListener('vca:intro-late', late);
     window.addEventListener('vca:replay-hero', replay);
     window.addEventListener('keydown', onKey);
     return () => {
+      window.cancelAnimationFrame(frame.current);
+      window.removeEventListener('vca:intro-late', late);
       window.removeEventListener('vca:replay-hero', replay);
       window.removeEventListener('keydown', onKey);
       clearTimers();
@@ -197,7 +214,7 @@ export function IntroOverlay() {
       className="intro-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="Introduction"
+      aria-label={pickText(INTRO_COPY.label, lang)}
       onClick={close}
     >
       <IntroScene key={runId} />
@@ -207,9 +224,9 @@ export function IntroOverlay() {
         ref={skipButton}
         onClick={close}
       >
-        Skip intro
+        {pickText(INTRO_COPY.skip, lang)}
       </button>
-      <p className="intro-hint">Tap, click or press Esc to skip.</p>
+      <p className="intro-hint">{pickText(INTRO_COPY.hint, lang)}</p>
     </div>
   );
 }

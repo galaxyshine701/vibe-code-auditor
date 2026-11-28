@@ -1,4 +1,4 @@
-# Vibe Code Auditor
+# Gatecheck (formerly Vibe Code Auditor)
 
 A multi-agent system that tests AI-built apps on Supabase. It creates two temporary users in a **test** Supabase project, plants a canary row owned by user A, tries to read or change it as user B, and reports LEAKED, BLOCKED or INCONCLUSIVE with evidence. Capstone due 15 Nov 2026.
 

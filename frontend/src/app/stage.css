@@ -79,17 +79,6 @@
   background: var(--canary-soft);
 }
 
-.source-note {
-  margin: 0;
-  padding: 10px 13px;
-  border-left: 3px solid var(--canary);
-  border-radius: 8px;
-  color: var(--ink-soft);
-  background: var(--canary-soft);
-  font-size: 0.8rem;
-  line-height: 1.45;
-}
-
 .field .field-problem {
   color: var(--ink-soft);
   font-weight: 600;
@@ -106,6 +95,118 @@
   .source-group,
   .source-chip {
     transition: none;
+  }
+}
+
+/* ---- Home: the start box ---- */
+.start-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.start-box .fine-print,
+.start-box > p {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .start-box {
+    padding: 14px;
+  }
+}
+
+/* ---- Progress: the activity strip, the status of each module as the backend gave it ---- */
+.activity {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.activity-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-now {
+  margin: 0;
+}
+
+.activity-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.activity-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grey);
+}
+
+.activity-completed .activity-dot {
+  background: var(--ok);
+}
+
+.activity-failed .activity-dot {
+  background: var(--leak);
+}
+
+.activity-running {
+  border-color: var(--canary);
+}
+
+.activity-running .activity-dot {
+  background: var(--canary);
+  animation: activityPulse 1.4s ease-in-out infinite;
+}
+
+/* skipped: a hollow dot and a dashed edge, and the word says it too */
+.activity-skipped {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.activity-skipped .activity-dot {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--grey);
+}
+
+@keyframes activityPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-running .activity-dot {
+    animation: none;
   }
 }
 
@@ -153,11 +254,9 @@
 @keyframes rowIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -249,3 +348,18 @@
     animation: none;
   }
 }
+
+/* the one plain line about the optional Supabase project, and the modules that
+   were not asked for */
+.optional-line,
+.not-asked {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.not-asked {
+  margin-bottom: 14px;
+}
+

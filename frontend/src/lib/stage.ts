@@ -15,6 +15,7 @@ import type {
   EvidenceItem,
   RoadmapItem,
   Text,
+  Gate,
 } from './stage-types';
 import type { AuditStatusResponse } from './types';
 
@@ -274,15 +275,136 @@ export function roadmapItems(items: RoadmapItem[] | undefined | null): RoadmapIt
   return items ? [...items] : [];
 }
 
-/** The first items the client report points at (R80), found by id, in its order. */
+/**
+ * Steps that are the same step are shown once. The API makes one item for each
+ * check that was not provided, so a site that was not given has two items
+ * ("Certificate and security headers", "Secret keys in the scripts") with the
+ * same title and the same steps, and only their reason differs. Items with the
+ * same kind, the same title and the same steps are folded into the first one,
+ * in its place (the order is kept, nothing is sorted). The reasons are put one
+ * after the other, the references are joined, and `mergedIds` names the ids
+ * that were folded in, so a link or the client report that named one of them
+ * still finds the step. Items that differ in any way are left alone.
+ */
+export function mergeSameSteps(items: RoadmapItem[] | undefined | null): RoadmapItem[] {
+  const out: RoadmapItem[] = [];
+  const first = new Map<string, number>();
+  for (const item of items ?? []) {
+    const key = JSON.stringify([
+      item.kind,
+      item.title?.en ?? null,
+      (item.steps ?? []).map((s) => s.en),
+    ]);
+    const at = first.get(key);
+    if (at === undefined || !item.title?.en) {
+      first.set(key, out.length);
+      out.push(item);
+      continue;
+    }
+    const base = out[at];
+    const joinText = (a?: Text, b?: Text): Text | undefined => {
+      if (!a) return b;
+      if (!b) return a;
+      return {
+        en: `${a.en} ${b.en}`,
+        ...(a.ur !== undefined || b.ur !== undefined
+          ? { ur: `${a.ur ?? a.en} ${b.ur ?? b.en}` }
+          : {}),
+      };
+    };
+    const union = (a?: string[], b?: string[]) => [...new Set([...(a ?? []), ...(b ?? [])])];
+    out[at] = {
+      ...base,
+      fromRequiredCheck: Boolean(base.fromRequiredCheck || item.fromRequiredCheck),
+      why: joinText(base.why, item.why),
+      refs: {
+        ...base.refs,
+        ...(base.refs?.findingIds || item.refs?.findingIds
+          ? { findingIds: union(base.refs?.findingIds, item.refs?.findingIds) }
+          : {}),
+        ...(base.refs?.evidenceIds || item.refs?.evidenceIds
+          ? { evidenceIds: union(base.refs?.evidenceIds, item.refs?.evidenceIds) }
+          : {}),
+      },
+      mergedIds: [...(base.mergedIds ?? []), item.id],
+    };
+  }
+  return out;
+}
+
+/**
+ * The first items the client report points at (R80), found by id, in its
+ * order. An id that was folded into another step (mergeSameSteps) finds that
+ * step, and a step is never listed twice.
+ */
 export function topActionItems(
   report: ClientReport | null | undefined,
   items: RoadmapItem[] | undefined | null,
 ): RoadmapItem[] {
-  const byId = new Map((items ?? []).map((i) => [i.id, i]));
-  return (report?.topActions ?? [])
-    .map((id) => byId.get(id))
-    .filter((i): i is RoadmapItem => Boolean(i));
+  const byId = new Map<string, RoadmapItem>();
+  for (const item of items ?? []) {
+    byId.set(item.id, item);
+    for (const id of item.mergedIds ?? []) byId.set(id, item);
+  }
+  const seen = new Set<string>();
+  const out: RoadmapItem[] = [];
+  for (const id of report?.topActions ?? []) {
+    const item = byId.get(id);
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+  }
+  return out;
+}
+
+// A Supabase TEST project is optional. When none was given, the result does not
+// ask for one (and so never for its keys): its "add this" step is left out, and
+// one plain line on the page points to the home page instead.
+const SUPABASE_CHECK = 'data-access-prover';
+
+export function withoutSupabaseAsk(
+  items: RoadmapItem[] | undefined | null,
+): RoadmapItem[] {
+  return (items ?? []).filter(
+    (item) =>
+      !(item.kind === 'provide-input' && item.refs?.checkId === SUPABASE_CHECK),
+  );
+}
+
+/**
+ * The reasons of the gate without the "not provided" one of the table check (the
+ * page says it once, in that plain line). A gate is never left without a reason.
+ */
+export function gateWithoutSupabaseAsk(gate: Gate | undefined): Gate | undefined {
+  if (!gate?.reasons) return gate;
+  const reasons = gate.reasons.filter(
+    (reason) => !/not provided: "Data access/i.test(reason.en),
+  );
+  return reasons.length > 0 ? { ...gate, reasons } : gate;
+}
+
+// The same for a website that was not given: one plain line on the page says so,
+// and the "not provided" sentences of the gate and the "add it" steps are left out.
+const SITE_CHECKS = ['tls-headers', 'bundle-secrets'];
+
+export function withoutWebsiteAsk(
+  items: RoadmapItem[] | undefined | null,
+): RoadmapItem[] {
+  return (items ?? []).filter(
+    (item) =>
+      !(item.kind === 'provide-input' && SITE_CHECKS.includes(item.refs?.checkId ?? '')),
+  );
+}
+
+export function gateWithoutWebsiteAsk(gate: Gate | undefined): Gate | undefined {
+  if (!gate?.reasons) return gate;
+  const reasons = gate.reasons.filter(
+    (reason) =>
+      !/not provided: "(Certificate and security headers|Secret keys inside the scripts)/i.test(
+        reason.en,
+      ),
+  );
+  return reasons.length > 0 ? { ...gate, reasons } : gate;
 }
 
 /** The roadmap could not be made (R80): the limits say so and no steps are shown. */

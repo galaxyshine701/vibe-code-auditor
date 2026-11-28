@@ -2,12 +2,13 @@ import type { CSSProperties } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import type { ClientReport, RoadmapResponse } from '@/lib/stage-types';
 import {
+  mergeSameSteps,
   pick,
   roadmapItems,
   roadmapUnavailable,
   showsRequiredLabel,
 } from '@/lib/stage';
-import { kindLabel, moreSteps, t } from '@/lib/stage-copy';
+import { kindLabel, moreSteps, severityText, t } from '@/lib/stage-copy';
 import { FixPrompt } from './fix-prompt';
 
 // The roadmap (R81): the next steps, already in the order to follow, so they are
@@ -37,11 +38,12 @@ export function RoadmapList({
   // "Roadmap not available." in the limits: say so, show no steps (R80)
   const unavailable = roadmapUnavailable(report);
   if (!roadmap && !unavailable) return null;
-  const items = unavailable ? [] : roadmapItems(roadmap?.items);
+  // the same step is shown once (mergeSameSteps), in the order received
+  const items = unavailable ? [] : mergeSameSteps(roadmapItems(roadmap?.items));
   const truncated = roadmap?.truncated ?? 0;
 
   return (
-    <section className="card roadmap-card" id="roadmap" aria-labelledby="roadmap-heading">
+    <section className="card roadmap-card glass" id="roadmap" aria-labelledby="roadmap-heading">
       <h2 id="roadmap-heading">{t(lang, 'roadmapHeading')}</h2>
       <p className="muted small">{t(lang, 'roadmapIntro')}</p>
 
@@ -73,7 +75,7 @@ export function RoadmapList({
                   <summary>
                     <span className="roadmap-chips">
                       <span className={`severity severity-${item.severity}`}>
-                        {String(item.severity)}
+                        {severityText(String(item.severity), lang)}
                       </span>
                       <span className="roadmap-kind">{kindLabel(item.kind, lang)}</span>
                       {showsRequiredLabel(item) ? (

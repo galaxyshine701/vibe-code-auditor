@@ -3,7 +3,8 @@
 import { useCallback, useState } from 'react';
 import { approveFix } from '@/lib/api';
 import { formatDate } from '@/lib/format';
-import { severityLabel, verdictLabel } from '@/lib/findings';
+import { verdictLabel } from '@/lib/findings';
+import { severityText } from '@/lib/stage-copy';
 import { ApiError } from '@/lib/errors';
 import type {
   Finding,
@@ -18,6 +19,8 @@ import { useApp } from './app-provider';
 import { CopyButton } from './copy-button';
 import { FixSeal } from './fix-seal';
 import { VerdictBadge } from './verdict';
+import { uiText } from '@/lib/ui-copy';
+import { useLang } from '@/lib/use-lang';
 
 const ACTOR_LABEL: Record<OperationActor, string> = {
   user_b: 'User B',
@@ -58,6 +61,8 @@ function OperationRow({
   item: OperationEvidence;
   verdict: Verdict;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   const result = resultLabel(item, verdict);
 
   return (
@@ -67,7 +72,7 @@ function OperationRow({
       </td>
       <td>{ACTOR_LABEL[item.actor]}</td>
       <td>
-        <span className={`allowed ${result.className}`}>{result.text}</span>
+        <span className={`allowed ${result.className}`}>{w(result.text)}</span>
       </td>
       <td>{item.httpStatus ?? '—'}</td>
       <td>{item.rowsReturned ?? '—'}</td>
@@ -100,6 +105,8 @@ export function FindingCard({
   /** Called on a 404, so the page can tell whether the audit is gone (R13). */
   onNotFound?: () => void;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   const { accessCode, rateLimitSecondsLeft } = useApp();
   const handleApiError = useApiError();
   const [approving, setApproving] = useState(false);
@@ -138,7 +145,7 @@ export function FindingCard({
   return (
     <article
       id={`finding-${finding.id}`}
-      className={`finding-card finding-${finding.verdict.toLowerCase()}`}
+      className={`finding-card finding-${finding.verdict.toLowerCase()} glass`}
     >
       <div className="finding-top">
         <div className="finding-badges">
@@ -147,20 +154,24 @@ export function FindingCard({
             label={verdictLabel(finding.verdict)}
           />
           <span className={`severity severity-${finding.severity}`}>
-            {severityLabel(finding.severity)}
+            {severityText(finding.severity, language)}
           </span>
           <span className="table-chip">{finding.table}</span>
           {retest.previousVerdict &&
           retest.previousVerdict !== finding.verdict ? (
             <span className="table-chip">
-              was {retest.previousVerdict}, now {finding.verdict}
+              {uiLang === 'ur'
+                ? `pehle ${retest.previousVerdict}, ab ${finding.verdict}`
+                : `was ${retest.previousVerdict}, now ${finding.verdict}`}
             </span>
           ) : null}
         </div>
         <span className={`retest-badge retest-${retest.status}`}>
-          {retest.status === 'not_run' && retest.lastRunAt
-            ? 'Re-tested'
-            : RETEST_LABEL[retest.status]}
+          {w(
+            retest.status === 'not_run' && retest.lastRunAt
+              ? 'Re-tested'
+              : RETEST_LABEL[retest.status],
+          )}
           {retest.lastRunAt ? ` · ${formatDate(retest.lastRunAt)}` : ''}
         </span>
       </div>
@@ -170,27 +181,27 @@ export function FindingCard({
       <h3>{finding.title}</h3>
       <p className="finding-explanation">{explanation}</p>
       {finding.explanationSource === 'ai' && language !== 'ur' ? (
-        <p className="muted small">Written by AI</p>
+        <p className="muted small">{w('Written by AI')}</p>
       ) : null}
 
       <ActorDiagram operations={operations} verdict={finding.verdict} />
 
       <dl className="metric-row">
         <div>
-          <dt>Rows returned</dt>
+          <dt>{w('Rows returned')}</dt>
           <dd>{finding.evidence.rowsReturned ?? '—'}</dd>
         </div>
         <div>
-          <dt>HTTP status</dt>
+          <dt>{w('HTTP status')}</dt>
           <dd>{finding.evidence.httpStatus ?? '—'}</dd>
         </div>
         <div>
-          <dt>Module</dt>
+          <dt>{w('Module')}</dt>
           <dd>{finding.module}</dd>
         </div>
         {finding.evidence.canaryRowId ? (
           <div className="metric-wide">
-            <dt>Canary row</dt>
+            <dt>{w('Canary row')}</dt>
             <dd className="mono-small">{finding.evidence.canaryRowId}</dd>
           </div>
         ) : null}
@@ -201,19 +212,19 @@ export function FindingCard({
         open={evidenceOpen}
         onToggle={(event) => setEvidenceOpen(event.currentTarget.open)}
       >
-        <summary>Evidence and operations</summary>
+        <summary>{w('Evidence and operations')}</summary>
         <div className="disclosure-body">
           {operations.length > 0 ? (
             <div className="table-scroll">
               <table className="operations-table">
                 <thead>
                   <tr>
-                    <th>Operation</th>
-                    <th>Who</th>
-                    <th>Result</th>
+                    <th>{w('Operation')}</th>
+                    <th>{w('Who')}</th>
+                    <th>{w('Result')}</th>
                     <th>HTTP</th>
-                    <th>Rows</th>
-                    <th>Note</th>
+                    <th>{w('Rows')}</th>
+                    <th>{w('Note')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -228,21 +239,25 @@ export function FindingCard({
               </table>
             </div>
           ) : (
-            <p className="muted">No operation details for this finding.</p>
+            <p className="muted">{w('No operation details for this finding.')}</p>
           )}
 
           <div className="reproducer">
             <div className="section-heading-row">
-              <h4>Reproducer</h4>
+              <h4>{w('Reproducer')}</h4>
               {finding.evidence.reproducer ? (
-                <CopyButton text={finding.evidence.reproducer} />
+                <CopyButton
+                  text={finding.evidence.reproducer}
+                  label={w('Copy')}
+                  copiedLabel={w('Copied')}
+                />
               ) : null}
             </div>
             {finding.evidence.reproducer ? (
               <pre className="code-block">{finding.evidence.reproducer}</pre>
             ) : (
               <p className="muted">
-                Nothing to reproduce for this finding.
+                {w('Nothing to reproduce for this finding.')}
               </p>
             )}
           </div>
@@ -256,25 +271,30 @@ export function FindingCard({
           onToggle={(event) => setFixOpen(event.currentTarget.open)}
         >
           <summary>
-            Suggested fix
+            {w('Suggested fix')}
             <span className={`fix-status fix-status-${finding.fix.status}`}>
-              {finding.fix.status === 'approved' ? 'Approved' : 'Proposed'}
+              {w(finding.fix.status === 'approved' ? 'Approved' : 'Proposed')}
             </span>
           </summary>
           <div className="disclosure-body">
             <p>{finding.fix.description}</p>
             <div className="section-heading-row">
               <h4>SQL</h4>
-              <CopyButton text={finding.fix.sql} label="Copy SQL" />
+              <CopyButton
+                text={finding.fix.sql}
+                label={w('Copy SQL')}
+                copiedLabel={w('Copied')}
+              />
             </div>
-            <pre className="code-block">{finding.fix.sql}</pre>
+            <pre className="code-block code-sql" tabIndex={0} aria-label="SQL">
+              {finding.fix.sql}
+            </pre>
 
             {finding.fix.status === 'approved' ? (
               <div className="approved-note">
-                <strong>Next step</strong>
+                <strong>{w('Next step')}</strong>
                 <p>
-                  Run this SQL in your own Supabase project, then press Re-test.
-                  The app does not run or edit the SQL for you.
+                  {w('Run this SQL in your own Supabase project, then press Re-test. The app does not run or edit the SQL for you.')}
                 </p>
               </div>
             ) : (
@@ -286,7 +306,7 @@ export function FindingCard({
                   approving || actionsDisabled || rateLimitSecondsLeft > 0
                 }
               >
-                {approving ? 'Approving…' : 'Approve fix'}
+                {w(approving ? 'Approving…' : 'Approve fix')}
               </button>
             )}
 

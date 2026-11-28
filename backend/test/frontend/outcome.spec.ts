@@ -232,11 +232,17 @@ describe('certificateLock: the same rule as before, with the reason', () => {
     });
   });
 
-  it('leaks give "Fix the leaks and Re-test to unlock."', () => {
+  it('leaks give "Fix the leaks and Re-test to open the result view."', () => {
     expect(certificateLock({ ...base, leaked: 2 })).toEqual({
       eligible: false,
-      reason: 'Fix the leaks and Re-test to unlock.',
+      reason: 'Fix the leaks and Re-test to open the result view.',
     });
+  });
+
+  it('the visible reason never says "unlock" (the button is not a lock)', () => {
+    const source = readFileSync(join(FRONTEND, 'src', 'lib', 'outcome.ts'), 'utf-8');
+    expect(source).not.toMatch(/reason: '[^']*unlock/i);
+    expect(source).toContain("reason: 'Fix the leaks and Re-test to open the result view.'");
   });
 
   it('each other reason has its own sentence', () => {
@@ -248,7 +254,7 @@ describe('certificateLock: the same rule as before, with the reason', () => {
     ].map((lock) => (lock.eligible ? '' : lock.reason));
     expect(new Set(reasons).size).toBe(4);
     for (const reason of reasons) expect(reason.length).toBeGreaterThan(10);
-    expect(reasons).not.toContain('Fix the leaks and Re-test to unlock.');
+    expect(reasons).not.toContain('Fix the leaks and Re-test to open the result view.');
   });
 
   it('says the leak sentence only for leaks, not for the other reasons', () => {
@@ -359,13 +365,13 @@ describe('the files', () => {
     logic: read('lib', 'outcome.ts'),
   };
 
-  it('every animation of the badges, the seal and the lock is under 800 ms', () => {
+  it('every animation of the badges, the seal and the result view mark is under 800 ms', () => {
     const names = [
       'badgePop',
       'sealRing',
-      'sealCheck',
+      'sealCore',
       'sealCanary',
-      'shackleOpen',
+      'certMarkFill',
       'certGlow',
     ];
     for (const name of names) {
@@ -392,9 +398,9 @@ describe('the files', () => {
     );
     for (const selector of [
       '.fix-seal.is-animating .seal-ring',
-      '.fix-seal.is-animating .seal-check',
+      '.fix-seal.is-animating .seal-core',
       '.fix-seal.is-animating .seal-canary',
-      '.cert-action.is-unlocking .padlock-shackle',
+      '.cert-action.is-unlocking .cert-mark-fill',
       '.cert-action.is-unlocking .cert-button',
     ]) {
       expect(block, selector).toContain(selector);

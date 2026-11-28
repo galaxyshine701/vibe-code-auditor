@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // The words of the UI (R38, R87, R88): never "safe", "secure", "certified",
@@ -75,10 +76,42 @@ describe('the words of the UI', () => {
 
   it('the hero says what the product checks (its words are in hero-copy.ts)', () => {
     const copy = readFileSync(join(SRC, 'lib', 'hero-copy.ts'), 'utf8');
-    expect(copy).toContain('Before you launch: what can a stranger reach?');
-    expect(copy).toMatch(/website address, Supabase details, or both/);
+    expect(copy).toContain('Paste a GitHub repo. See what a stranger could reach, and how to fix it.');
+    expect(copy).toContain('Repo and website checks use no AI. AI is used only to explain Supabase findings.');
+    expect(copy).toContain('Looks for secret keys, committed .env files, missing database rules and weak site headers.');
+    expect(copy).not.toMatch(/Supabase details, or both/);
     const page = readFileSync(join(SRC, 'app', 'page.tsx'), 'utf8');
     expect(page).toContain('headlineWords(lang)');
     expect(page).not.toMatch(/Can another user read your data/);
+  });
+});
+
+describe('the severity words and the Re-test result page, in Roman Urdu', () => {
+  const front = join(__dirname, '..', '..', '..', 'frontend', 'src');
+  const load = (file: string) =>
+    import(/* @vite-ignore */ pathToFileURL(join(front, 'lib', file)).href);
+
+  it('each severity has both words; one the UI does not know is shown as given', async () => {
+    const copy = (await load('stage-copy.ts')) as typeof import('../../../frontend/src/lib/stage-copy');
+    for (const [id, en] of [['critical', 'Critical'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['info', 'Info']]) {
+      expect(copy.severityText(id, 'en')).toBe(en);
+      expect(copy.severityText(id, 'ur').length).toBeGreaterThan(2);
+    }
+    expect(copy.severityText('critical', 'ur')).not.toBe('Critical');
+    expect(copy.severityText('urgent', 'ur')).toBe('urgent');
+    expect(copy.t('ur', 'nothingToShow')).toContain('In checks');
+    expect(copy.t('en', 'nothingToShow')).toBe('Nothing to fix or show from these checks.');
+  });
+
+  it('every label of the Re-test result page has Roman Urdu, with English as the fallback', async () => {
+    const ui = (await load('ui-copy.ts')) as typeof import('../../../frontend/src/lib/ui-copy');
+    const page = readFileSync(join(front, 'app', 'audits', '[id]', 'certificate', 'page.tsx'), 'utf8');
+    const labels = [...page.matchAll(/\bw\('([^']+)'\)/g)].map((m) => m[1]);
+    expect(labels.length).toBeGreaterThan(12);
+    for (const label of labels) {
+      expect(ui.uiText(label, 'ur'), label).not.toBe(label === 'Access code' ? '' : label);
+      expect(ui.uiText(label, 'en')).toBe(label);
+    }
+    expect(ui.uiText('A text of the server', 'ur')).toBe('A text of the server');
   });
 });

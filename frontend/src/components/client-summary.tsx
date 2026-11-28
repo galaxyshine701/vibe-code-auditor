@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
 import type { Lang } from '@/lib/check-labels';
 import type { ClientReport, RoadmapItem } from '@/lib/stage-types';
-import { pick, topActionItems } from '@/lib/stage';
-import { filesReadText, t } from '@/lib/stage-copy';
+import { mergeSameSteps, pick, topActionItems } from '@/lib/stage';
+import { filesReadText, severityText, t } from '@/lib/stage-copy';
 import type { AuditSummary } from '@/lib/types';
 
 // The summary block of the client report (R80), above the details: the counts
@@ -95,14 +95,16 @@ export function ClientSummary({
     hasSupabase,
     hasRepo,
   );
-  const first = topActionItems(report, roadmapItems);
+  // the same step as in the roadmap below: the same step is listed once
+  const first = topActionItems(report, mergeSameSteps(roadmapItems));
   // a group is shown when the audit asked for it, or the report has a place for it
-  const showTables = hasSupabase || report?.findings?.tables !== undefined;
-  const showSite = hasWebsite || report?.findings?.site !== undefined;
+  // with no Supabase project there is no table group (the page says so once)
+  const showTables = hasSupabase || Boolean(report?.findings?.tables);
+  const showSite = hasWebsite || Boolean(report?.findings?.site);
   const showRepo = hasRepo || report?.findings?.repo !== undefined;
 
   return (
-    <section className="card client-summary" aria-labelledby="summary-heading">
+    <section className="card client-summary glass" aria-labelledby="summary-heading">
       <h2 id="summary-heading">{t(lang, 'summaryHeading')}</h2>
       <div className="summary-groups">
         {showTables ? (
@@ -181,7 +183,7 @@ export function ClientSummary({
               <li key={item.id}>
                 <a href={`#roadmap-${item.id}`}>
                   <span className={`severity severity-${item.severity}`}>
-                    {String(item.severity)}
+                    {severityText(String(item.severity), lang)}
                   </span>
                   <span>{pick(item.title, lang)}</span>
                 </a>

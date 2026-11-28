@@ -4,25 +4,6 @@ import {
   NetworkError,
   RequestCancelledError,
 } from './errors';
-import {
-  bundleFromId,
-  bundleGetAudit,
-  bundleGetClientReport,
-  bundleGetEvidence,
-  bundleGetFindings,
-  bundleGetRoadmap,
-  bundleNotPlayed,
-  bundleStartAudit,
-  selectedBundle,
-} from './mock-bundle';
-import {
-  mockApproveFix,
-  mockGetAudit,
-  mockGetCertificate,
-  mockGetFindings,
-  mockRetest,
-  mockStartAudit,
-} from './mock';
 import type {
   ClientReport,
   EvidenceResponse,
@@ -38,6 +19,16 @@ import type {
   StartAuditInput,
   StartAuditResponse,
 } from './types';
+
+// The sample data is a part of its own, loaded only when the preview with sample
+// data (USE_MOCK) asks for it: a visitor of the real app never downloads it.
+const sample = () => import('./mock');
+const bundles = () => import('./mock-bundle');
+
+/** The sample bundle this id belongs to, or null (also: not the preview). */
+async function sampleOf(id: string) {
+  return USE_MOCK ? (await bundles()).bundleFromId(id) : null;
+}
 
 // A field that older answers do not have is treated as null (R46).
 function normalizeFinding(finding: Finding): Finding {
@@ -178,8 +169,11 @@ export async function startAudit(
   signal?: AbortSignal,
 ): Promise<StartAuditResponse> {
   if (USE_MOCK) {
-    const bundle = selectedBundle();
-    return bundle ? bundleStartAudit(bundle, input) : mockStartAudit(input);
+    const sets = await bundles();
+    const bundle = sets.selectedBundle();
+    return bundle
+      ? sets.bundleStartAudit(bundle, input)
+      : (await sample()).mockStartAudit(input);
   }
   return request<StartAuditResponse>('/api/v1/audits', accessCode, {
     method: 'POST',
@@ -193,11 +187,11 @@ export async function getAudit(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<AuditStatusResponse> {
-  const bundle = USE_MOCK ? bundleFromId(id) : null;
+  const bundle = await sampleOf(id);
   const audit = bundle
-    ? await bundleGetAudit(id)
+    ? await (await bundles()).bundleGetAudit(id)
     : USE_MOCK
-    ? await mockGetAudit(id)
+    ? await (await sample()).mockGetAudit(id)
     : await request<AuditStatusResponse>(
         `/api/v1/audits/${encodeURIComponent(id)}`,
         accessCode,
@@ -211,11 +205,11 @@ export async function getFindings(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<FindingsResponse> {
-  const bundle = USE_MOCK ? bundleFromId(id) : null;
+  const bundle = await sampleOf(id);
   const result = bundle
-    ? await bundleGetFindings(id)
+    ? await (await bundles()).bundleGetFindings(id)
     : USE_MOCK
-    ? await mockGetFindings(id)
+    ? await (await sample()).mockGetFindings(id)
     : await request<FindingsResponse>(
         `/api/v1/audits/${encodeURIComponent(id)}/findings`,
         accessCode,
@@ -230,9 +224,9 @@ export async function approveFix(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<Finding> {
-  if (USE_MOCK && bundleFromId(id)) bundleNotPlayed();
+  if (await sampleOf(id)) (await bundles()).bundleNotPlayed();
   const finding = USE_MOCK
-    ? await mockApproveFix(id, findingId)
+    ? await (await sample()).mockApproveFix(id, findingId)
     : await request<Finding>(
         `/api/v1/audits/${encodeURIComponent(id)}/findings/${encodeURIComponent(findingId)}/fix/approve`,
         accessCode,
@@ -253,8 +247,8 @@ export async function retest(
     serviceKey: input.serviceKey,
     confirmTestProject: true,
   };
-  if (USE_MOCK && bundleFromId(id)) bundleNotPlayed();
-  if (USE_MOCK) return mockRetest(id, body);
+  if (await sampleOf(id)) (await bundles()).bundleNotPlayed();
+  if (USE_MOCK) return (await sample()).mockRetest(id, body);
   return request<StartAuditResponse>(
     `/api/v1/audits/${encodeURIComponent(id)}/retest`,
     accessCode,
@@ -267,9 +261,9 @@ export async function getCertificate(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<Certificate> {
-  if (USE_MOCK && bundleFromId(id)) bundleNotPlayed();
+  if (await sampleOf(id)) (await bundles()).bundleNotPlayed();
   const certificate = USE_MOCK
-    ? await mockGetCertificate(id)
+    ? await (await sample()).mockGetCertificate(id)
     : await request<Certificate>(
         `/api/v1/audits/${encodeURIComponent(id)}/certificate`,
         accessCode,
@@ -284,9 +278,9 @@ export async function getEvidence(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<EvidenceResponse | null> {
-  return orNone(() =>
-    USE_MOCK && bundleFromId(id)
-      ? bundleGetEvidence(id)
+  return orNone(async () =>
+    (await sampleOf(id))
+      ? (await bundles()).bundleGetEvidence(id)
       : USE_MOCK
         ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'No evidence.'))
         : request<EvidenceResponse>(
@@ -303,9 +297,9 @@ export async function getRoadmap(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<RoadmapResponse | null> {
-  return orNone(() =>
-    USE_MOCK && bundleFromId(id)
-      ? bundleGetRoadmap(id)
+  return orNone(async () =>
+    (await sampleOf(id))
+      ? (await bundles()).bundleGetRoadmap(id)
       : USE_MOCK
         ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'No roadmap.'))
         : request<RoadmapResponse>(
@@ -322,9 +316,9 @@ export async function getClientReport(
   accessCode: string,
   signal?: AbortSignal,
 ): Promise<ClientReport | null> {
-  return orNone(() =>
-    USE_MOCK && bundleFromId(id)
-      ? bundleGetClientReport(id)
+  return orNone(async () =>
+    (await sampleOf(id))
+      ? (await bundles()).bundleGetClientReport(id)
       : USE_MOCK
         ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'No client report.'))
         : request<ClientReport>(

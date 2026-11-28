@@ -1,0 +1,1805 @@
+/* The home page, on the one background of the page. Loaded after hero.css.
+
+   - No frame and no background of its own around the hero, in both themes.
+   - One container (.shell, 1200px at most). Every section fills it, its words
+     are left-aligned and no line of text is longer than about 60 characters.
+   - Glass cards: a gradient over a scrim, a blur of what is behind, a light edge
+     and a light along the top. The soft colour blobs are radial gradients (no
+     blur filter) inside a wrapper that holds glass cards only, so no word ever
+     has a blob behind it but through a card. A test (hero-glass.spec.ts) works
+     out the worst case of those backgrounds and checks the contrast (AA) of
+     both themes.
+   - A phone has a lighter blur and no light sweep; without backdrop-filter the
+     card is a plain, more solid translucent card; with prefers-reduced-motion
+     nothing moves.
+   - A card rises into view once (the reveal, at the end of this file). What
+     moves is its outer wrapper; the glass with its blur is a still layer in it. */
+
+:root {
+  /* a halo has two colours only, both tokens of the theme: amber and a cool
+     violet. No status colour is in a halo */
+  --blob-amber: color-mix(in srgb, var(--halo-amber) 30%, transparent);
+  --blob-cool: color-mix(in srgb, var(--halo-cool) 34%, transparent);
+  --glass-hi: rgba(255, 255, 255, 0.09);
+  --glass-lo: rgba(255, 255, 255, 0.025);
+  --glass-scrim: rgba(20, 22, 30, 0.66);
+  --glass-edge: rgba(255, 255, 255, 0.22);
+  --glass-top: rgba(255, 255, 255, 0.46);
+  --glass-tint: color-mix(in srgb, var(--halo-cool) 60%, transparent);
+  --glass-blur: blur(18px) saturate(160%);
+  --sweep: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] {
+  --blob-amber: color-mix(in srgb, var(--halo-amber) 40%, transparent);
+  --blob-cool: color-mix(in srgb, var(--halo-cool) 26%, transparent);
+  --glass-hi: rgba(255, 255, 255, 0.72);
+  --glass-lo: rgba(255, 255, 255, 0.32);
+  --glass-scrim: rgba(255, 255, 255, 0.42);
+  --glass-edge: rgba(130, 100, 55, 0.18);
+  --glass-top: rgba(255, 255, 255, 1);
+  --glass-tint: color-mix(in srgb, color-mix(in srgb, var(--halo-amber) 75%, var(--ink)) 50%, transparent);
+  --sweep: rgba(255, 255, 255, 0.5);
+}
+
+/* ---- the glass card, and the blobs behind it ---- */
+/* a wrapper holds glass cards only. Its blobs reach out into the margins at the
+   two sides, never up or down to a heading; the page cuts them at its edge. */
+.glass-wrap {
+  position: relative;
+  isolation: isolate;
+}
+
+.site-main:has(.home) {
+  overflow-x: clip;
+}
+
+.glass-wrap::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 -140px;
+  pointer-events: none;
+  background:
+    radial-gradient(26% 50% at 26% 50%, var(--blob-a, var(--blob-amber)), transparent 100%),
+    radial-gradient(28% 50% at 72% 50%, var(--blob-b, var(--blob-cool)), transparent 100%),
+    radial-gradient(18% 36% at 50% 36%, var(--blob-c, var(--blob-amber)), transparent 100%);
+}
+
+/* each part of the page has its own mix */
+.hero-visual > .glass-wrap {
+  --blob-a: var(--blob-cool);
+  --blob-b: var(--blob-amber);
+  --glass-tint: color-mix(in srgb, var(--halo-cool) 55%, transparent);
+}
+
+.checks-list.glass-wrap {
+  --blob-a: var(--blob-amber);
+  --blob-b: var(--blob-cool);
+  --blob-c: var(--blob-cool);
+}
+
+.how-steps.glass-wrap {
+  --blob-a: var(--blob-amber);
+  --blob-b: var(--blob-cool);
+  --blob-c: var(--blob-cool);
+}
+
+.hero-card-wrap.glass-wrap {
+  --blob-a: var(--blob-cool);
+  --blob-b: var(--blob-amber);
+  --blob-c: var(--blob-amber);
+}
+
+.word-cards.glass-wrap {
+  --blob-a: var(--blob-cool);
+  --blob-b: var(--blob-amber);
+  --blob-c: var(--blob-amber);
+}
+
+.glass {
+  border: 1px solid var(--glass-edge);
+  border-radius: 20px;
+  background:
+    linear-gradient(150deg, var(--glass-hi), var(--glass-lo)),
+    var(--glass-scrim);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    inset 0 1px 0 var(--glass-top),
+    inset 1px 0 0 var(--glass-edge),
+    0 28px 56px -32px var(--glass-tint);
+}
+
+/* the words on glass: a little stronger than on the page, so they keep their
+   contrast over the colours behind */
+html:not([data-theme="light"]) .glass {
+  --muted: #c9ced6;
+  --muted-2: #bfc5ce;
+  --leak: #ffb6b9;
+  --ok: #6fe0ac;
+  --grey: #c4c9d0;
+}
+
+[data-theme="light"] .glass {
+  --muted: #474d55;
+  --muted-2: #4d535b;
+  --leak: #97242a;
+  --ok: #11573a;
+  --grey: #474d55;
+  --canary-word: #6d4f00;
+}
+
+/* the dark theme: a soft glow on the verdict words of the cards */
+html:not([data-theme="light"]) .glass .verdict-badge {
+  box-shadow: 0 0 14px -4px currentColor;
+}
+
+html:not([data-theme="light"]) .scene-canary {
+  filter: drop-shadow(0 0 5px var(--canary-glow));
+}
+
+/* ---- the page: one gap between the sections ---- */
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 72px;
+}
+
+.site-main:has(.home) {
+  padding-top: 32px;
+}
+
+.home-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  min-width: 0;
+}
+
+.section-head {
+  display: grid;
+  gap: 6px;
+}
+
+.section-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.section-head h2 {
+  max-width: 30ch;
+  margin: 0;
+  font-size: clamp(1.45rem, 2.6vw, 2rem);
+  line-height: 1.15;
+}
+
+.home p,
+.get-points li {
+  max-width: 60ch;
+}
+
+/* ---- the hero: the words and the form, the scene beside them ---- */
+.hero.hero-stage {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+  padding: 0;
+}
+
+.hero-stage > .hero-copy,
+.hero-stage > .hero-visual {
+  min-width: 0;
+}
+
+.hero-stage .hero-copy-top {
+  margin-bottom: 14px;
+}
+
+.hero-stage .hero-title {
+  max-width: 20ch;
+  margin-bottom: 14px;
+  font-size: clamp(2.2rem, 5.4vw, 3.4rem);
+  line-height: 1.05;
+  overflow-wrap: break-word;
+}
+
+.hero-stage .hero-title-ur {
+  font-size: clamp(1.8rem, 4.2vw, 2.7rem);
+  line-height: 1.15;
+}
+
+.start-wrap {
+  min-width: 0;
+}
+
+.start-box {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: none;
+  margin: 0;
+  padding: 22px;
+}
+
+/* the repository group inside the main box is not a second box: the chip in its
+   legend still says where it stands */
+.start-box > .source-group[data-group="repo"] {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* the one field of the hero needs no box title; it stays for a screen reader,
+   and the chip shows once something is typed */
+.start-box > .source-group[data-group="repo"] > .source-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.start-box > .source-group[data-group="repo"][data-state="partial"] > .source-legend {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
+}
+
+.start-box > .source-group[data-group="repo"][data-state="partial"] .source-title {
+  display: none;
+}
+
+/* the start button: a soft amber ring when it can be pressed; a tinted button
+   (not a dead grey one) while something is missing, with the line under it */
+.start-box .button-primary:not(:disabled) {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--canary) 45%, transparent),
+    0 0 28px -4px color-mix(in srgb, var(--canary) 75%, transparent);
+}
+
+.start-box .button-primary:disabled {
+  opacity: 1;
+  border: 1px dashed var(--canary);
+  color: var(--ink);
+  background: var(--canary-soft);
+}
+
+.will-check {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.website-toggle {
+  justify-self: start;
+  min-height: 2.4rem;
+  text-align: left;
+}
+
+.start-box .fine-print,
+.start-box #start-hint {
+  margin: 0;
+}
+
+.hero-visual {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hero-visual > .glass-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1100px) {
+  .hero.hero-stage {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    column-gap: 48px;
+  }
+
+  .hero-stage .hero-title {
+    font-size: clamp(2.1rem, 3vw, 2.6rem);
+  }
+
+  .hero-stage .hero-title-ur {
+    font-size: clamp(1.7rem, 2.4vw, 2.1rem);
+  }
+}
+
+/* a page that scrolls to an anchor keeps it below the sticky header */
+html {
+  scroll-padding-top: 96px;
+}
+
+/* ---- the scene: four pictures, two by two; it fills the height of its column ---- */
+.hero-scene {
+  --scene-lit: #7584a6;
+  --scene-shade: #2b3552;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 20px 18px 16px;
+}
+
+.scene-grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.scene-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+/* the drawing takes the room that is left, and sits in its middle */
+.scene-art {
+  display: block;
+  flex: 1 1 96px;
+  width: 100%;
+  min-height: 96px;
+  overflow: visible;
+}
+
+.scene-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.scene-card {
+  fill: var(--surface);
+  stroke: var(--canary);
+  stroke-width: 1.8;
+}
+
+.scene-card-head {
+  fill: var(--ink-soft);
+}
+
+.scene-card-dot {
+  fill: var(--canary);
+}
+
+.scene-card-line {
+  fill: var(--line-strong);
+}
+
+.scene-ground {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.scene-shadow {
+  fill: url(#scene-shadow-fill);
+}
+
+.scene-post {
+  fill: url(#scene-depth);
+}
+
+.scene-post-cap {
+  fill: #93a0bd;
+}
+
+.scene-post-band {
+  fill: none;
+  stroke: var(--canary);
+  stroke-width: 3;
+}
+
+.scene-glow-canary {
+  fill: url(#scene-glow-canary);
+}
+
+.scene-glow-key {
+  fill: url(#scene-glow-key);
+}
+
+.scene-canary-body,
+.scene-canary-tail {
+  fill: var(--canary);
+}
+
+.scene-canary-wing {
+  fill: #d7a62c;
+}
+
+.scene-canary-beak {
+  fill: #ff9d3a;
+}
+
+.scene-canary-eye {
+  fill: #1b1f2b;
+}
+
+.scene-stranger-body {
+  fill: var(--grey);
+}
+
+.scene-barrier-post {
+  fill: var(--grey);
+}
+
+.scene-barrier-bar {
+  fill: url(#scene-stripes);
+  stroke: var(--ok);
+  stroke-width: 1.5;
+}
+
+.scene-stripe-a {
+  fill: var(--ok);
+}
+
+.scene-stripe-b {
+  fill: var(--surface);
+}
+
+.scene-app {
+  fill: var(--surface-soft);
+  stroke: var(--control-border);
+  stroke-width: 1.2;
+}
+
+.scene-app-bar {
+  fill: var(--line);
+}
+
+.scene-app-dot {
+  fill: var(--muted);
+}
+
+.scene-brick {
+  fill: var(--line-strong);
+}
+
+.scene-brick-todo {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2.4;
+}
+
+.scene-window {
+  fill: var(--leak-soft);
+  stroke: var(--leak);
+  stroke-width: 1.6;
+}
+
+.scene-key circle,
+.scene-key path {
+  fill: none;
+  stroke: var(--leak);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.scene-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.scene-caption strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.scene-word {
+  max-width: 100%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.scene-word-inconclusive {
+  color: var(--canary-word, var(--canary));
+}
+
+.scene-word-blocked {
+  color: var(--ok);
+}
+
+.scene-word-leaked {
+  color: var(--leak);
+}
+
+/* one slow light sweep across the scene, once */
+.hero-scene::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, var(--sweep), transparent);
+  transform: translateX(-140%) skewX(-14deg);
+  opacity: 0;
+  animation: heroSweep 4.8s ease-in-out 1.6s 1 both;
+}
+
+@keyframes heroSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-140%) skewX(-14deg);
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(380%) skewX(-14deg);
+  }
+}
+
+/* the scene plays again and again: the marker lands, the attempt comes, the
+   barrier comes down, the key shows; a pause, and from the start. Transform and
+   opacity only. */
+.scene-canary {
+  animation: sceneLand 7s ease-in-out infinite both;
+}
+
+.scene-glow-canary {
+  animation: sceneFade 7s ease-in-out infinite both;
+}
+
+.scene-stranger {
+  animation: sceneWalk 7s ease-in-out infinite both;
+}
+
+.scene-barrier-bar {
+  transform-box: fill-box;
+  transform-origin: 0% 50%;
+  animation: sceneDown 7s ease-in-out infinite both;
+}
+
+.scene-key {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sceneKey 7s ease-in-out infinite both;
+}
+
+.scene-glow-key {
+  animation: sceneShine 7s ease-in-out infinite both;
+}
+
+/* the card appears after the window. It only fades, so it stays in the middle of
+   its panel in every frame */
+.scene-fix {
+  animation: sceneCard 7s ease-in-out infinite both;
+}
+
+@keyframes sceneCard {
+  0%,
+  52% {
+    opacity: 0.3;
+  }
+  66%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes sceneLand {
+  0% {
+    opacity: 0.3;
+    transform: translateY(-18px);
+  }
+  12%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0.3;
+    transform: none;
+  }
+}
+
+@keyframes sceneFade {
+  0%,
+  10% {
+    opacity: 0;
+  }
+  22%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sceneWalk {
+  0%,
+  14% {
+    opacity: 0.3;
+    transform: translateX(-22px);
+  }
+  28%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0.3;
+    transform: none;
+  }
+}
+
+@keyframes sceneDown {
+  0%,
+  28% {
+    transform: rotate(-68deg);
+  }
+  38%,
+  92% {
+    transform: none;
+  }
+  100% {
+    transform: rotate(-68deg);
+  }
+}
+
+@keyframes sceneKey {
+  0%,
+  40% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0.3;
+    transform: none;
+  }
+}
+
+@keyframes sceneShine {
+  0%,
+  42% {
+    opacity: 0;
+  }
+  56%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* the scene starts when the intro is over */
+html[data-intro="pending"] .hero-scene *,
+html[data-intro="pending"] .hero-scene::after,
+html[data-intro="opening"] .hero-scene *,
+html[data-intro="opening"] .hero-scene::after,
+html[data-intro="leaving"] .hero-scene *,
+html[data-intro="leaving"] .hero-scene::after {
+  animation-play-state: paused;
+}
+
+/* ---- what it checks ---- */
+.checks-list,
+.how-steps,
+.word-cards {
+  display: grid;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.checks-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 20px;
+}
+
+.checks-icon {
+  color: var(--ink-soft);
+}
+
+.checks-list h3,
+.how-step h3,
+.word-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.checks-list p,
+.how-step p,
+.word-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.reads-tag {
+  max-width: 100%;
+  margin-top: auto;
+  padding: 3px 9px;
+  border: 1px dashed var(--control-border);
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  overflow-wrap: break-word;
+}
+
+.checks-skipped {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 20px;
+  padding: 16px 20px;
+}
+
+.checks-skipped p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.checks-skipped ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks-skipped li {
+  padding: 4px 11px;
+  border: 1px dashed var(--control-border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+/* ---- how it works: three steps joined by a line ---- */
+.how-steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.how-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 20px;
+}
+
+.how-steps > :not(:last-child) > .how-step::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 25px;
+  height: 2px;
+  background: var(--control-border);
+}
+
+.how-visual {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  justify-content: center;
+  gap: 8px;
+  min-height: 11rem;
+  margin-bottom: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.how-visual::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -10px;
+  pointer-events: none;
+  background: radial-gradient(60% 60% at 50% 50%, var(--visual-glow), transparent 100%);
+}
+
+.how-visual-paste {
+  --visual-glow: var(--blob-amber);
+}
+
+.how-visual-run {
+  --visual-glow: var(--blob-cool);
+}
+
+.how-visual-result {
+  --visual-glow: var(--blob-cool);
+}
+
+.mv-input,
+.mv-agree,
+.mv-row,
+.mv-code {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.mv-input {
+  padding: 7px 10px;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.mv-agree,
+.mv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+}
+
+.mv-box {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--control-border);
+  border-radius: 3px;
+}
+
+.mv-button {
+  align-self: flex-start;
+  padding: 7px 14px;
+  border-radius: 8px;
+  color: var(--btn-ink);
+  background: var(--btn-bg);
+  font-weight: 700;
+}
+
+.mv-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--grey);
+}
+
+.mv-row-done .mv-dot {
+  background: var(--ok);
+}
+
+.mv-row-running .mv-dot {
+  background: var(--canary);
+}
+
+.mv-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.mv-progress span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transform: scaleX(0.62);
+  transform-origin: left;
+}
+
+.mv-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mv-pill {
+  --tone: var(--grey);
+  padding: 3px 9px;
+  border: 1px solid var(--tone);
+  border-radius: 999px;
+  color: var(--tone);
+  background: var(--field);
+  box-shadow: 0 0 14px -3px var(--tone);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mv-pill-leaked {
+  --tone: var(--leak);
+}
+
+.mv-pill-inconclusive {
+  --tone: var(--canary-word, var(--canary));
+}
+
+.mv-pill-blocked {
+  --tone: var(--ok);
+}
+
+.mv-code {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.how-number {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  color: var(--btn-ink);
+  background: var(--btn-bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* ---- what you get: the words and a real prompt beside the example result ---- */
+.get-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+
+.get-text {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.get-points {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--ink);
+}
+
+.prompt-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.prompt-sample {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.prompt-sample h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.prompt-about {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* it grows with the room there is; the whole prompt is in it */
+.prompt-text {
+  flex: 1 1 auto;
+  align-self: stretch;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--code-ink);
+  background: var(--code-bg);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hero-card-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.hero-card {
+  text-align: left;
+}
+
+@media (min-width: 900px) {
+  .get-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    column-gap: 32px;
+  }
+
+  /* the example result is compact beside the words */
+  .get .hero-card {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .get .hero-row {
+    min-height: 0;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .get .hero-tile {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    padding: 6px 8px;
+  }
+
+  .get .hero-tile-count {
+    font-size: 1.6rem;
+  }
+}
+
+/* ---- what the words mean ---- */
+.word-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.word-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 20px;
+}
+
+.word-card.glass {
+  border-width: 4px 1px 1px;
+}
+
+.word-leaked.glass {
+  border-color: var(--leak);
+}
+
+.word-inconclusive.glass {
+  border-color: var(--canary);
+}
+
+.word-blocked.glass {
+  border-color: var(--ok);
+}
+
+.words-clean {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* ---- the Supabase section: a band as wide as the container ---- */
+.advanced {
+  min-width: 0;
+  padding: 14px 22px;
+}
+
+.advanced-summary {
+  min-height: 2.6rem;
+  display: flex;
+  align-items: center;
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.advanced-body {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 12px 0 8px;
+}
+
+/* ---- the footer ---- */
+.footer-inner {
+  flex-wrap: wrap;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* ---- the verdict tiles and their counts ---- */
+.hero-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-tile {
+  --tone: var(--grey);
+  --tone-glow: var(--grey-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 8px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  box-shadow: 0 0 26px -10px var(--tone-glow);
+}
+
+.hero-tile-leaked {
+  --tone: var(--leak);
+  --tone-glow: var(--leak-glow);
+}
+
+.hero-tile-inconclusive {
+  --tone: var(--canary);
+  --tone-glow: var(--canary-glow);
+}
+
+/* the light theme needs a darker amber for the numeral */
+[data-theme="light"] .hero-tile-inconclusive {
+  --tone: #8a6400;
+}
+
+.hero-tile-count {
+  color: var(--tone);
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-tile-word {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* ---- tablet and phone ---- */
+@media (max-width: 1099px) {
+  .home {
+    gap: 56px;
+  }
+
+  .checks-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  /* a phone: a lighter blur and paler blobs */
+  :root {
+    --glass-blur: blur(8px) saturate(130%);
+    --blob-amber: color-mix(in srgb, var(--halo-amber) 16%, transparent);
+    --blob-cool: color-mix(in srgb, var(--halo-cool) 18%, transparent);
+  }
+
+  [data-theme="light"] {
+    --blob-amber: color-mix(in srgb, var(--halo-amber) 22%, transparent);
+    --blob-cool: color-mix(in srgb, var(--halo-cool) 15%, transparent);
+  }
+
+  .glass-wrap::before {
+    inset: 0 -16px;
+  }
+
+  .checks-skipped {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home {
+    gap: 40px;
+  }
+
+  .start-box {
+    padding: 14px 12px;
+  }
+
+  .checks-list,
+  .how-steps,
+  .word-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* the line between the steps stands upright */
+  .how-steps > :not(:last-child) > .how-step::after {
+    top: 100%;
+    left: 36px;
+    width: 2px;
+    height: 25px;
+  }
+
+  .hero-scene {
+    padding: 12px 10px;
+  }
+
+  .hero-scene::after {
+    display: none;
+  }
+
+  .scene-grid {
+    gap: 8px;
+  }
+
+  .scene-panel {
+    padding: 8px 6px 10px;
+  }
+
+  .scene-art {
+    flex-basis: 80px;
+    min-height: 80px;
+  }
+
+  .scene-caption {
+    font-size: 0.7rem;
+  }
+
+  .scene-caption strong {
+    font-size: 0.76rem;
+  }
+
+  .scene-word {
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-tiles {
+    gap: 6px;
+  }
+
+  .hero-tile-count {
+    font-size: 1.9rem;
+  }
+
+  .hero-tile-word {
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* ---- no backdrop-filter: the same card, plain and more solid ---- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-scrim: rgba(20, 22, 30, 0.94);
+  }
+
+  [data-theme="light"] {
+    --glass-scrim: rgba(255, 255, 255, 0.92);
+  }
+}
+
+/* ---- reduced motion: nothing moves, the last frame is shown ---- */
+@media (prefers-reduced-motion: reduce) {
+  .hero-scene::after {
+    display: none;
+    animation: none;
+  }
+
+  .scene-canary,
+  .scene-glow-canary,
+  .scene-stranger,
+  .scene-barrier-bar,
+  .scene-key,
+  .scene-glow-key,
+  .scene-fix {
+    animation: none;
+  }
+
+  /* nothing rises: every card is in its place from the start */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---- the access code in the header ---- */
+.access-bar {
+  margin-left: auto;
+  min-width: 0;
+}
+
+.access-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 11rem);
+  align-items: center;
+  gap: 0 8px;
+}
+
+.access-field > span {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.access-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.4rem;
+  padding: 6px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--field);
+  font-size: 1rem;
+}
+
+.access-field input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.access-field small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.access-bar .memory-chip {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+@media (max-width: 900px) {
+  /* the bar goes on its own line under the brand, over the whole width */
+  .header-inner {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  /* two lines of header must not stay over the page while it scrolls */
+  .site-header:has(.access-bar) {
+    position: static;
+  }
+
+  .access-bar {
+    order: 3;
+    flex: 1 0 100%;
+    margin: 0;
+    padding-bottom: 10px;
+  }
+
+  .access-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .access-field small {
+    text-align: left;
+  }
+}
+
+/* ---- the result page and the run page: the same glass ----
+   The cards carry the class "glass" (the tokens above). A halo is drawn only by a
+   wrapper that holds cards and nothing else, so no loose text has it behind it;
+   it repeats down a long list of cards. */
+.site-main:has(.page-stack),
+.site-main:has(.narrow-stack),
+.site-main:has(.gate-wrap) {
+  overflow-x: clip;
+}
+
+/* the findings keep their own grid; the other wrappers stack like the page */
+.result-cards:not(.findings-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  min-width: 0;
+}
+
+.result-cards.glass-wrap {
+  --blob-a: var(--blob-cool);
+  --blob-b: var(--blob-amber);
+  --blob-c: var(--blob-cool);
+}
+
+/* whole tiles only, so the halo never ends in a straight cut beside the last card */
+.result-cards.glass-wrap::before {
+  background-size: 100% 720px;
+  background-repeat: no-repeat round;
+}
+
+/* these cards keep their own coloured edge and tint over the glass */
+.gate-banner.glass {
+  border-color: var(--tone);
+  background:
+    linear-gradient(135deg, var(--tone-soft), transparent 70%),
+    linear-gradient(150deg, var(--glass-hi), var(--glass-lo)),
+    var(--glass-scrim);
+}
+
+.finding-card.glass {
+  border-left-width: 3px;
+}
+
+.finding-leaked.glass {
+  border-left-color: var(--leak);
+  background:
+    linear-gradient(180deg, var(--leak-soft), transparent 140px),
+    linear-gradient(150deg, var(--glass-hi), var(--glass-lo)),
+    var(--glass-scrim);
+}
+
+.finding-blocked.glass {
+  border-left-color: var(--ok);
+}
+
+.finding-inconclusive.glass {
+  border-left-color: var(--grey);
+}
+
+[data-theme="light"] .page-stack .glass {
+  --muted-2: #4d535b;
+}
+
+/* nothing to do and nothing to show: one line, not two empty cards */
+.nothing-line {
+  margin: 0;
+  padding: 14px 20px;
+  color: var(--ink);
+}
+
+/* a heading is not a place to type: no text cursor stands beside it */
+.page-heading h1,
+.report-heading h1 {
+  caret-color: transparent;
+}
+
+/* the language switch of a narrow page is as wide as its words */
+.narrow-stack > .segmented {
+  align-self: flex-start;
+}
+
+/* a wrapper with a column of words and buttons beside it does not reach into
+   it: the halo stops inside the gap (48px in the hero, 32px under it) */
+@media (min-width: 1100px) {
+  .hero-visual > .glass-wrap::before {
+    left: -24px;
+  }
+
+  .start-wrap.glass-wrap::before {
+    right: -24px;
+  }
+}
+
+@media (min-width: 900px) {
+  .get .hero-card-wrap.glass-wrap::before {
+    left: -16px;
+  }
+
+  .prompt-wrap.glass-wrap::before {
+    right: -16px;
+  }
+}
+
+/* ---- the reveal: cards rise into view, once (lib/reveal.ts) ---- */
+.reveal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.reveal > * {
+  flex: 1 1 auto;
+}
+
+.reveal:empty,
+.result-cards:not(:has(> .reveal > *, > :not(.reveal))) {
+  display: none;
+}
+
+.findings-grid > .reveal:has(> .finding-leaked) {
+  grid-column: 1 / -1;
+}
+
+/* a card that fills its column still does, inside its wrapper */
+.prompt-wrap > .reveal {
+  flex: 1 1 auto;
+}
+
+/* the access code card of a run or result page */
+.gate-wrap > .glass-wrap {
+  width: min(460px, 100%);
+}
+
+.gate-wrap .gate-card {
+  width: 100%;
+}
+
+.get-words {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.get-words > p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* below the screen, set by the page's code only: the HTML hides nothing */
+[data-reveal-state="wait"] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+[data-reveal-state="run"] {
+  animation: revealUp 650ms ease-out var(--reveal-delay, 0ms) both;
+  will-change: opacity, transform;
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media print {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* the words of the badges stand inside their card, not on its edge */
+.badges-card.glass {
+  padding: 20px 22px;
+}
+
+/* ---- the screen of a phone (round 5) ---- */
+/* clear of the notch and the home bar (layout.tsx: viewport-fit=cover) */
+body {
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+}
+
+.site-header {
+  padding-top: env(safe-area-inset-top);
+}
+
+.site-footer {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.intro-skip {
+  top: max(0.75rem, 3vmin, env(safe-area-inset-top));
+  right: max(0.75rem, 3vmin, env(safe-area-inset-right));
+}
+
+/* a long repository name, address, table name or line of code stays inside its
+   card: it wraps */
+main,
+.site-header {
+  overflow-wrap: break-word;
+}
+
+main h1,
+main h2,
+main h3,
+main code,
+main pre,
+.target-lines span,
+.target-lines li,
+.table-chip,
+.roadmap-title,
+.evidence-subject,
+.bucket-name,
+.module-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+main pre {
+  max-width: 100%;
+  white-space: pre-wrap;
+}
+
+/* on a wide screen the lines of words stay short enough to read */
+.page-stack p,
+.gate-reasons li,
+.roadmap-steps > li,
+.limits li,
+.disclosure-body li,
+.fix-prompt-block {
+  max-width: 60ch;
+}
+
+/* a finger: every thing to press is at least 44 by 44 */
+@media (max-width: 640px), (max-height: 500px), (pointer: coarse) {
+  .brand,
+  .theme-toggle,
+  .segment,
+  .button,
+  .text-button,
+  .fix-prompt-copy,
+  .text-link,
+  .back-link,
+  main summary,
+  .advanced-summary,
+  .field input,
+  .start-box input:not([type="checkbox"]),
+  .advanced-body input:not([type="checkbox"]),
+  .access-field input,
+  .gate-card input,
+  .retest-form input:not([type="checkbox"]),
+  .check-line,
+  main label:has(> input[type="checkbox"]) {
+    min-height: 44px;
+  }
+
+  .theme-toggle,
+  .segment,
+  .button,
+  .fix-prompt-copy {
+    min-width: 44px;
+  }
+
+  .brand,
+  .text-link,
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  main summary:not(.advanced-summary) {
+    padding-block: 11px;
+  }
+}
+
+/* a long name beside it never squeezes the language switch */
+.segmented {
+  flex: none;
+  max-width: 100%;
+}
+
+.segment {
+  white-space: nowrap;
+}
+
+.finding-leaked .finding-explanation {
+  max-width: 60ch;
+}
+
+/* ---- round 6 ---- */
+/* a phone: a smaller headline and line, so the repo field is on the first screen */
+@media (max-width: 639px) {
+  .hero-stage .hero-title {
+    margin-bottom: 10px;
+    font-size: clamp(1.55rem, 7.4vw, 2.2rem);
+    line-height: 1.1;
+  }
+
+  .hero-stage .hero-title-ur {
+    font-size: clamp(1.4rem, 6.6vw, 1.8rem);
+    line-height: 1.15;
+  }
+
+  .hero-stage .hero-problem {
+    margin-bottom: 12px;
+    font-size: 0.94rem;
+    line-height: 1.4;
+  }
+}
+
+/* the SQL keeps its own lines, and scrolls inside its box */
+.page-stack pre.code-sql {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.finding-card .disclosure-body {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* no line of words longer than about 90 characters */
+.start-box p,
+.start-box label,
+.start-box small,
+.advanced-body p,
+.advanced-body label,
+.advanced-body small,
+.narrow-stack p {
+  max-width: 58ch;
+}
+
+.page-stack .fix-prompt-text,
+.prompt-sample .prompt-text {
+  max-width: calc(86ch + 30px);
+}
+
+.page-stack .fix-prompt-block {
+  max-width: 51ch;
+}
+
+.page-stack .limits li,
+.page-stack .disclosure-body li {
+  max-width: 54ch;
+}
+
+.page-stack p,
+.page-stack .finding-card .finding-explanation {
+  max-width: 57ch;
+}

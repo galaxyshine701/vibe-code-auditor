@@ -85,7 +85,7 @@ export function EvidenceGroups({
   let row = 0;
 
   return (
-    <section className="card evidence-card" id="evidence" aria-labelledby="evidence-heading">
+    <section className="card evidence-card glass" id="evidence" aria-labelledby="evidence-heading">
       <h2 id="evidence-heading">{t(lang, 'evidenceHeading')}</h2>
       {groups.length === 0 ? (
         <p className="roadmap-empty">{t(lang, 'evidenceEmpty')}</p>

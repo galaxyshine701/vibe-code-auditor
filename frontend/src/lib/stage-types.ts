@@ -114,6 +114,12 @@ export interface RoadmapItem {
     findingIds?: string[];
     evidenceIds?: string[];
   };
+  /**
+   * Only on an item the screen made by merging steps that were the same (see
+   * mergeSameSteps in stage.ts): the ids of the items that were folded into it.
+   * The API never sends it.
+   */
+  mergedIds?: string[];
 }
 
 export interface RoadmapResponse {

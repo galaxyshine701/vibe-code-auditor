@@ -22,12 +22,12 @@ const form = (await import(/* @vite-ignore */ href('lib', 'form.ts'))) as {
 };
 const groups = (await import(
   /* @vite-ignore */ href('components', 'connect-groups.tsx')
-)) as { ConnectGroups: (p: never) => unknown };
+)) as { RepoGroup: (p: never) => unknown };
 
 function repoChip(patch: Record<string, unknown>): string {
   const fields = { ...form.EMPTY_FIELDS, ...patch };
   const html = renderToStaticMarkup(
-    React.createElement(groups.ConnectGroups as never, {
+    React.createElement(groups.RepoGroup as never, {
       fields,
       check: form.checkConnect(fields as never),
       onChange: () => undefined,

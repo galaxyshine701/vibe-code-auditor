@@ -129,10 +129,10 @@ describe('the Connect form: the third group', () => {
     }
   });
 
-  it('the hint names the three groups, and never a value', () => {
+  it('the hint names the repo box first (it is the first box of the page), and never a value', () => {
     const hint = form.startHintOf(form.checkConnect(fields()), false);
     expect(hint).toBe(
-      'To start: enter the access code. Complete the website group, the Supabase group, the repository group, or more than one.',
+      'To start: enter the access code. Paste a public GitHub repo link and tick the box "This repository is public and I may scan its files", or add a live website.',
     );
     const partial = form.startHintOf(
       form.checkConnect(fields({ repoUrl: 'https://github.com/SECRET-OWNER/b' })),
@@ -304,12 +304,17 @@ describe('the Report of the repo-only bundle', () => {
 });
 
 describe('the Connect form screen', () => {
-  it('has the third group with its box, after the other two, and the hero is untouched', () => {
+  it('has the repo group with its box (the main box of the home page), and the hero names the repo too', () => {
     const groups = read('components', 'connect-groups.tsx');
     expect(groups).toContain('Public GitHub repo');
     expect(groups).toContain('This repository is public and I may scan its files.');
-    expect(groups.indexOf('Supabase project')).toBeLessThan(groups.indexOf('Public GitHub repo'));
-    // the hero card still says "website address, Supabase details, or both"
-    expect(read('lib', 'hero-copy.ts')).toMatch(/website address, Supabase details, or both/);
+    // the repo is the one field of the hero: its group comes first
+    expect(groups.indexOf('export function RepoGroup')).toBeLessThan(
+      groups.indexOf('export function WebsiteGroup'),
+    );
+    // the first step of the page names the repo first
+    expect(read('lib', 'hero-copy.ts')).toContain(
+      'Paste the link of a public GitHub repo and tick the box. A live website is optional.',
+    );
   });
 });

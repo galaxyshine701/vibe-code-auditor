@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // The hero of the home page: its words (frontend/src/lib/hero-copy.ts) and how
-// the example run, the chips, the steps and the honesty line are built. The
+// the example result, the steps and the honesty line are built. The
 // frontend has no test runner of its own, so the files are loaded or read here.
 const FRONTEND = join(__dirname, '..', '..', '..', 'frontend');
 const read = (...parts: string[]) =>
@@ -17,8 +17,12 @@ const copy = (await import(
 )) as {
   HEADLINE: Pair;
   headlineWords: (lang: 'en' | 'ur') => string[];
-  subLine: (lang: 'en' | 'ur') => string;
-  CHIPS: { id: string; label: Pair }[];
+  PROBLEM: Pair;
+  FORM: Record<string, Pair>;
+  ACCESS: Record<string, Pair>;
+  ADVANCED: Record<string, Pair>;
+  MEANING: Record<string, any>;
+  TABLE_STEPS: { title: Pair; body: Pair }[];
   CARD: Record<string, any>;
   STEPS: { title: Pair; body: Pair }[];
   honestyLine: (lang: 'en' | 'ur') => string;
@@ -26,26 +30,29 @@ const copy = (await import(
 
 const ALL_TEXT = JSON.stringify([
   copy.HEADLINE,
-  copy.CHIPS,
+  copy.PROBLEM,
   copy.CARD,
   copy.STEPS,
-  copy.subLine('en'),
-  copy.subLine('ur'),
+  copy.FORM,
+  copy.ACCESS,
+  copy.ADVANCED,
+  copy.MEANING,
+  copy.TABLE_STEPS,
   copy.honestyLine('en'),
   copy.honestyLine('ur'),
 ]);
 
 describe('the headline', () => {
-  it('is "Before you launch: what can a stranger reach?", 8 words, so its timing is unchanged', () => {
+  it('says what to paste and what comes of it', () => {
     expect(copy.HEADLINE.en).toBe(
-      'Before you launch: what can a stranger reach?',
+      'Paste a GitHub repo. See what a stranger could reach, and how to fix it.',
     );
-    expect(copy.headlineWords('en')).toHaveLength(8);
+    expect(copy.headlineWords('en')).toHaveLength(15);
   });
 
   it('has the Roman Urdu version', () => {
     expect(copy.HEADLINE.ur).toBe(
-      'Launch se pehle: ek ajnabi aap ki app mein kahan tak pahunch sakta hai?',
+      'GitHub repo ka link daalein. Dekhein ajnabi kya tak pahunch sakta hai, aur use kaise theek karein.',
     );
   });
 
@@ -58,46 +65,94 @@ describe('the headline', () => {
   });
 });
 
-describe('the three chips: the two groups of the Connect form, and both', () => {
-  it('are Website, Supabase and Both, with a Roman Urdu name', () => {
-    expect(copy.CHIPS.map((c) => c.label.en)).toEqual([
-      'Website',
-      'Supabase',
-      'Both',
-    ]);
-    expect(copy.CHIPS.map((c) => c.id)).toEqual([
-      'website',
-      'supabase',
-      'both',
-    ]);
-    expect(copy.CHIPS[2].label.ur).toBe('Dono');
+describe('the one line under the headline, and the order of the hero', () => {
+  it('says what is looked for and what a finding comes with, in both languages', () => {
+    expect(copy.PROBLEM.en).toBe(
+      'Looks for secret keys, committed .env files, missing database rules and weak site headers. Findings come with steps to fix them, most also with a prompt you can paste into your AI tool.',
+    );
+    for (const word of ['Secret keys', '.env', 'headers', 'qadam', 'prompt', 'zyada tar']) {
+      expect(copy.PROBLEM.ur).toContain(word);
+    }
+    // no statistics: no digit, no percent
+    expect(copy.PROBLEM.en + copy.PROBLEM.ur).not.toMatch(/\d|%/);
   });
 
-  it('point at the fields of the two groups, which have those ids', () => {
+  it('does not promise a prompt for every finding: the roadmap makes none for some', () => {
+    const roadmap = readFileSync(
+      join(FRONTEND, '..', 'backend', 'src', 'stages', 'roadmap.ts'),
+      'utf8',
+    ).replace(/\r\n/g, '\n');
+    const confirm = roadmap.slice(roadmap.indexOf("kind: 'confirm'"), roadmap.indexOf("kind: 'fix-site-secret'"));
+    expect(confirm).toContain('steps:');
+    expect(confirm).not.toContain('fixPrompt');
+    expect(copy.PROBLEM.en).toContain('most also with a prompt');
+  });
+
+  it('is shown in this order: headline, line, the form, then the example result under it', () => {
     const page = read('app', 'page.tsx');
-    expect(page).toContain("'project-url' : 'website-url'");
-    const groups = read('components', 'connect-groups.tsx');
-    expect(groups).toContain('id="website-url"');
-    expect(groups).toContain('id="project-url"');
-    // they sit under the sub-line
-    expect(page.indexOf('subLine(lang)')).toBeLessThan(
-      page.indexOf('hero-chips'),
-    );
+    const at = (text: string) => page.indexOf(text);
+    expect(at('hero-title')).toBeLessThan(at('hero-problem'));
+    expect(at('hero-problem')).toBeLessThan(at('id="start-box"'));
+    expect(at('id="start-box"')).toBeLessThan(at('hero-card-wrap'));
+    expect(page).toContain('pickText(PROBLEM, lang)');
+  });
+
+  it('has no chips, no tabs and no list of what it does', () => {
+    for (const file of [
+      read('lib', 'hero-copy.ts'),
+      read('app', 'hero.css'),
+      read('app', 'page.tsx'),
+    ]) {
+      expect(file).not.toMatch(/CHIPS|CHIP_TARGET|hero-chips|hero-does|WHAT_IT_DOES|role="tab/);
+    }
+  });
+
+  it('has the form first and the example result after it in the page, once, beside it on a wide screen', () => {
+    const page = read('app', 'page.tsx');
+    expect(page.match(/<HeroCard\b/g)).toHaveLength(1);
+    expect(page.indexOf('<HeroCard')).toBeGreaterThan(page.indexOf('</form>'));
+    expect(page.indexOf('pickText(KICKER, lang)')).toBeLessThan(page.indexOf('<h1'));
+    expect(copy.KICKER.ur.length).toBeGreaterThan(5);
+    expect(read('app', 'glass.css')).toMatch(/@media \(min-width: 1100px\)/);
   });
 });
 
 describe('the example run card', () => {
   const card = read('components', 'hero-card.tsx');
 
-  it('has three evidence rows: site headers (amber), scripts of the site (red), table data (green)', () => {
+  it('is repository first: a key in a file, a committed .env, a migration, two site headers', () => {
+    expect(copy.CARD.keyFile.label.en).toBe('Secret key in a file');
+    expect(copy.CARD.envFile.label.en).toBe('Committed .env file');
+    expect(copy.CARD.migration.label.en).toBe('Migration without row level security');
     expect(copy.CARD.headers.label.en).toBe('Site headers');
-    expect(copy.CARD.scripts.label.en).toBe('Scripts of the site');
-    expect(copy.CARD.tables.label.en).toBe('Table data');
-    expect(card).toMatch(/tone="warn"/);
-    expect(card).toMatch(/tone="leak"/);
-    expect(card).toMatch(/tone="ok"/);
+    expect(copy.CARD.migration.detail.en).toContain('may be enabled elsewhere');
+    expect(card.match(/tone="leak"/g)).toHaveLength(1);
+    expect(card.match(/tone="warn"/g)).toHaveLength(3);
     expect(card).toContain('<VerdictBadge verdict="LEAKED"');
-    expect(card).toContain('<VerdictBadge verdict="BLOCKED"');
+    expect(card).toContain('<VerdictBadge verdict="INCONCLUSIVE"');
+    // the table check has its own picture, in the Supabase section
+    expect(card).not.toMatch(/CARD\.tables|hero-mini|HeroScene/);
+    expect(JSON.stringify(copy.CARD)).not.toMatch(/canary|stranger|ajnabi/i);
+  });
+
+  it('takes the key file and the migration from the repo-only example bundle', () => {
+    const bundle = JSON.parse(
+      readFileSync(join(FRONTEND, '..', 'docs', 'frontend-mock', 'repo-only', 'evidence.json'), 'utf8'),
+    ) as { items: { kind: string; subject: string; line: number; table: string | null; verdict: string }[] };
+    const of = (kind: string) => bundle.items.find((i) => i.kind === kind)!;
+    const key = of('repo-file');
+    expect(copy.CARD.keyFile.path).toBe(`${key.subject}:${key.line}`);
+    expect(key.verdict).toBe('LEAKED');
+    const migration = of('repo-migration');
+    expect(copy.CARD.migration.path).toBe(`${migration.subject}:${migration.line}`);
+    expect(copy.CARD.migration.detail.en).toContain(`"${migration.table}"`);
+    expect(migration.verdict).toBe('INCONCLUSIVE');
+  });
+
+  it('shows the names and the path of the env file, never a value', () => {
+    expect(copy.CARD.envFile.path).toBe('.env');
+    expect(copy.CARD.envFile.names).toMatch(/^[A-Z0-9_]+(, [A-Z0-9_]+)*$/);
+    expect(JSON.stringify(copy.CARD.envFile)).not.toContain('=');
   });
 
   it('two headers are missing, in both languages', () => {
@@ -107,7 +162,7 @@ describe('the example run card', () => {
   });
 
   it('the key is masked, and no real key is anywhere in the hero', () => {
-    expect(copy.CARD.scripts.key).toBe('sb_secret_••••');
+    expect(copy.CARD.keyFile.key).toBe('sb_secret_\u2022\u2022\u2022\u2022');
     for (const file of [
       read('lib', 'hero-copy.ts'),
       card,
@@ -121,7 +176,7 @@ describe('the example run card', () => {
   it('ends with a gate line: "Not ready by these checks", one reason, one "Not provided" chip', () => {
     expect(copy.CARD.gate.label.en).toBe('Not ready by these checks');
     expect(copy.CARD.gate.reason.en).toBe(
-      'A secret key is in a script of the site.',
+      'A secret key is in a file of the repository.',
     );
     expect(copy.CARD.gate.notProvided.en).toMatch(/^Not provided: /);
     expect(copy.CARD.gate.notProvided.ur).toMatch(/^Diya nahi gaya: /);
@@ -130,9 +185,18 @@ describe('the example run card', () => {
     );
   });
 
-  it('says it is an example, with made-up numbers', () => {
-    expect(copy.CARD.tag.en).toBe('Example run');
-    expect(copy.CARD.tagNote.en).toBe('Made-up numbers');
+  it('says "Example result, not a real audit" in English and Roman Urdu, with made-up numbers, in the card head and its label', () => {
+    expect(copy.CARD.tag.en).toBe('Example result, not a real audit');
+    expect(copy.CARD.tag.ur).toBe('Misaal ka nateeja, asli audit nahi');
+    expect(copy.CARD.tagNote.en).toBe('Made-up app');
+    expect(copy.CARD.tagNote.ur).toBe('Farzi app');
+    // the tag is the visible head of the card and also its accessible name
+    expect(card).toContain('aria-label={pickText(CARD.tag, lang)}');
+    expect(card.indexOf('hero-card-tag')).toBeLessThan(card.indexOf('hero-rows'));
+    expect(card).toContain('{pickText(CARD.tag, lang)}</span>');
+    // it is not hidden on a phone
+    const css = read('app', 'hero.css');
+    expect(css).not.toMatch(/\.hero-card-(tag|head|note)[^{]*\{[^}]*display: none/);
   });
 
   it('every text has English and Roman Urdu', () => {
@@ -148,10 +212,15 @@ describe('the example run card', () => {
     };
     walk(copy.CARD, 'CARD');
     walk(copy.STEPS, 'STEPS');
-    walk(copy.CHIPS, 'CHIPS');
+    walk(copy.FORM, 'FORM');
+    walk(copy.ACCESS, 'ACCESS');
+    walk(copy.ADVANCED, 'ADVANCED');
+    walk(copy.MEANING, 'MEANING');
+    walk(copy.TABLE_STEPS, 'TABLE_STEPS');
+    walk(copy.PROBLEM, 'PROBLEM');
   });
 
-  it('is resolved by the scan beam of the intro, top to bottom, over the three rows', () => {
+  it('is resolved by the scan beam of the intro, top to bottom, over the four rows', () => {
     expect(card).toContain("import { ScanBeam } from './scan-beam'");
     expect(card).toContain('<ScanBeam');
     expect(card).toContain('axis="y"');
@@ -167,23 +236,30 @@ describe('the example run card', () => {
     );
   });
 
-  it('the beam reaches the rows in order: headers, scripts, tables, then the gate', () => {
-    const times = [
-      ...card.matchAll(/(headers|scripts|tables|gate): (?:at\((\d+)\)|`)/g),
-    ];
-    expect(times.length).toBeGreaterThanOrEqual(3);
+  it('the beam reaches the rows in order: key file, env file, migration, headers, then the gate', () => {
     const at = (name: string) =>
       Number(card.match(new RegExp(name + ': at\\((\\d+)\\)'))?.[1]);
-    expect(at('headers')).toBeLessThan(at('scripts'));
-    expect(at('scripts')).toBeLessThan(at('tables'));
+    const order = ['keyFile', 'envFile', 'migration', 'headers'];
+    for (let i = 1; i < order.length; i += 1) {
+      expect(at(order[i - 1])).toBeLessThan(at(order[i]));
+    }
+    expect(at('headers')).toBeLessThan(108); // inside the beam's path
+    // the rows are in the markup in the same order
+    const rowAt = (name: string) => card.indexOf(`resolveAt={T.${name}}`);
+    for (let i = 1; i < order.length; i += 1) {
+      expect(rowAt(order[i - 1])).toBeLessThan(rowAt(order[i]));
+    }
   });
 
-  it('waits for the intro like the headline: paused while the intro runs, then it starts', () => {
-    const css = read('app', 'hero.css');
+  it('waits for the intro like the headline: paused until the intro is over, gate included', () => {
+    const css = read('app', 'hero.css').replace(/\r\n/g, '\n');
+    for (const state of ['pending', 'opening', 'leaving']) {
+      expect(css).toContain(`html[data-intro="${state}"] .hero-card,`);
+      expect(css).toContain(`html[data-intro="${state}"] .hero-card *`);
+    }
     expect(css).toMatch(
-      /html\[data-intro="pending"\] \.hero-card,\s*html\[data-intro="pending"\] \.hero-card \*,\s*html\[data-intro="leaving"\] \.hero-card,\s*html\[data-intro="leaving"\] \.hero-card \* \{\s*animation-play-state: paused/,
+      /html\[data-intro="leaving"\] \.hero-card \* \{\s*animation-play-state: paused/,
     );
-    expect(css).not.toMatch(/data-intro="opening"\] \.hero-card/);
   });
 
   it('with reduced motion it is the final state, no motion', () => {
@@ -202,7 +278,7 @@ describe('the example run card', () => {
     const css = read('app', 'hero.css');
     const block = css.slice(css.indexOf('@media (max-width: 480px)'));
     expect(block).toMatch(
-      /\.hero-beam-layer,\s*\.hero-mini,\s*\.hero-wait,\s*\.hero-row-detail \{\s*display: none/,
+      /\.hero-beam-layer,\s*\.hero-wait,\s*\.hero-row-detail \{\s*display: none/,
     );
     expect(block).toMatch(
       /\.hero-result,\s*\.hero-gate-line \{\s*opacity: 1;\s*animation: none/,
@@ -210,31 +286,30 @@ describe('the example run card', () => {
     // the card is never hidden any more (it was, under 980 px)
     expect(css).not.toMatch(/\.hero-card(-wrap)? \{[^}]*display: none/);
     expect(read('components', 'hero-card.tsx').match(/<Row\b/g)?.length).toBe(
-      3,
+      4,
     );
   });
 
-  it('the canary scene is made small: three tries, a policy line, one canary row', () => {
-    expect(card).toContain('hero-mini-policy');
-    expect(card).toContain('hero-mini-canary');
-    expect(card).toContain('[8, 23, 38].map');
+  it('no rule of the hero is wider than a phone', () => {
+    // (the query of the two columns is not a width of a rule)
+    const css = (read('app', 'hero.css') + read('app', 'glass.css')).replace(/@media[^{]*/g, '');
+    expect(css).not.toMatch(/(?<![\w-])(?:min-)?width: (?:[4-9]\d\d|\d{4,})px/);
+  });
+
+  it('a long path wraps instead of pushing a phone sideways', () => {
+    expect(read('app', 'hero.css')).toMatch(/\.hero-path \{[^}]*overflow-wrap: anywhere/);
   });
 });
 
 describe('the three steps and the honesty line', () => {
-  it('Connect, Checks run, Gate and roadmap', () => {
+  it('Paste your repo link, Checks run, Read the result', () => {
     expect(copy.STEPS.map((s) => s.title.en)).toEqual([
-      'Connect',
+      'Paste your repo link',
       'Checks run',
-      'Gate and roadmap',
+      'Read the result',
     ]);
     const page = read('app', 'page.tsx');
-    expect(page.indexOf('hero-card-wrap')).toBeLessThan(
-      page.indexOf('hero-steps'),
-    );
-    expect(page.indexOf('hero-steps')).toBeLessThan(
-      page.indexOf('connect-grid'),
-    );
+    expect(page.indexOf('<HowItWorks')).toBeLessThan(page.indexOf('<HeroCard'));
   });
 
   it('one honesty line, in both languages, about the listed checks and the scope', () => {

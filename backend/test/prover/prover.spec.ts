@@ -151,7 +151,7 @@ describe('Per-operation evidence', () => {
     expect(result.findings[0].fix?.sql).not.toContain('for delete');
   });
 
-  it('says UPDATE was not tested when there is no safe text column', async () => {
+  it('says UPDATE was not tested when there is no text column to change', async () => {
     const result = await runProver(
       new FakeGateway([
         {
@@ -169,7 +169,9 @@ describe('Per-operation evidence', () => {
     );
     expect(update.allowed).toBeNull();
     expect(update.httpStatus).toBeNull();
-    expect(update.note).toContain('Not tested');
+    expect(update.note).toBe(
+      'Not tested: the table has no text column that this check can change.',
+    );
   });
 
   it('has only the anonymous read for a table with no owner column', async () => {

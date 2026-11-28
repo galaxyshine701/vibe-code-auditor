@@ -64,16 +64,15 @@ const ATTACK_OPERATIONS = {
 
 function ChipIcon({ state }: { state: ChipState }) {
   if (state === 'allowed' || state === 'blocked') {
+    // plain shapes, no tick: allowed is a ring with a dot, blocked a ring with a bar
     return (
       <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-        <path
-          d="m3.4 8.2 3 3L12.6 4.9"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        {state === 'allowed' ? (
+          <circle cx="8" cy="8" r="2.4" fill="currentColor" />
+        ) : (
+          <path d="M5.2 8h5.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        )}
       </svg>
     );
   }
@@ -244,16 +243,6 @@ export function HeroMotion({
           <text className="motion-canary-label" x="548" y="194">
             canary
           </text>
-
-          {/* the lock of the canary row: open until the policy is added, closed after */}
-          <g className="motion-lock" aria-hidden="true">
-            <rect className="motion-lock-body" x="656" y="188" width="16" height="11" rx="2.5" />
-            <path
-              className="motion-lock-shackle"
-              d="M659 188 V185 a5 5 0 0 1 10 0 V188"
-              fill="none"
-            />
-          </g>
 
           <g className="motion-gate" aria-hidden="true">
             <line x1="470" y1="26" x2="470" y2="360" />

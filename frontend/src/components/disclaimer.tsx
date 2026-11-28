@@ -1,5 +1,10 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { DISCLAIMER } from '@/lib/config';
+import { COVERAGE_UR } from '@/lib/coverage';
+import { uiText } from '@/lib/ui-copy';
+import { useLang } from '@/lib/use-lang';
 
 /**
  * `statement` is the sentence of R39 about what the checks cover. The default is
@@ -13,10 +18,12 @@ export function Disclaimer({
   children?: ReactNode;
   statement?: string;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   return (
-    <div className="disclaimer-card">
-      <span className="disclaimer-label">What these checks cover</span>
-      {statement !== '' ? <p>{statement ?? DISCLAIMER}</p> : null}
+    <div className="disclaimer-card glass">
+      <span className="disclaimer-label">{w('What these checks cover')}</span>
+      {statement !== '' ? <p>{statement ?? (uiLang === 'ur' ? COVERAGE_UR.statement : DISCLAIMER)}</p> : null}
       {children}
     </div>
   );

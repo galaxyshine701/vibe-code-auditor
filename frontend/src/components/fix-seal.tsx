@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 
 // "Fix confirmed" (R66). The canary metaphor: first the alarm (a red ring that
-// pulses and the canary dot flaring), then calm (a green ring, the tick drawn,
-// the canary dot at rest). It is shown only for a finding a Re-test moved from
+// pulses and the canary dot flaring), then calm (a green ring with a filled
+// green dot, the canary dot at rest). It is shown only for a finding a Re-test moved from
 // LEAKED to BLOCKED. The animation runs once, for a finding that became fixed
 // in this page session by the user's own Re-test; a page that is opened or
 // refreshed shows the calm state at once. The words are always there, so the
@@ -28,7 +28,7 @@ export function FixSeal({
     <div className={`fix-seal ${animate ? 'is-animating' : ''}`}>
       <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
         <circle className="seal-ring" cx="16" cy="16" r="12.5" />
-        <path className="seal-check" pathLength={1} d="m10.4 16.6 3.7 3.7 7.5-8" />
+        <circle className="seal-core" cx="16" cy="16" r="5.2" />
         <circle className="seal-canary" cx="26" cy="6.5" r="3" />
       </svg>
       <div className="fix-seal-text">

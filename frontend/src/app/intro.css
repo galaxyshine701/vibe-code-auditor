@@ -1,11 +1,11 @@
-/* The intro of the home page (R70): the scene, about 3.3 s, SVG and CSS only.
+/* The intro of the home page (R70): the scene, under 3 s, SVG and CSS only.
    The rules of the layer itself (fixed, the whole screen, above the header, the
    way out) are in globals.css; this file is what happens inside it. Colours are
    the tokens of the theme, nothing else.
 
-     0 to 0.8 s    a grid; a website and a database draw on; rings turn
-     0.8 to 2.3 s  a beam sweeps; callouts and a counter appear as it passes
-     2.3 to 3.3 s  rings contract into a thin gate line; the name appears word by
+     0 to 0.7 s    a grid; a website and a database draw on; rings turn
+     0.7 to 2 s    a beam sweeps; callouts and a counter appear as it passes
+     2 to 2.95 s   rings contract into a thin gate line; the name appears word by
                    word; the gate splits open from the centre (the two halves
                    slide away) and the page shows
 
@@ -14,10 +14,10 @@
 
 .intro-scene {
   --t-draw: 0s;
-  --t-beam: 0.8s;
-  --t-contract: 2.3s;
-  --t-word: 2.45s;
-  --t-open: 2.85s;
+  --t-beam: 0.7s;
+  --t-contract: 2s;
+  --t-word: 2.1s;
+  --t-open: 2.5s;
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -433,56 +433,10 @@ html[data-intro="opening"] .intro-hint {
   transition: opacity 0.2s ease;
 }
 
-/* ---- reduced motion: a short, still wordmark (data-intro-mode="reduced", or the
-   media query itself, in case the script did not set the mode) ---- */
-html[data-intro-mode="reduced"] .intro-overlay {
-  transition-duration: 0.15s;
-}
-
-html[data-intro-mode="reduced"] .intro-stage,
-html[data-intro-mode="reduced"] .intro-gate {
-  display: none;
-}
-
-html[data-intro-mode="reduced"] .intro-panel,
-html[data-intro-mode="reduced"] .intro-name,
-html[data-intro-mode="reduced"] .intro-word {
-  animation: none;
-}
-
-html[data-intro-mode="reduced"] .intro-name {
-  transform: translateY(-50%);
-}
-
-html[data-intro-mode="reduced"] .intro-word {
-  opacity: 1;
-  clip-path: none;
-  transform: none;
-}
-
+/* reduced motion: no intro (the head script does not start it; this holds even
+   if the setting changes while it runs) */
 @media (prefers-reduced-motion: reduce) {
-  .intro-stage,
-  .intro-gate {
+  html[data-intro] .intro-overlay {
     display: none;
-  }
-
-  .intro-panel,
-  .intro-name,
-  .intro-word {
-    animation: none;
-  }
-
-  .intro-name {
-    transform: translateY(-50%);
-  }
-
-  .intro-word {
-    opacity: 1;
-    clip-path: none;
-    transform: none;
-  }
-
-  .intro-overlay {
-    transition-duration: 0.15s;
   }
 }

@@ -27,15 +27,14 @@ interface IntroModule {
   INTRO_FALLBACK_MS: number;
   INTRO_END_MS: number;
   INTRO_TOTAL_MS: number;
-  INTRO_REDUCED_END_MS: number;
   INTRO_GRACE_MS: number;
+  INTRO_LATE_PAINT_MS: number;
   INTRO_SCENE_MS: Record<
     'draw' | 'beam' | 'contract' | 'word' | 'open',
     number
   >;
-  introEndMs(mode: 'full' | 'reduced'): number;
-  introModeOf(context: Context): 'full' | 'reduced' | null;
-  remainingMs(elapsedMs: number, mode?: 'full' | 'reduced'): number;
+  introModeOf(context: Context): 'full' | null;
+  remainingMs(elapsedMs: number): number;
   INTRO_BOOT_SCRIPT: string;
   PHASE_AT_MS: Record<'owner' | 'leaked' | 'fixing' | 'blocked', number>;
   phaseAt(phase: 'owner' | 'leaked' | 'fixing' | 'blocked'): number;
@@ -83,18 +82,10 @@ describe('shouldShowIntro', () => {
     expect(shouldShowIntro({ ...base, storageOk: false })).toBe(false);
   });
 
-  it('with reduced motion it is the still wordmark, not the scene, and still once per tab', () => {
+  it('never with reduced motion', () => {
     expect(intro.introModeOf(base)).toBe('full');
-    expect(intro.introModeOf({ ...base, reducedMotion: true })).toBe('reduced');
-    expect(
-      intro.introModeOf({ ...base, reducedMotion: true, seen: true }),
-    ).toBeNull();
-    expect(
-      intro.introModeOf({ ...base, reducedMotion: true, pathname: '/x' }),
-    ).toBeNull();
-    expect(
-      intro.introModeOf({ ...base, reducedMotion: true, storageOk: false }),
-    ).toBeNull();
+    expect(intro.introModeOf({ ...base, reducedMotion: true })).toBeNull();
+    expect(shouldShowIntro({ ...base, reducedMotion: true })).toBe(false);
   });
 });
 
@@ -130,6 +121,17 @@ function runScript(
       return sessionStorage;
     },
   };
+  // the frames and the clock of the page: nothing is painted until `paint` runs
+  const frames: (() => void)[] = [];
+  const clock = { now: 0 };
+  win.requestAnimationFrame = (fn: () => void) => frames.push(fn);
+  win.performance = { now: () => clock.now };
+  const paint = (atMs: number) => {
+    clock.now = atMs;
+    // one frame, then the one after it
+    frames.splice(0).forEach((fn) => fn());
+    frames.splice(0).forEach((fn) => fn());
+  };
   const listeners = new Map<string, ((e: unknown) => void)[]>();
   const document = {
     addEventListener: (type: string, fn: (e: unknown) => void) =>
@@ -156,7 +158,7 @@ function runScript(
     'setTimeout',
     INTRO_BOOT_SCRIPT,
   )(win, document, { pathname: options.pathname ?? '/' }, setTimeoutFake);
-  return { attributes, store, timeouts, win, listeners };
+  return { attributes, store, timeouts, win, listeners, paint, frames };
 }
 
 describe('the boot script of the <head>', () => {
@@ -178,14 +180,12 @@ describe('the boot script of the <head>', () => {
     expect(run.store.size).toBe(0);
   });
 
-  it('reduced motion starts the still wordmark: pending, mode reduced, and the flag', () => {
+  it('reduced motion: no intro at all, no flag, no timer, no listener', () => {
     const run = runScript({ reduced: true });
-    expect(run.attributes.get('data-intro')).toBe('pending');
-    expect(run.attributes.get('data-intro-mode')).toBe('reduced');
-    expect(run.store.get(INTRO_KEY)).toBe('1');
-    // the same hard failsafe
-    expect(run.timeouts).toHaveLength(1);
-    expect(run.timeouts[0].ms).toBe(intro.INTRO_FALLBACK_MS);
+    expect(run.attributes.size).toBe(0);
+    expect(run.store.size).toBe(0);
+    expect(run.timeouts).toHaveLength(0);
+    expect(run.listeners.size).toBe(0);
   });
 
   it('a click or Esc skips before the page code is ready (a fade, then done), and only while pending', () => {
@@ -216,15 +216,10 @@ describe('the boot script of the <head>', () => {
     expect(run.attributes.get('data-intro')).toBe('pending');
   });
 
-  it('the full scene says mode full', () => {
-    expect(runScript().attributes.get('data-intro-mode')).toBe('full');
-  });
-
-  it('once per browser session: the second visit, in any mode, does nothing', () => {
+  it('once per browser session: the second visit does nothing', () => {
     for (const reduced of [false, true]) {
       const run = runScript({ stored: true, reduced });
       expect(run.attributes.has('data-intro')).toBe(false);
-      expect(run.attributes.has('data-intro-mode')).toBe(false);
       expect(run.timeouts).toHaveLength(0);
     }
   });
@@ -237,15 +232,43 @@ describe('the boot script of the <head>', () => {
     },
   );
 
-  it('arms a timer that ends the intro by itself after 5 s', () => {
+  it('arms a timer that ends the intro by itself 3 s after the scene is painted', () => {
     const run = runScript();
+    // nothing is timed before there is a picture
+    expect(run.timeouts).toHaveLength(0);
+    expect(run.win.__vcaIntroAt).toBeUndefined();
+    run.paint(400);
+    expect(run.win.__vcaIntroAt).toBe(400);
     expect(run.timeouts).toHaveLength(1);
     expect(run.timeouts[0].ms).toBe(intro.INTRO_FALLBACK_MS);
-    expect(intro.INTRO_FALLBACK_MS).toBe(5000);
+    expect(intro.INTRO_FALLBACK_MS).toBe(3000);
     run.timeouts[0].fn();
     expect(run.attributes.get('data-intro')).toBe('done');
     // the page's own code can replace it, so its id is kept
     expect(run.win.__vcaIntroTimer).toBe(1);
+  });
+
+  it('a first paint more than 1.5 s after the navigation: no intro at all', () => {
+    expect(intro.INTRO_LATE_PAINT_MS).toBe(1500);
+    const late = runScript();
+    late.paint(1501);
+    expect(late.attributes.get('data-intro')).toBe('done');
+    expect(late.timeouts).toHaveLength(0);
+    expect(late.win.__vcaIntroAt).toBeUndefined();
+    // it does not come back on a refresh either
+    expect(late.store.get(INTRO_KEY)).toBe('1');
+
+    const inTime = runScript();
+    inTime.paint(1500);
+    expect(inTime.attributes.get('data-intro')).toBe('pending');
+    expect(inTime.timeouts).toHaveLength(1);
+  });
+
+  it('a late "first contentful paint" takes the intro away too', () => {
+    expect(INTRO_BOOT_SCRIPT).toContain("name==='first-contentful-paint'");
+    expect(INTRO_BOOT_SCRIPT).toContain('startTime>1500)drop()');
+    const overlay = read('components', 'intro-overlay.tsx');
+    expect(overlay).toContain("addEventListener('vca:intro-late', late)");
   });
 
   it('agrees with shouldShowIntro for every combination', () => {
@@ -277,17 +300,11 @@ describe('the boot script of the <head>', () => {
 });
 
 describe('the length of the scene', () => {
-  it('is about 3.3 s, and the whole of it, fade included, is shorter than the failsafe', () => {
-    expect(intro.INTRO_END_MS).toBe(3300);
+  it('is 3 s or less, and the failsafe is 3 s', () => {
+    expect(intro.INTRO_END_MS).toBe(2950);
     expect(intro.INTRO_END_MS).toBe(intro.INTRO_STORY_MS + intro.INTRO_HOLD_MS);
-    expect(intro.INTRO_TOTAL_MS).toBe(intro.INTRO_END_MS + intro.INTRO_FADE_MS);
-    expect(intro.INTRO_TOTAL_MS).toBeLessThan(intro.INTRO_FALLBACK_MS);
-  });
-
-  it('the still wordmark of reduced motion is short', () => {
-    expect(intro.INTRO_REDUCED_END_MS).toBeLessThanOrEqual(1000);
-    expect(intro.introEndMs('reduced')).toBe(intro.INTRO_REDUCED_END_MS);
-    expect(intro.introEndMs('full')).toBe(intro.INTRO_END_MS);
+    expect(intro.INTRO_END_MS).toBeLessThanOrEqual(intro.INTRO_FALLBACK_MS);
+    expect(intro.INTRO_FALLBACK_MS).toBeLessThanOrEqual(3000);
   });
 
   it('the end is counted from when the scene started, not from when the page code is ready', () => {
@@ -296,7 +313,12 @@ describe('the length of the scene', () => {
     expect(intro.remainingMs(intro.INTRO_END_MS)).toBe(0);
     expect(intro.remainingMs(99999)).toBe(0);
     expect(intro.remainingMs(-5)).toBe(intro.INTRO_END_MS);
-    expect(intro.remainingMs(0, 'reduced')).toBe(intro.INTRO_REDUCED_END_MS);
+  });
+
+  it('a slow first paint moves the start to the paint, so the end of the scene is not cut', () => {
+    const source = read('components', 'intro-overlay.tsx');
+    expect(source).toContain("getEntriesByType('paint')");
+    expect(source).toContain('Math.max(scoped.__vcaIntroAt, painted.startTime)');
   });
 
   it('the script keeps the moment it started', () => {
@@ -319,11 +341,11 @@ describe('the scene: the times of the CSS are the times of lib/intro.ts', () => 
     expect(variable('open')).toBe(intro.INTRO_SCENE_MS.open);
   });
 
-  it('draws 0 to 0.8 s, the beam 0.8 to 2.3 s, the gate 2.3 to 3.3 s, in this order', () => {
+  it('draws 0 to 0.7 s, the beam 0.7 to 2 s, the gate 2 to 2.95 s, in this order', () => {
     const t = intro.INTRO_SCENE_MS;
     expect(t.draw).toBe(0);
-    expect(t.beam).toBe(800);
-    expect(t.contract).toBe(2300);
+    expect(t.beam).toBe(700);
+    expect(t.contract).toBe(2000);
     expect(t.beam).toBeLessThan(t.contract);
     expect(t.contract).toBeLessThan(t.word);
     expect(t.word).toBeLessThan(t.open);
@@ -484,17 +506,13 @@ describe('the example run (CSS and component)', () => {
     expect(Number(blockB![2])).toBeLessThan(Number(blockV![2]));
   });
 
-  it('the scene says Visitor, not Anon, and has a lock that opens and closes', () => {
+  it('the scene says Visitor, not Anon, and has no lock (the policy line is the only barrier)', () => {
     const source = read('components', 'hero-motion.tsx');
     expect(source).not.toMatch(/\bAnon\b/);
     expect(source.match(/Visitor/g)!.length).toBeGreaterThanOrEqual(4);
-    expect(source).toContain('motion-lock-shackle');
-    expect(css).toMatch(
-      /\[data-phase="leaked"\] \.motion-lock-shackle \{[^}]*rotate/,
-    );
-    expect(css).toMatch(
-      /\.motion-stage\.is-final \.motion-lock-shackle \{[^}]*transform: none/,
-    );
+    expect(source).not.toMatch(/motion-lock|shackle/);
+    expect(css).not.toMatch(/motion-lock|shackle/);
+    expect(source).toContain('motion-gate');
   });
 
   it('every part of the story is scaled by --hs', () => {
@@ -524,13 +542,7 @@ describe('the intro and the headline never run together', () => {
     );
   });
 
-  it('the headline words wait while the intro is pending or leaving', () => {
-    expect(css).toMatch(
-      /html\[data-intro="pending"\] \.hero-word,\s*html\[data-intro="leaving"\] \.hero-word \{\s*animation-play-state: paused/,
-    );
-  });
-
-  it('a CSS animation removes the overlay by itself after 5 s (while pending and while opening)', () => {
+  it('a CSS animation removes the overlay by itself after 3 s (while pending and while opening)', () => {
     const match = css.match(
       /html\[data-intro="pending"\] \.intro-overlay,\s*html\[data-intro="opening"\] \.intro-overlay \{\s*animation: introGone [\d.]+s linear ([\d.]+)s forwards/,
     );
@@ -541,27 +553,18 @@ describe('the intro and the headline never run together', () => {
     expect(css).toMatch(/@keyframes introGone \{\s*to \{\s*visibility: hidden/);
   });
 
-  it('reduced motion shows a still wordmark: no scene, no gate, no animation, whatever the script did', () => {
+  it('reduced motion shows no overlay, even if the setting changes while it runs', () => {
     const block = introCss.slice(
       introCss.lastIndexOf('@media (prefers-reduced-motion: reduce)'),
     );
-    expect(block).toMatch(/\.intro-stage,\s*\.intro-gate \{\s*display: none/);
-    expect(block).toMatch(
-      /\.intro-panel,\s*\.intro-name,\s*\.intro-word \{\s*animation: none/,
-    );
-    expect(block).toMatch(/\.intro-word \{[^}]*opacity: 1/);
-    // and the still wordmark is also set by the mode of the head script
-    expect(introCss).toMatch(
-      /html\[data-intro-mode="reduced"\] \.intro-stage,\s*html\[data-intro-mode="reduced"\] \.intro-gate \{\s*display: none/,
-    );
+    expect(block).toMatch(/html\[data-intro\] \.intro-overlay \{\s*display: none/);
+    expect(introCss).not.toContain('data-intro-mode');
   });
 
-  it('the hero words wait only while the scene runs (never for ever), and rise while the gate opens', () => {
-    expect(css).toMatch(
-      /html\[data-intro="pending"\] \.hero-word,\s*html\[data-intro="leaving"\] \.hero-word \{\s*animation-play-state: paused/,
+  it('the hero moves only after the intro: the words wait while pending, opening and leaving', () => {
+    expect(css.replace(/\r\n/g, '\n')).toMatch(
+      /html\[data-intro="pending"\] \.hero-word,\s*html\[data-intro="opening"\] \.hero-word,\s*html\[data-intro="leaving"\] \.hero-word \{\s*animation-play-state: paused/,
     );
-    // "opening" is not in the list: the headline rises while the gate opens
-    expect(css).not.toMatch(/data-intro="opening"\] \.hero-word/);
   });
 
   it('the boot script comes in the <head> of the layout', () => {
@@ -574,15 +577,12 @@ describe('the intro and the headline never run together', () => {
 });
 
 describe('the overlay belongs to the whole screen (the reason it was cut off)', () => {
-  // The page's wrapper (.page-stack) has an animation that ends with
-  // `transform: translateY(0)` and `both`. A `position: fixed` child of an
-  // element with a transform is fixed to that element, not to the screen, and
-  // its z-index stays inside that element's own stacking context, below the
-  // header. So the overlay must not live in a page.
-  it('the animation of the page wrapper that does this is still there (so the rule matters)', () => {
-    expect(css).toMatch(/\.page-stack \{[^}]*animation: rise [^;]*both;/);
-    expect(css).toMatch(
-      /@keyframes rise \{[\s\S]*?to \{[^}]*transform: translateY\(0\)/,
+  // A wrapper of a card is moved and faded when it comes into view. A
+  // `position: fixed` child of such a wrapper would be fixed to it, not to the
+  // screen, so the overlay must not live in a page.
+  it('the cards of a page are moved by their wrapper (so the rule matters)', () => {
+    expect(read('app', 'glass.css')).toMatch(
+      /@keyframes revealUp \{[\s\S]*?transform: translateY\(28px\)/,
     );
   });
 
@@ -669,15 +669,6 @@ describe('the overlay belongs to the whole screen (the reason it was cut off)', 
     );
   });
 
-  it('reduced motion: the overlay is not hidden any more, it shows the still wordmark', () => {
-    const block = css.slice(
-      css.lastIndexOf('@media (prefers-reduced-motion: reduce)'),
-    );
-    expect(block).not.toContain('.intro-overlay');
-    expect(runScript({ reduced: true }).attributes.get('data-intro-mode')).toBe(
-      'reduced',
-    );
-  });
 });
 
 describe('skipping and the keyboard', () => {
@@ -686,7 +677,7 @@ describe('skipping and the keyboard', () => {
   it('tap, click, Esc and a Skip button end it; the Skip button gets the focus', () => {
     expect(source).toContain('onClick={close}');
     expect(source).toContain("event.key === 'Escape'");
-    expect(source).toContain('Skip intro');
+    expect(source).toContain('INTRO_COPY.skip');
     expect(source).toContain('skipButton.current?.focus');
   });
 
@@ -709,10 +700,9 @@ describe('skipping and the keyboard', () => {
     );
   });
 
-  it('the Skip button is there in both modes, and skipping works in both', () => {
-    expect(source).toContain('Skip intro');
+  it('the Skip button is always there', () => {
+    expect(source).toContain('INTRO_COPY.skip');
     expect(source).toContain('onClick={close}');
-    expect(source).toContain("getAttribute('data-intro-mode') === 'reduced'");
   });
 
   it('takes over the time limit from the head script, counted from its own start', () => {
@@ -720,8 +710,56 @@ describe('skipping and the keyboard', () => {
     expect(source).toContain('clearTimeout(scoped.__vcaIntroTimer)');
   });
 
-  it('the replay shows the still wordmark with reduced motion, and the scene otherwise', () => {
-    expect(source).toContain('prefers-reduced-motion: reduce');
-    expect(source).toMatch(/'data-intro-mode',\s*window\.matchMedia/);
+  it('a replay does nothing with reduced motion', () => {
+    expect(source).toMatch(
+      /matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\) return;/,
+    );
   });
 });
+
+describe('the replay button and the theme button', () => {
+  const copy = read('lib', 'hero-copy.ts');
+  const plain = css.replace(/\r\n/g, '\n');
+
+  it('the replay button shows on every width, and not at all with reduced motion', () => {
+    expect(plain).toMatch(/\n\.hero-replay \{\s*display: inline-flex;/);
+    expect(plain).not.toMatch(/\.hero-replay \{\s*display: none;/);
+    expect(plain).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.hero-replay,\s*\.motion-controls \{\s*display: none !important;/,
+    );
+  });
+
+  it('a click asks the overlay to play again', () => {
+    const footer = read('components', 'site-footer.tsx');
+    expect(footer).toContain("new Event('vca:replay-hero')");
+    expect(read('components', 'intro-overlay.tsx')).toContain(
+      "addEventListener('vca:replay-hero', replay)",
+    );
+  });
+
+  it('both speak English and Roman Urdu', () => {
+    expect(read('components', 'site-footer.tsx')).toContain('{pickText(REPLAY, lang)}');
+    const toggle = read('components', 'theme-toggle.tsx');
+    expect(toggle).toContain('useLang()');
+    expect(toggle).toContain('pickText(other.word, lang)');
+    expect(toggle).toContain('pickText(other.action, lang)');
+    for (const words of [
+      "en: 'Replay intro'",
+      "ur: 'Intro dobara chalayein'",
+      "{ en: 'Light', ur: 'Roshan' }",
+      "{ en: 'Dark', ur: 'Andhera' }",
+      "ur: 'Roshan theme lagayein'",
+      "ur: 'Andhera theme lagayein'",
+    ]) {
+      expect(copy).toContain(words);
+    }
+  });
+
+  it('a replay has the same time limits: in the page code and in the CSS', () => {
+    const overlay = read('components', 'intro-overlay.tsx');
+    expect(overlay).toContain('begin(true)');
+    expect(overlay).toContain('INTRO_FALLBACK_MS');
+    expect(plain).toContain('animation: introGone 0.01s linear 3s forwards;');
+  });
+});
+

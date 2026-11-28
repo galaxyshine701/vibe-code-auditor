@@ -39,8 +39,10 @@ export function VerdictIcon({
         strokeLinejoin="round"
         aria-hidden="true"
       >
-        <path d="M8 1.8 13.4 4v3.5c0 3.1-2.1 5.4-5.4 6.7-3.3-1.3-5.4-3.6-5.4-6.7V4L8 1.8Z" />
-        <path d="m5.3 8 1.8 1.8L10.8 6" />
+        {/* a round mark with one bar across it: stopped. A plain shape, with no
+            tick and no lock (the same bar as the checkpoint lane) */}
+        <circle cx="8" cy="8" r="6" />
+        <path d="M4.9 8h6.2" />
       </svg>
     );
   }

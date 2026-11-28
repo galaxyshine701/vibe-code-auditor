@@ -1,4 +1,4 @@
-# Vibe Code Auditor: API contract
+# Gatecheck: API contract
 
 Purpose: the frontend (Alishba) and the backend (Anam) agree on the shape of the data **before** either side is finished. The shapes below are examples. Mock data for the frontend comes from `docs/evidence` (see `docs/frontend-brief.md`, R45 and R46).
 

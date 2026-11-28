@@ -277,7 +277,7 @@ async function checkTable(
           allowed: null,
           httpStatus: null,
           rowsReturned: null,
-          note: 'Not tested: the table has no text column that is safe to change.',
+          note: 'Not tested: the table has no text column that this check can change.',
         },
     {
       operation: 'DELETE',

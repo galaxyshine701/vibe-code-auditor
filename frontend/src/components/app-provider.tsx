@@ -13,6 +13,9 @@ import {
 interface AppContextValue {
   accessCode: string;
   setAccessCode: (code: string) => void;
+  /** what is typed in the access bar and not yet used: memory only */
+  accessDraft: string;
+  setAccessDraft: (code: string) => void;
   clearAccessCode: () => void;
   accessNotice: string;
   setAccessNotice: (message: string) => void;
@@ -26,6 +29,7 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [accessCode, setAccessCodeState] = useState('');
   const [accessNotice, setAccessNoticeState] = useState('');
+  const [accessDraft, setAccessDraft] = useState('');
   const [rateLimitedUntil, setRateLimitedUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
 
@@ -69,6 +73,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       accessCode,
       setAccessCode,
+      accessDraft,
+      setAccessDraft,
       clearAccessCode,
       accessNotice,
       setAccessNotice,
@@ -78,6 +84,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
     [
       accessCode,
+      accessDraft,
       accessNotice,
       clearAccessCode,
       noteRateLimit,

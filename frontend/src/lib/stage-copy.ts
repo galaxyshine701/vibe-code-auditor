@@ -57,6 +57,8 @@ export const COPY = {
   required: { en: 'Required', ur: 'Zaroori' },
   addIt: { en: 'Add it with a new audit', ur: 'Naye audit mein shamil karein' },
   limitsHeading: { en: 'Limits of these checks', ur: 'In checks ki hadein' },
+  technicalHeading: { en: 'Technical details', ur: 'Technical tafseel' },
+  notCheckedLine: { en: 'Not checked:', ur: 'Check nahi hua:' },
   emptyBucket: { en: 'Nothing here.', ur: 'Yahan kuch nahi.' },
 
   // the fix prompt of a roadmap item
@@ -121,9 +123,13 @@ export const COPY = {
     en: 'This audit looked at Supabase only. The website checks were not provided.',
     ur: 'Is audit ne sirf Supabase dekha. Website ke checks diye nahi gaye.',
   },
+  noSite: {
+    en: 'No website address was given, so the site was not checked. Optional: add one in a new audit.',
+    ur: 'Website ka address nahi diya gaya, isliye site check nahi hui. Optional: naye audit mein address dein.',
+  },
   inviteSupabase: {
-    en: 'Add Supabase details to check tables.',
-    ur: 'Tables check karne ke liye Supabase ki details dein.',
+    en: 'Optional: a Supabase TEST project can be checked too, under "Advanced: Supabase test project" on the home page.',
+    ur: 'Optional: Supabase TEST project bhi check ho sakta hai, home page par "Advanced: Supabase test project" mein.',
   },
   noTables: {
     en: 'No Supabase details were given, so no table was checked.',
@@ -135,6 +141,11 @@ export const COPY = {
     ur: 'Report ke kuch hisse parhe nahi ja sake:',
   },
   language: { en: 'Language', ur: 'Zabaan' },
+
+  nothingToShow: {
+    en: 'Nothing to fix or show from these checks.',
+    ur: 'In checks se theek karne ya dikhane ko kuch nahi.',
+  },
 
   // the re-test result (R35, R74, R87)
   retestResult: { en: 'Re-test result', ur: 'Re-test ka natija' },
@@ -165,6 +176,20 @@ const KIND_LABELS: Record<string, Pair> = {
 
 export function kindLabel(kind: string, lang: Lang): string {
   return KIND_LABELS[kind]?.[lang] ?? kind;
+}
+
+// The severity of a step or a finding. The API decides it; the UI only writes
+// the word. One the UI does not know is shown as given.
+const SEVERITY_LABELS: Record<string, Pair> = {
+  critical: { en: 'Critical', ur: 'Bohat sangeen' },
+  high: { en: 'High', ur: 'Sangeen' },
+  medium: { en: 'Medium', ur: 'Darmiyana' },
+  low: { en: 'Low', ur: 'Halka' },
+  info: { en: 'Info', ur: 'Maloomat' },
+};
+
+export function severityText(severity: string, lang: Lang): string {
+  return SEVERITY_LABELS[severity]?.[lang] ?? severity;
 }
 
 /** "N more steps are not shown." (R81) */

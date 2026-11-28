@@ -3,6 +3,8 @@
 import type { FormEvent } from 'react';
 import { ErrorBanner } from './error-banner';
 import { SecretInput } from './secret-input';
+import { uiText } from '@/lib/ui-copy';
+import { useLang } from '@/lib/use-lang';
 
 // The keys live in the parent's memory state only (R26). The Re-test needs
 // both keys again every time and the test-project tick (R33, R6).
@@ -31,6 +33,8 @@ export function RetestForm({
   blocked: boolean;
   error: string;
 }) {
+  const [uiLang] = useLang();
+  const w = (text: string) => uiText(text, uiLang);
   const canSubmit =
     confirmed && anonKey.trim() !== '' && serviceKey.trim() !== '';
 
@@ -42,12 +46,11 @@ export function RetestForm({
   return (
     <form onSubmit={submit} className="stack" noValidate>
       <p className="muted small">
-        Enter both keys again. They are kept in this page’s memory only and are
-        never returned by the server.
+        {w('Enter both keys again. They are kept in this page’s memory only and are never returned by the server.')}
       </p>
       <div className="field-row">
         <label className="field">
-          <span>Publishable key</span>
+          <span>{w('Publishable key')}</span>
           <SecretInput
             value={anonKey}
             onChange={(event) => onAnonKey(event.target.value)}
@@ -56,7 +59,7 @@ export function RetestForm({
           />
         </label>
         <label className="field">
-          <span>Secret key</span>
+          <span>{w('Secret key')}</span>
           <SecretInput
             value={serviceKey}
             onChange={(event) => onServiceKey(event.target.value)}
@@ -72,7 +75,7 @@ export function RetestForm({
           onChange={(event) => onConfirmed(event.target.checked)}
         />
         <span>
-          I confirm this is a <strong>TEST project</strong>, not production.
+          {w('I confirm this is a TEST project, not production.')}
         </span>
       </label>
       {error ? <ErrorBanner message={error} /> : null}
@@ -82,7 +85,7 @@ export function RetestForm({
           className="button button-primary"
           disabled={!canSubmit || submitting || blocked}
         >
-          {submitting ? 'Starting re-test…' : 'Start re-test'}
+          {w(submitting ? 'Starting re-test…' : 'Start re-test')}
         </button>
         <button
           type="button"
@@ -90,7 +93,7 @@ export function RetestForm({
           onClick={onCancel}
           disabled={submitting}
         >
-          Cancel
+          {w('Cancel')}
         </button>
       </div>
     </form>

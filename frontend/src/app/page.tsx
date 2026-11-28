@@ -1,35 +1,48 @@
 'use client';
 
+import { Reveal } from '@/components/reveal';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useApp } from '@/components/app-provider';
-import { CoverageNotes } from '@/components/coverage-notes';
 import { ErrorBanner } from '@/components/error-banner';
 import { HeroCard } from '@/components/hero-card';
+import { HeroScene } from '@/components/hero-scene';
+import { HowItWorks } from '@/components/how-it-works';
+import { PromptSample } from '@/components/prompt-sample';
 import { LangToggle } from '@/components/lang-toggle';
-import { ConnectGroups } from '@/components/connect-groups';
-import { SecretInput } from '@/components/secret-input';
+import {
+  RepoGroup,
+  SupabaseGroup,
+  WebsiteGroup,
+} from '@/components/connect-groups';
 import { RateLimitNotice } from '@/components/rate-limit-notice';
+import { SectionHead } from '@/components/section-head';
+import { WhatItChecks } from '@/components/what-it-checks';
+import { WordMeanings } from '@/components/word-meanings';
 import { startAudit } from '@/lib/api';
-import { PROJECT_TAGLINE } from '@/lib/brand';
 import { ApiError, NetworkError } from '@/lib/errors';
 import {
   EMPTY_FIELDS,
   buildStartBody,
   checkConnect,
   clearKeys,
+  startButtonLabel,
   startHintOf,
   startNote,
+  willCheckLine,
   type ConnectFields,
 } from '@/lib/form';
 import {
-  CHIPS,
-  STEPS,
+  ADVANCED,
+  FORM,
+  GET,
+  KICKER,
+  PROBLEM,
+  SECTIONS,
+  TABLE_STEPS,
   headlineWords,
   honestyLine,
   pickText,
-  subLine,
-  type ChipId,
 } from '@/lib/hero-copy';
 import { useApiError } from '@/lib/use-api-error';
 import { useLang } from '@/lib/use-lang';
@@ -40,6 +53,8 @@ export default function ConnectPage() {
   const {
     accessCode,
     setAccessCode,
+    accessDraft,
+    setAccessDraft,
     clearAccessCode,
     rateLimitSecondsLeft,
   } = useApp();
@@ -48,29 +63,11 @@ export default function ConnectPage() {
   const HEADLINE = headlineWords(lang);
   const HEADLINE_TEXT = HEADLINE.join(' ');
 
-  // A chip points at the group of the Connect form it is named after (Both: at
-  // both). The group says "here" for a moment.
-  function pickSource(chip: ChipId) {
-    const first = document.getElementById(
-      chip === 'supabase' ? 'project-url' : 'website-url',
-    );
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    first?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
-    first?.focus({ preventScroll: true });
-    const groups = document.querySelectorAll<HTMLElement>('.source-group');
-    const wanted =
-      chip === 'both' ? [...groups] : [groups[chip === 'supabase' ? 1 : 0]];
-    for (const group of wanted) {
-      if (!group) continue;
-      group.classList.remove('is-nudged');
-      void group.offsetWidth;
-      group.classList.add('is-nudged');
-      window.setTimeout(() => group.classList.remove('is-nudged'), 1500);
-    }
-  }
-
+  // the website part (under the button) and the Supabase part (at the bottom)
+  // are closed at first
+  const [websiteAsked, setWebsiteAsked] = useState(false);
+  const [advancedAsked, setAdvancedAsked] = useState(false);
   const [fields, setFields] = useState<ConnectFields>(EMPTY_FIELDS);
-  const [accessCodeInput, setAccessCodeInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [canRetry, setCanRetry] = useState(false);
@@ -79,7 +76,7 @@ export default function ConnectPage() {
     setFields((current) => ({ ...current, ...patch }));
   }
 
-  const effectiveAccessCode = accessCode || accessCodeInput;
+  const effectiveAccessCode = accessCode || accessDraft;
   // R76: at least one group complete, and no group half filled.
   const check = checkConnect(fields);
   const startDisabled =
@@ -90,22 +87,27 @@ export default function ConnectPage() {
   // Say what is missing, but not while submitting or rate-limited.
   const startHint =
     !submitting && rateLimitSecondsLeft === 0
-      ? startHintOf(check, Boolean(effectiveAccessCode))
+      ? startHintOf(check, Boolean(effectiveAccessCode), lang)
       : '';
+  // A part stays open while anything is typed in it: a half-filled group must
+  // never be hidden, because the start button waits for it.
+  const websiteOpen = websiteAsked || check.website.state !== 'empty';
+  const advancedOpen = advancedAsked || check.supabase.state !== 'empty';
+  const willCheck = willCheckLine(check, lang);
 
   async function runAudit() {
     if (!check.canStart) {
-      setError(startNote(check));
+      setError(startNote(check, lang));
       setCanRetry(false);
       return;
     }
     if (!effectiveAccessCode) {
-      setError('Enter the access code in the hero first.');
+      setError(pickText(FORM.needCode, lang));
       setCanRetry(false);
       return;
     }
-    if (!accessCode && accessCodeInput) {
-      setAccessCode(accessCodeInput);
+    if (!accessCode && accessDraft) {
+      setAccessCode(accessDraft);
     }
 
     setSubmitting(true);
@@ -119,10 +121,11 @@ export default function ConnectPage() {
       );
       // after a 202 the keys are cleared; the website address may stay (R76)
       setFields(clearKeys);
+      setAccessDraft('');
       router.push(`/audits/${created.id}`);
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
-        setAccessCodeInput('');
+        setAccessDraft('');
         clearAccessCode();
       }
       setError(handleApiError(caught));
@@ -137,17 +140,14 @@ export default function ConnectPage() {
     void runAudit();
   }
 
-  function changeAccessCode() {
-    clearAccessCode();
-    setAccessCodeInput('');
-  }
-
   return (
-    <div className="shell page-stack">
-      <section className="hero">
+    <div className="shell home">
+      {/* wide screens: the words and the form on the left, the scene on the
+          right; narrower: one column, the form first */}
+      <section className="hero hero-stage">
         <div className="hero-copy">
           <div className="hero-copy-top">
-            <p className="hero-kicker">{PROJECT_TAGLINE}</p>
+            <p className="hero-kicker">{pickText(KICKER, lang)}</p>
             <LangToggle lang={lang} onChange={setLang} />
           </div>
           <h1
@@ -166,118 +166,18 @@ export default function ConnectPage() {
               </span>
             ))}
           </h1>
-          <p className="hero-lede">{subLine(lang)}</p>
-          <div className="hero-chips" role="group" aria-label={pickText({ en: 'What to check', ur: 'Kya check karna hai' }, lang)}>
-            {CHIPS.map((chip) => (
-              <button
-                key={chip.id}
-                type="button"
-                className="hero-chip-btn"
-                data-chip={chip.id}
-                onClick={() => pickSource(chip.id)}
-              >
-                {pickText(chip.label, lang)}
-              </button>
-            ))}
-          </div>
+          <p className="hero-problem">{pickText(PROBLEM, lang)}</p>
 
-          <div className="hero-gate" id="access-gate">
-            {!accessCode ? (
-              <label className="field field-code">
-                <span>Access code</span>
-                <SecretInput
-                  id="access-code"
-                  value={accessCodeInput}
-                  onChange={(event) => setAccessCodeInput(event.target.value)}
-                  placeholder="Enter the door"
-                  maxLength={4096}
-                />
-                <small>
-                  Kept in this page’s memory only. It unlocks the run and is
-                  sent as a header, never in the URL.
-                </small>
-              </label>
-            ) : (
-              <div className="memory-chip">
-                <span className="memory-dot" aria-hidden="true" />
-                <span>Access code held for this page only.</span>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={changeAccessCode}
-                >
-                  Change
-                </button>
-              </div>
-            )}
-            <p className="hero-gate-note">
-              This is the door. The temporary users and canary rows are created
-              only after you enter it.
-            </p>
-            <button
-              type="button"
-              className="button button-ghost button-small hero-replay"
-              onClick={() => window.dispatchEvent(new Event('vca:replay-hero'))}
-            >
-              Replay intro
-            </button>
-          </div>
-        </div>
-
-        {/* the example run: a beam resolves three evidence rows, then the gate */}
-        <div className="hero-card-wrap">
-          <HeroCard lang={lang} />
-        </div>
-      </section>
-
-      <ol className="hero-steps" aria-label={pickText({ en: 'How it works', ur: 'Kaise kaam karta hai' }, lang)}>
-        {STEPS.map((step, index) => (
-          <li className="hero-step" key={index}>
-            <span className="hero-step-number" aria-hidden="true">
-              {index + 1}
-            </span>
-            <h2>{pickText(step.title, lang)}</h2>
-            <p>{pickText(step.body, lang)}</p>
-          </li>
-        ))}
-      </ol>
-      <p className="hero-honesty">{honestyLine(lang)}</p>
-
-      <div className="connect-grid">
-        <section className="card form-card" aria-labelledby="start-heading">
-          <div className="card-heading">
-            <div>
-              <h2 id="start-heading">Start an audit</h2>
-              <p className="muted small">
-                Connect a staging or test project.
-              </p>
-              <p className="muted small">
-                The auditor adds two temporary users and one canary row per
-                table, then removes them.
-              </p>
-              <p className="muted small">
-                Table names and check results (never keys) are sent to Groq to write the explanation.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={submit} className="stack" noValidate>
-            <label className="field">
-              <span>
-                Label <em>optional</em>
-              </span>
-              <input
-                type="text"
-                value={fields.label}
-                onChange={(event) => change({ label: event.target.value })}
-                placeholder="Example shop (test project)"
-                maxLength={120}
-                autoComplete="off"
-              />
-              <small>Used only to name this run. Maximum 120 characters.</small>
-            </label>
-
-            <ConnectGroups fields={fields} check={check} onChange={change} />
+          {/* one field, one box, one button; the website opens under the button */}
+          <div className="start-wrap glass-wrap">
+          <form
+            id="start-box"
+            className="start-box glass"
+            aria-label={pickText(FORM.start, lang)}
+            onSubmit={submit}
+            noValidate
+          >
+            <RepoGroup fields={fields} check={check} onChange={change} lang={lang} />
 
             <RateLimitNotice />
             {error ? (
@@ -293,90 +193,122 @@ export default function ConnectPage() {
               disabled={startDisabled}
               aria-describedby={startHint ? 'start-hint' : undefined}
             >
-              {submitting ? 'Starting audit…' : 'Start audit'}
+              {submitting
+                ? pickText(FORM.starting, lang)
+                : startButtonLabel(check, lang)}
             </button>
+            {willCheck ? (
+              <p className="will-check" id="will-check" role="status">
+                {willCheck}
+              </p>
+            ) : null}
             {startHint ? (
               <p className="muted small" id="start-hint" role="status">
                 {startHint}
               </p>
             ) : null}
-            <p className="fine-print">
-              Keys stay in memory only. They are cleared from the form after the
-              server accepts the audit. Refreshing the page clears the access
-              code.
-            </p>
+
+            <button
+              type="button"
+              className="text-button website-toggle"
+              aria-expanded={websiteOpen}
+              aria-controls="website-more"
+              onClick={() => setWebsiteAsked((open) => !open)}
+            >
+              {pickText(FORM.addWebsite, lang)}
+            </button>
+            <div id="website-more" hidden={!websiteOpen}>
+              <WebsiteGroup fields={fields} check={check} onChange={change} lang={lang} />
+            </div>
+
+            <p className="fine-print">{pickText(FORM.noAi, lang)}</p>
           </form>
-        </section>
+          </div>
+        </div>
 
-        <aside className="stack">
-          <section className="card info-card">
-            <h2>How the table check works</h2>
-            <ol className="steps">
-              <li>
-                <span>1</span>
-                <div>
-                  <strong>Two temporary users</strong>
-                  <p>
-                    The auditor signs up user A and user B in your project.
-                  </p>
-                </div>
-              </li>
-              <li>
-                <span>2</span>
-                <div>
-                  <strong>A canary row</strong>
-                  <p>
-                    User A owns a new row. User B and a visitor try to read,
-                    change and delete it.
-                  </p>
-                </div>
-              </li>
-              <li>
-                <span>3</span>
-                <div>
-                  <strong>Evidence you can check</strong>
-                  <p>
-                    Every finding shows what the API answered and a reproducer
-                    with placeholders.
-                  </p>
-                </div>
-              </li>
-            </ol>
-          </section>
+        {/* the picture of the three words: it plays again and again */}
+        <div className="hero-visual">
+          <div className="glass-wrap">
+            <HeroScene lang={lang} />
+          </div>
+        </div>
+      </section>
 
-          <section className="card truth-card">
-            <h2>What this means</h2>
+      <WhatItChecks lang={lang} />
+      <HowItWorks lang={lang} />
+
+      <section className="home-section get" aria-labelledby="get-title" data-reveal-group>
+        <SectionHead id="get-title" head={SECTIONS.get} lang={lang} />
+        <div className="get-columns">
+          <div className="get-text">
+            <Reveal>
+              <div className="get-words">
+                <p>{pickText(GET.body, lang)}</p>
+                <ul className="get-points">
+                  {GET.points.map((point) => (
+                    <li key={point.en}>{pickText(point, lang)}</li>
+                  ))}
+                </ul>
+                <p className="hero-honesty">{honestyLine(lang)}</p>
+              </div>
+            </Reveal>
+            <div className="glass-wrap prompt-wrap">
+              <Reveal>
+                <PromptSample lang={lang} />
+              </Reveal>
+            </div>
+          </div>
+          {/* the example result, here and nowhere else */}
+          <div className="hero-card-wrap glass-wrap">
+            <Reveal>
+              <HeroCard lang={lang} />
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      <WordMeanings lang={lang} />
+
+      {/* the Supabase test project: the last thing on the page, closed at first */}
+      <section className="home-section" aria-labelledby="advanced-title" data-reveal-group>
+        <SectionHead id="advanced-title" head={SECTIONS.advanced} lang={lang} />
+      <div className="glass-wrap">
+      <Reveal>
+        <details
+          className="advanced glass"
+          id="advanced-supabase"
+          open={advancedOpen}
+          onToggle={(event) => setAdvancedAsked(event.currentTarget.open)}
+        >
+          <summary className="advanced-summary">
+            {pickText(ADVANCED.link, lang)}
+          </summary>
+          <div className="advanced-body">
+            <SupabaseGroup fields={fields} check={check} onChange={change} lang={lang} />
+            <p className="fine-print">{pickText(ADVANCED.keys, lang)}</p>
+            <p className="fine-print">{pickText(ADVANCED.groq, lang)}</p>
             <p>
-              A clean result means <strong>no leak found by these checks</strong>
-              .
+              <a className="text-link" href="#start-box">
+                {pickText(ADVANCED.back, lang)}
+              </a>
             </p>
-            <CoverageNotes summary="See what they cover." />
-            <dl className="truth-legend">
-              <div>
-                <dt className="legend-dot legend-leaked" />
-                <dd>
-                  <strong>Leaked</strong>
-                  <span>Another user reached the canary row.</span>
-                </dd>
-              </div>
-              <div>
-                <dt className="legend-dot legend-inconclusive" />
-                <dd>
-                  <strong>Inconclusive</strong>
-                  <span>A person should confirm the intent.</span>
-                </dd>
-              </div>
-              <div>
-                <dt className="legend-dot legend-blocked" />
-                <dd>
-                  <strong>Blocked</strong>
-                  <span>The row stayed private in these checks.</span>
-                </dd>
-              </div>
-            </dl>
-          </section>
-        </aside>
+            <h2>{pickText(ADVANCED.howTitle, lang)}</h2>
+            <ol className="steps">
+              {TABLE_STEPS.map((step, index) => (
+                <li key={index}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{pickText(step.title, lang)}</strong>
+                    <p>{pickText(step.body, lang)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </details>
+      </Reveal>
       </div>
+      </section>
     </div>
   );
 }

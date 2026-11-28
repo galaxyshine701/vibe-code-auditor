@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "MCP server for Vibe Code Auditor. Calls the audit API; keys come from the environment only.",
+  "description": "MCP server for Gatecheck. Calls the audit API; keys come from the environment only.",
   "engines": {
     "node": ">=22.9.0"
   },

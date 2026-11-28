@@ -1,7 +1,10 @@
 'use client';
 
+import { Reveal } from './reveal';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
+import { uiText } from '@/lib/ui-copy';
+import { useLang } from '@/lib/use-lang';
 import { useApp } from './app-provider';
 import { SecretInput } from './secret-input';
 import { RateLimitNotice } from './rate-limit-notice';
@@ -14,6 +17,7 @@ export function AccessGate({
   description?: string;
 }) {
   const { setAccessCode, rateLimitSecondsLeft, accessNotice } = useApp();
+  const [lang] = useLang();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
 
@@ -29,37 +33,41 @@ export function AccessGate({
 
   return (
     <div className="gate-wrap">
-      <div className="card gate-card">
-        <h1>{title}</h1>
-        <p className="muted">{description}</p>
-        <form onSubmit={submit} className="stack">
-          <label className="field">
-            <span>Access code</span>
-            <SecretInput
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              autoFocus
-              maxLength={4096}
-              disabled={rateLimitSecondsLeft > 0}
-            />
-          </label>
-          {error || accessNotice ? (
-            <p className="inline-error" role="alert">
-              {error || accessNotice}
-            </p>
-          ) : null}
-          <RateLimitNotice />
-          <button
-            type="submit"
-            className="button button-primary"
-            disabled={rateLimitSecondsLeft > 0}
-          >
-            Continue
-          </button>
-        </form>
-        <Link href="/" className="text-link">
-          Start a new audit
-        </Link>
+      <div className="result-cards glass-wrap">
+        <Reveal>
+          <div className="card gate-card glass">
+            <h1>{uiText(title, lang)}</h1>
+            <p className="muted">{uiText(description, lang)}</p>
+            <form onSubmit={submit} className="stack">
+              <label className="field">
+                <span>{uiText('Access code', lang)}</span>
+                <SecretInput
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                  autoFocus
+                  maxLength={4096}
+                  disabled={rateLimitSecondsLeft > 0}
+                />
+              </label>
+              {error || accessNotice ? (
+                <p className="inline-error" role="alert">
+                  {uiText(error || accessNotice, lang)}
+                </p>
+              ) : null}
+              <RateLimitNotice />
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={rateLimitSecondsLeft > 0}
+              >
+                {uiText('Continue', lang)}
+              </button>
+            </form>
+            <Link href="/" className="text-link">
+              {uiText('Start a new audit', lang)}
+            </Link>
+          </div>
+        </Reveal>
       </div>
     </div>
   );

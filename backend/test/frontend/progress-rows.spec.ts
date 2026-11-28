@@ -172,7 +172,10 @@ describe('the progress page follows the rows it receives', () => {
   );
 
   it('maps audit.modules in the order received and hard-codes no row', () => {
-    expect(page).toContain('audit.modules.map(');
+    // every row comes from the modules received (the skipped ones are named in
+    // one line, the others keep their order)
+    expect(page).toContain('const modules = audit?.modules ?? [];');
+    expect(page).toContain('detailed.map(');
     for (const id of [
       'data-access-prover',
       'planner',
