@@ -3,7 +3,7 @@ name: vibe-code-auditor
 description: Run and explain a Data Access audit of a Supabase TEST project with the vca MCP tools (start_audit, get_audit, get_report, request_retest, get_certificate). Use when the user asks to audit, re-test or report on their test project's table access. Not for answering general questions about the tool.
 ---
 
-# Vibe Code Auditor
+# Gatecheck
 
 The `vca` MCP server runs the Data Access Prover on the user's Supabase **test** project and returns what it found.
 

@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from 'next/font/
 import type { ReactNode } from 'react';
 import { AppHeader } from '@/components/app-header';
 import { AppProvider } from '@/components/app-provider';
+import { IntroOverlay } from '@/components/intro-overlay';
 import { RevealController } from '@/components/reveal';
 import { ServiceWorkerRegister } from '@/components/sw-register';
 import { SiteFooter } from '@/components/site-footer';
@@ -77,6 +78,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: INTRO_BOOT_SCRIPT }} />
       </head>
       <body>
+        {/* directly in <body>, never in the page: see intro-overlay.tsx */}
+        <IntroOverlay />
         <ServiceWorkerRegister />
         <AppProvider>
           <AppHeader />

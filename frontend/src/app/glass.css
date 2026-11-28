@@ -1641,6 +1641,13 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+.intro-skip {
+  top: max(0.75rem, 3vmin, env(safe-area-inset-top));
+  right: max(0.75rem, 3vmin, env(safe-area-inset-right));
+}
+
+/* a long repository name, address, table name or line of code stays inside its
+   card: it wraps */
 main,
 .site-header {
   overflow-wrap: break-word;

@@ -3241,43 +3241,56 @@ h4 {
   }
 }
 
-/* The intro: a layer over the picture of the hero (page.tsx), never over the
-   headline or the form. It locks nothing and clicks go through it; only its Skip
-   button takes them. */
+/* The intro: a layer of the whole screen. It is a child of <body> (layout.tsx),
+   so nothing of the page can change what "fixed" means for it. Sizes are in
+   vmin (the smaller of the width and the height of the screen) and rem, never
+   a fixed height in px. */
 .intro-overlay {
   display: none;
 }
 
-.hero-visual {
-  position: relative;
+html[data-intro="pending"],
+html[data-intro="opening"],
+html[data-intro="leaving"] {
+  overflow: hidden;
+}
+
+html[data-intro="pending"] body,
+html[data-intro="opening"] body,
+html[data-intro="leaving"] body {
+  overflow: hidden;
 }
 
 html[data-intro="pending"] .intro-overlay,
 html[data-intro="opening"] .intro-overlay,
 html[data-intro="leaving"] .intro-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 5; /* over the picture, under the header (30) */
+  z-index: 1000; /* above the header (30) and everything else */
   display: grid;
   place-items: center;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
-  border-radius: 20px;
-  pointer-events: none;
   /* the two panels of the scene draw the background; nothing is blank if they are not there */
   background: transparent;
   opacity: 1;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.35s ease;
 }
 
 html[data-intro="leaving"] .intro-overlay {
   opacity: 0;
+  pointer-events: none;
 }
 
 /* The way out if the page's own code never ends the intro: it hides itself
-   after 1 s, with no script. */
+   after 3 s, with no script (the app is never blocked). */
 html[data-intro="pending"] .intro-overlay,
 html[data-intro="opening"] .intro-overlay {
-  animation: introGone 0.01s linear 1s forwards;
+  animation: introGone 0.01s linear 3s forwards;
 }
 
 @keyframes introGone {
@@ -3289,13 +3302,8 @@ html[data-intro="opening"] .intro-overlay {
 
 .intro-skip {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  pointer-events: auto;
-}
-
-html[data-intro="leaving"] .intro-skip {
-  pointer-events: none;
+  top: max(0.75rem, 3vmin);
+  right: max(0.75rem, 3vmin);
 }
 
 .intro-hint {
@@ -3307,6 +3315,13 @@ html[data-intro="leaving"] .intro-skip {
   color: var(--muted);
   font-size: 0.78rem;
   text-align: center;
+}
+
+/* the headline waits for the intro: the two never run together */
+html[data-intro="pending"] .hero-word,
+html[data-intro="opening"] .hero-word,
+html[data-intro="leaving"] .hero-word {
+  animation-play-state: paused;
 }
 
 .hero-replay {

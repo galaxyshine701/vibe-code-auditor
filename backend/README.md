@@ -1,4 +1,4 @@
-# Vibe Code Auditor: backend
+# Gatecheck: backend
 
 NestJS + TypeScript backend. Tests AI-built Supabase apps (test projects only).
 

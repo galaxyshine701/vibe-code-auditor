@@ -1,6 +1,6 @@
 # vca MCP server
 
-A small MCP server for Vibe Code Auditor. It lets Claude Code start an audit, read the report, re-test and ask for the result record. It calls the audit API (Railway or local) over HTTP and does not import the backend.
+A small MCP server for Gatecheck. It lets Claude Code start an audit, read the report, re-test and ask for the result record. It calls the audit API (Railway or local) over HTTP and does not import the backend.
 
 The result covers table data access only: read, update and delete as another signed-in user, and read as a visitor. It is not a statement that an app is secure.
 

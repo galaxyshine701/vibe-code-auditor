@@ -196,3 +196,88 @@ describe('the result page: no shield, no lock, no tick', () => {
     expect(banner).toContain("clear: 'BLOCKED'");
   });
 });
+
+// ---- every badge and picture, not only the result page ----
+const PUBLIC = join(SRC, '..', 'public');
+const SCRIPTS = join(SRC, '..', 'scripts');
+
+function everyFile(dir: string, kinds: RegExp): { path: string; text: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      return entry.name === 'mock-bundles' ? [] : everyFile(path, kinds);
+    }
+    return kinds.test(entry.name) ? [{ path, text: readFileSync(path, 'utf8') }] : [];
+  });
+}
+
+/** Without comments: a comment may say that there is no shield. */
+const code = (text: string) =>
+  text
+    .replace(/\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+const everything = [
+  ...everyFile(SRC, /\.(tsx?|css|svg)$/),
+  ...everyFile(PUBLIC, /\.(svg|html|js)$/),
+  ...everyFile(SCRIPTS, /\.mjs$/),
+];
+
+describe('no shield, with a tick or without, anywhere', () => {
+  it('reads the home page, the run page, the result page, the tab icon and the offline page', () => {
+    const names = everything.map((f) => f.path.split('\\').join('/'));
+    for (const part of [
+      'components/hero-card.tsx',
+      'components/hero-scene.tsx',
+      'components/how-it-works.tsx',
+      'components/word-meanings.tsx',
+      'components/verdict.tsx',
+      'components/checkpoint-lane.tsx',
+      'components/actor-diagram.tsx',
+      'components/hero-motion.tsx',
+      'app/audits/[id]/page.tsx',
+      'app/icon.svg',
+      'public/offline.html',
+      'scripts/make-icons.mjs',
+    ]) {
+      expect(names.some((name) => name.endsWith(part)), part).toBe(true);
+    }
+  });
+
+  it('no shield or lock by name (a class, an icon, a component, a drawing)', () => {
+    for (const { path, text } of everything) {
+      expect(code(text), path).not.toMatch(
+        /shield|padlock|shackle|checkmark|check-mark|CheckIcon|LockIcon|icon-(?:lock|check|tick)/i,
+      );
+    }
+  });
+
+  it('no shield outline: a path that starts at a top point and falls to both sides before it closes below', () => {
+    for (const { path, text } of everything) {
+      for (const m of text.matchAll(/\bd=["']([^"']+)["']/g)) {
+        // the outline that was used, and the usual drawing of one ("M12 2 4 5v6c0 5 ... 8 11 8 11")
+        expect(m[1], path).not.toContain('M8 1.8 13.4 4');
+        expect(m[1], path).not.toMatch(/^\s*[Mm]\s*12[ ,]+[0-3](?:\.\d+)?\s*[Ll]?\s*-?[4-9][^zZ]*[cCsSqQaA]/);
+        expect(m[1], path).not.toMatch(/12[ ,]22s8-4 8-10/);
+      }
+    }
+  });
+
+  it('no tick in a picture file or a polyline either', () => {
+    for (const { path, text } of everything) {
+      for (const m of text.matchAll(/\bd=["']([^"']+)["']/g)) {
+        expect(hasTick(m[1]), `${path}: ${m[1]}`).toBe(false);
+      }
+      for (const m of text.matchAll(/\bpoints=["']([^"']+)["']/g)) {
+        expect(hasTick(`M${m[1]}`), `${path}: ${m[1]}`).toBe(false);
+      }
+    }
+  });
+
+  it('the detector knows a shield when it sees one', () => {
+    const usual = 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z';
+    expect(usual).toMatch(/12[ ,]22s8-4 8-10/);
+    expect('<ShieldCheck />').toMatch(/shield/i);
+  });
+});
+

@@ -28,6 +28,7 @@ interface IntroModule {
   INTRO_END_MS: number;
   INTRO_TOTAL_MS: number;
   INTRO_GRACE_MS: number;
+  INTRO_LATE_PAINT_MS: number;
   INTRO_SCENE_MS: Record<
     'draw' | 'beam' | 'contract' | 'word' | 'open',
     number
@@ -120,6 +121,17 @@ function runScript(
       return sessionStorage;
     },
   };
+  // the frames and the clock of the page: nothing is painted until `paint` runs
+  const frames: (() => void)[] = [];
+  const clock = { now: 0 };
+  win.requestAnimationFrame = (fn: () => void) => frames.push(fn);
+  win.performance = { now: () => clock.now };
+  const paint = (atMs: number) => {
+    clock.now = atMs;
+    // one frame, then the one after it
+    frames.splice(0).forEach((fn) => fn());
+    frames.splice(0).forEach((fn) => fn());
+  };
   const listeners = new Map<string, ((e: unknown) => void)[]>();
   const document = {
     addEventListener: (type: string, fn: (e: unknown) => void) =>
@@ -146,7 +158,7 @@ function runScript(
     'setTimeout',
     INTRO_BOOT_SCRIPT,
   )(win, document, { pathname: options.pathname ?? '/' }, setTimeoutFake);
-  return { attributes, store, timeouts, win, listeners };
+  return { attributes, store, timeouts, win, listeners, paint, frames };
 }
 
 describe('the boot script of the <head>', () => {
@@ -220,15 +232,43 @@ describe('the boot script of the <head>', () => {
     },
   );
 
-  it('arms a timer that ends the intro by itself after 1 s', () => {
+  it('arms a timer that ends the intro by itself 3 s after the scene is painted', () => {
     const run = runScript();
+    // nothing is timed before there is a picture
+    expect(run.timeouts).toHaveLength(0);
+    expect(run.win.__vcaIntroAt).toBeUndefined();
+    run.paint(400);
+    expect(run.win.__vcaIntroAt).toBe(400);
     expect(run.timeouts).toHaveLength(1);
     expect(run.timeouts[0].ms).toBe(intro.INTRO_FALLBACK_MS);
-    expect(intro.INTRO_FALLBACK_MS).toBe(1000);
+    expect(intro.INTRO_FALLBACK_MS).toBe(3000);
     run.timeouts[0].fn();
     expect(run.attributes.get('data-intro')).toBe('done');
     // the page's own code can replace it, so its id is kept
     expect(run.win.__vcaIntroTimer).toBe(1);
+  });
+
+  it('a first paint more than 1.5 s after the navigation: no intro at all', () => {
+    expect(intro.INTRO_LATE_PAINT_MS).toBe(1500);
+    const late = runScript();
+    late.paint(1501);
+    expect(late.attributes.get('data-intro')).toBe('done');
+    expect(late.timeouts).toHaveLength(0);
+    expect(late.win.__vcaIntroAt).toBeUndefined();
+    // it does not come back on a refresh either
+    expect(late.store.get(INTRO_KEY)).toBe('1');
+
+    const inTime = runScript();
+    inTime.paint(1500);
+    expect(inTime.attributes.get('data-intro')).toBe('pending');
+    expect(inTime.timeouts).toHaveLength(1);
+  });
+
+  it('a late "first contentful paint" takes the intro away too', () => {
+    expect(INTRO_BOOT_SCRIPT).toContain("name==='first-contentful-paint'");
+    expect(INTRO_BOOT_SCRIPT).toContain('startTime>1500)drop()');
+    const overlay = read('components', 'intro-overlay.tsx');
+    expect(overlay).toContain("addEventListener('vca:intro-late', late)");
   });
 
   it('agrees with shouldShowIntro for every combination', () => {
@@ -260,17 +300,16 @@ describe('the boot script of the <head>', () => {
 });
 
 describe('the length of the scene', () => {
-  it('is 1 s or less from start to end, the fade of a skip included, and so is the failsafe', () => {
-    expect(intro.INTRO_END_MS).toBe(850);
+  it('is 3 s or less, and the failsafe is 3 s', () => {
+    expect(intro.INTRO_END_MS).toBe(2950);
     expect(intro.INTRO_END_MS).toBe(intro.INTRO_STORY_MS + intro.INTRO_HOLD_MS);
     expect(intro.INTRO_END_MS).toBeLessThanOrEqual(intro.INTRO_FALLBACK_MS);
-    expect(intro.INTRO_TOTAL_MS).toBeLessThanOrEqual(1000);
-    expect(intro.INTRO_FALLBACK_MS).toBeLessThanOrEqual(1000);
+    expect(intro.INTRO_FALLBACK_MS).toBeLessThanOrEqual(3000);
   });
 
   it('the end is counted from when the scene started, not from when the page code is ready', () => {
     expect(intro.remainingMs(0)).toBe(intro.INTRO_END_MS);
-    expect(intro.remainingMs(500)).toBe(intro.INTRO_END_MS - 500);
+    expect(intro.remainingMs(1000)).toBe(intro.INTRO_END_MS - 1000);
     expect(intro.remainingMs(intro.INTRO_END_MS)).toBe(0);
     expect(intro.remainingMs(99999)).toBe(0);
     expect(intro.remainingMs(-5)).toBe(intro.INTRO_END_MS);
@@ -302,11 +341,11 @@ describe('the scene: the times of the CSS are the times of lib/intro.ts', () => 
     expect(variable('open')).toBe(intro.INTRO_SCENE_MS.open);
   });
 
-  it('draws 0 to 0.1 s, the beam 0.1 to 0.5 s, the gate 0.5 to 0.85 s, in this order', () => {
+  it('draws 0 to 0.7 s, the beam 0.7 to 2 s, the gate 2 to 2.95 s, in this order', () => {
     const t = intro.INTRO_SCENE_MS;
     expect(t.draw).toBe(0);
-    expect(t.beam).toBe(100);
-    expect(t.contract).toBe(500);
+    expect(t.beam).toBe(700);
+    expect(t.contract).toBe(2000);
     expect(t.beam).toBeLessThan(t.contract);
     expect(t.contract).toBeLessThan(t.word);
     expect(t.word).toBeLessThan(t.open);
@@ -495,7 +534,7 @@ describe('the example run (CSS and component)', () => {
   });
 });
 
-describe('the intro never holds back the page', () => {
+describe('the intro and the headline never run together', () => {
   it('the overlay is hidden unless pending, opening or leaving', () => {
     expect(css).toMatch(/\.intro-overlay \{\s*display: none;/);
     expect(css).toMatch(
@@ -503,7 +542,7 @@ describe('the intro never holds back the page', () => {
     );
   });
 
-  it('a CSS animation removes the overlay by itself after 1 s (while pending and while opening)', () => {
+  it('a CSS animation removes the overlay by itself after 3 s (while pending and while opening)', () => {
     const match = css.match(
       /html\[data-intro="pending"\] \.intro-overlay,\s*html\[data-intro="opening"\] \.intro-overlay \{\s*animation: introGone [\d.]+s linear ([\d.]+)s forwards/,
     );
@@ -522,9 +561,10 @@ describe('the intro never holds back the page', () => {
     expect(introCss).not.toContain('data-intro-mode');
   });
 
-  it('the headline does not wait for the intro: nothing pauses or hides its words', () => {
-    expect(css + introCss).not.toMatch(/data-intro[^{]*\.hero-(word|title|copy|problem)/);
-    expect(css + introCss).not.toMatch(/data-intro[^{]*\.start-box/);
+  it('the hero moves only after the intro: the words wait while pending, opening and leaving', () => {
+    expect(css.replace(/\r\n/g, '\n')).toMatch(
+      /html\[data-intro="pending"\] \.hero-word,\s*html\[data-intro="opening"\] \.hero-word,\s*html\[data-intro="leaving"\] \.hero-word \{\s*animation-play-state: paused/,
+    );
   });
 
   it('the boot script comes in the <head> of the layout', () => {
@@ -536,7 +576,7 @@ describe('the intro never holds back the page', () => {
   });
 });
 
-describe('the intro belongs to the picture of the hero, and to nothing else', () => {
+describe('the overlay belongs to the whole screen (the reason it was cut off)', () => {
   // A wrapper of a card is moved and faded when it comes into view. A
   // `position: fixed` child of such a wrapper would be fixed to it, not to the
   // screen, so the overlay must not live in a page.
@@ -546,20 +586,21 @@ describe('the intro belongs to the picture of the hero, and to nothing else', ()
     );
   });
 
-  it('is in the visual column of the hero, after the picture; not in the layout, not over the words', () => {
-    expect(read('app', 'layout.tsx')).not.toContain('<IntroOverlay');
-    const page = read('app', 'page.tsx');
-    const visual = page.indexOf('<div className="hero-visual">');
-    const overlay = page.indexOf('<IntroOverlay />');
-    expect(page.match(/<IntroOverlay \/>/g)).toHaveLength(1);
-    expect(overlay).toBeGreaterThan(page.indexOf('<HeroScene', visual));
-    expect(overlay).toBeLessThan(page.indexOf('<WhatItChecks'));
-    expect(visual).toBeGreaterThan(page.indexOf('</form>'));
-    expect(css.replace(/\r\n/g, '\n')).toMatch(/\.hero-visual \{\s*position: relative;/);
+  it('is rendered directly in <body> of the layout, before the header and the page, not in <main>', () => {
+    const layout = read('app', 'layout.tsx');
+    const body = layout.slice(layout.indexOf('<body'));
+    expect(body).toContain('<IntroOverlay />');
+    expect(body.indexOf('<IntroOverlay />')).toBeLessThan(
+      body.indexOf('<AppProvider>'),
+    );
+    expect(body.indexOf('<IntroOverlay />')).toBeLessThan(
+      body.indexOf('<main'),
+    );
   });
 
-  it('no other page uses it, and it is rendered whatever the state (server HTML on an empty sessionStorage)', () => {
+  it('no page uses it, and it is rendered whatever the state (server HTML on an empty sessionStorage)', () => {
     for (const page of [
+      ['app', 'page.tsx'],
       ['app', 'audits', '[id]', 'page.tsx'],
       ['app', 'audits', '[id]', 'report', 'page.tsx'],
       ['app', 'audits', '[id]', 'certificate', 'page.tsx'],
@@ -585,27 +626,30 @@ describe('the intro belongs to the picture of the hero, and to nothing else', ()
     return match![1];
   };
 
-  it('covers its box only, takes no click, and locks no scroll', () => {
+  it('is fixed, inset 0, 100dvh high, with scroll locked while it runs', () => {
     const rule = overlayRule();
-    expect(rule).toContain('position: absolute;');
+    expect(rule).toContain('position: fixed;');
     expect(rule).toContain('inset: 0;');
+    expect(rule).toContain('height: 100dvh;');
     expect(rule).toContain('place-items: center;');
-    expect(rule).toContain('pointer-events: none;');
-    expect(rule).not.toMatch(/position: fixed|100dvh|100vh/);
-    expect(css).not.toMatch(/html\[data-intro="\w+"\](?: body)?\s*\{[^}]*overflow: hidden/);
-    expect(css.replace(/\r\n/g, '\n')).toMatch(/\.intro-skip \{[^}]*pointer-events: auto;/);
-    // the two panels carry the background, so a failure of the scene never blanks the picture
+    expect(css).toMatch(
+      /html\[data-intro="pending"\],\s*html\[data-intro="opening"\],\s*html\[data-intro="leaving"\] \{\s*overflow: hidden;/,
+    );
+    // the two panels carry the background, so a failure of the scene never blanks the page
     expect(rule).toContain('background: transparent;');
   });
 
-  it('its z-index is over the picture and under the header', () => {
+  it('its z-index is above the header and above every other z-index of the CSS', () => {
     const z = Number(overlayRule().match(/z-index: (\d+)/)![1]);
     const header = Number(css.match(/\.site-header \{[^}]*z-index: (\d+)/)![1]);
-    expect(z).toBeGreaterThan(0);
-    expect(z).toBeLessThan(header);
+    expect(z).toBeGreaterThan(header);
+    const others = [...css.matchAll(/z-index: (\d+)/g)]
+      .map((m) => Number(m[1]))
+      .filter((value) => value !== z);
+    expect(z).toBeGreaterThan(Math.max(...others));
   });
 
-  it('no fixed px height in the intro rules: sizes are in %, vmin and rem', () => {
+  it('no fixed px height in the intro rules: sizes are in vmin, dvh, vw, % and rem', () => {
     const rules = [
       ...(css + '\n' + introCss).matchAll(/([^{}]*\.intro-[^{}]*)\{([^}]*)\}/g),
     ].map((m) => m[2]);
@@ -615,10 +659,10 @@ describe('the intro belongs to the picture of the hero, and to nothing else', ()
       expect(body).not.toMatch(/(?:^|[\s;])(?:min-|max-)?width:\s*[\d.]+px/);
     }
     expect(introCss).toMatch(
-      /\.intro-art-wide \{\s*width: [\d.]+%;\s*height: auto;\s*max-height: 100%;/,
+      /\.intro-art-wide \{\s*width: min\([\d.]+vw, [\d.]+dvh\)/,
     );
     expect(introCss).toMatch(
-      /\.intro-art-tall \{[^}]*height: [\d.]+%;[^}]*max-width: [\d.]+%;/,
+      /\.intro-art-tall \{[^}]*height: min\([\d.]+dvh, [\d.]+vw\)/,
     );
     expect(introCss).toMatch(
       /\.intro-name \{[^}]*font-size: max\([\d.]+rem, [\d.]+vmin\)/,
@@ -630,21 +674,17 @@ describe('the intro belongs to the picture of the hero, and to nothing else', ()
 describe('skipping and the keyboard', () => {
   const source = read('components', 'intro-overlay.tsx');
 
-  it('a tap or click anywhere, Esc and a Skip button end it; no focus is taken, no event stopped', () => {
-    expect(source).toContain("document.addEventListener('click', onClick)");
+  it('tap, click, Esc and a Skip button end it; the Skip button gets the focus', () => {
     expect(source).toContain('onClick={close}');
     expect(source).toContain("event.key === 'Escape'");
     expect(source).toContain('INTRO_COPY.skip');
-    // the click that starts a replay does not end it
-    expect(source).toContain('event.timeStamp >= startedAt.current');
-    expect(source).not.toMatch(/\.focus\(|preventDefault|stopPropagation/);
+    expect(source).toContain('skipButton.current?.focus');
   });
 
-  it('Tab is not trapped, and it is not a dialog', () => {
-    expect(source).not.toContain("'Tab'");
-    expect(source).not.toContain('role="dialog"');
-    expect(source).not.toContain('aria-modal');
-    expect(source).toContain('role="region"');
+  it('Tab cannot leave the overlay, and it is a dialog', () => {
+    expect(source).toContain("event.key === 'Tab'");
+    expect(source).toContain('role="dialog"');
+    expect(source).toContain('aria-modal="true"');
   });
 
   it('ends with the gate (opening), then done; a skip ends with a fade; and a limit ends it anyway', () => {
@@ -719,7 +759,7 @@ describe('the replay button and the theme button', () => {
     const overlay = read('components', 'intro-overlay.tsx');
     expect(overlay).toContain('begin(true)');
     expect(overlay).toContain('INTRO_FALLBACK_MS');
-    expect(plain).toContain('animation: introGone 0.01s linear 1s forwards;');
+    expect(plain).toContain('animation: introGone 0.01s linear 3s forwards;');
   });
 });
 

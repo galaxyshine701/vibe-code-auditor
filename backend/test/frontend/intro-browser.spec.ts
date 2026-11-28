@@ -134,53 +134,61 @@ async function freshTab(width: number, height: number) {
 
 const MEASURE = `(() => {
   const overlay = document.querySelector('.intro-overlay');
-  const visual = document.querySelector('.hero-visual');
+  const scene = document.querySelector('.intro-scene');
   const header = document.querySelector('.site-header');
-  if (!overlay || !visual) return null;
+  if (!overlay || !scene) return null;
   const o = overlay.getBoundingClientRect();
-  const v = visual.getBoundingClientRect();
+  const s = scene.getBoundingClientRect();
+  const h = header.getBoundingClientRect();
+  const hit = document.elementFromPoint(h.left + h.width / 2, h.top + h.height / 2);
   const style = getComputedStyle(overlay);
-  const overlaps = (q) => [...document.querySelectorAll(q)].some((e) => {
-    const r = e.getBoundingClientRect();
-    return Math.min(r.right, o.right) - Math.max(r.left, o.left) > 1 && Math.min(r.bottom, o.bottom) - Math.max(r.top, o.top) > 1;
-  });
   return {
     intro: document.documentElement.getAttribute('data-intro'),
+    vw: innerWidth, vh: innerHeight,
     overlay: { top: o.top, left: o.left, width: o.width, height: o.height },
-    visual: { top: v.top, left: v.left, width: v.width, height: v.height },
     position: style.position,
-    pointer: style.pointerEvents,
     z: Number(style.zIndex),
     headerZ: Number(getComputedStyle(header).zIndex),
-    overlapsWords: overlaps('.hero-title, .hero-problem, .start-box'),
+    headerCovered: !!(hit && hit.closest('.intro-overlay')),
+    scene: { x: s.left + s.width / 2, y: s.top + s.height / 2, top: s.top, bottom: s.bottom, left: s.left, right: s.right },
     scroll: getComputedStyle(document.documentElement).overflow,
   };
 })()`;
 
 describe.skipIf(!enabled)('the intro in a real Chrome', () => {
   it.each(SIZES)(
-    'at %ix%i the intro is over the picture only: the headline and the form are free',
+    'at %ix%i the overlay is the viewport, over the header, with the scene in the middle and nothing cut',
     async (width, height) => {
       const tab = await freshTab(width, height);
       await tab.open();
       // the first load of a new context must start the intro by itself
-      let m: any = null;
-      for (let i = 0; i < 100 && !m; i++) {
+      let seen: any = null;
+      for (let i = 0; i < 100 && !seen; i++) {
         const value = await tab.evaluate(MEASURE);
-        if (value?.intro === 'pending') m = value;
-        else await sleep(20);
+        if (value?.intro === 'pending') seen = value;
+        else await sleep(50);
       }
-      expect(m, 'the intro did not start on the first load').not.toBeNull();
+      expect(seen, 'the intro did not start on the first load').not.toBeNull();
+      await sleep(700); // still running: the intro ends under 3 s
+      const m = (await tab.evaluate(MEASURE)) ?? seen;
 
-      expect(m.position).toBe('absolute');
-      expect(m.pointer).toBe('none');
-      expect(Math.abs(m.overlay.top - m.visual.top)).toBeLessThanOrEqual(1);
-      expect(Math.abs(m.overlay.width - m.visual.width)).toBeLessThanOrEqual(1);
-      expect(Math.abs(m.overlay.height - m.visual.height)).toBeLessThanOrEqual(1);
-      expect(m.z).toBeLessThan(m.headerZ);
-      // nothing lies over the headline or the input, and the page can scroll
-      expect(m.overlapsWords).toBe(false);
-      expect(m.scroll).not.toBe('hidden');
+      expect(m.intro).toBe('pending');
+      expect(m.position).toBe('fixed');
+      expect(m.overlay.top).toBe(0);
+      expect(m.overlay.left).toBe(0);
+      expect(m.overlay.width).toBe(m.vw);
+      expect(m.overlay.height).toBe(m.vh);
+      expect(m.z).toBeGreaterThan(m.headerZ);
+      expect(m.headerCovered).toBe(true);
+      expect(m.scroll).toBe('hidden');
+      // the scene is in the middle of the viewport, within 2 % ...
+      expect(Math.abs(m.scene.x - m.vw / 2)).toBeLessThanOrEqual(m.vw * 0.02);
+      expect(Math.abs(m.scene.y - m.vh / 2)).toBeLessThanOrEqual(m.vh * 0.02);
+      // ... and every part of it is inside
+      expect(m.scene.top).toBeGreaterThanOrEqual(0);
+      expect(m.scene.left).toBeGreaterThanOrEqual(0);
+      expect(m.scene.bottom).toBeLessThanOrEqual(m.vh);
+      expect(m.scene.right).toBeLessThanOrEqual(m.vw);
 
       // it ends by itself, and a reload in the same tab does not repeat it
       let done = false;
@@ -218,19 +226,6 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
     return -1;
   }
 
-  it('a click on the page ends it and still does its own work', async () => {
-    const tab = await freshTab(1366, 768);
-    await tab.open();
-    expect(await waitFor(tab, 'pending', 5000)).toBeGreaterThanOrEqual(0);
-    const point = await tab.evaluate("(() => { const r = document.querySelector('.start-box input').getBoundingClientRect(); return [r.left + 20, r.top + r.height / 2]; })()");
-    const [x, y] = point;
-    for (const type of ['mousePressed', 'mouseReleased']) {
-      await tab.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
-    }
-    expect(await tab.evaluate("!!document.activeElement.closest('.start-box')")).toBe(true);
-    expect(await waitFor(tab, 'done', 1500)).toBeGreaterThanOrEqual(0);
-  }, 20000);
-
   it('the Skip button ends the scene at once (a fade, then done), before its own end', async () => {
     const tab = await freshTab(1366, 768);
     await tab.open();
@@ -238,8 +233,8 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
       await waitFor(tab, 'pending', 5000),
       'pending',
     ).toBeGreaterThanOrEqual(0);
-    await sleep(100);
-    await tab.evaluate("document.querySelector('.intro-skip')?.click()");
+    await sleep(500);
+    await tab.evaluate("document.querySelector('.intro-skip').click()");
     const took = await waitFor(tab, 'done', 2000);
     expect(
       took,
@@ -254,14 +249,9 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
     ).toBe(true);
   }, 20000);
 
-  it('the scene runs about 1 s and the gate opens by itself (the state goes pending, opening, done)', async () => {
+  it('the scene runs under 3 s and the gate opens by itself (the state goes pending, opening, done)', async () => {
     const tab = await freshTab(1366, 768);
-    // once to fill the cache: on a first load that is slow, the 1 s limit of the
-    // head script can end the intro before the gate would open
     await tab.open();
-    await sleep(2500);
-    await tab.evaluate('sessionStorage.clear()');
-    await tab.reload();
     expect(await waitFor(tab, 'pending', 5000)).toBeGreaterThanOrEqual(0);
     // the beam, the callouts and the name are in the picture
     expect(
@@ -271,11 +261,11 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
     ).toBe(true);
     expect(await waitFor(tab, 'opening', 8000)).toBeGreaterThanOrEqual(0);
     expect(await waitFor(tab, 'done', 4000)).toBeGreaterThanOrEqual(0);
-    // on the screen for about 1 s or less, counted from the first paint
+    // on the screen for 3 s or less, counted from the first paint
     const shown = await tab.evaluate(
       "performance.now() - performance.getEntriesByType('paint')[0].startTime",
     );
-    expect(shown).toBeLessThan(1500);
+    expect(shown).toBeLessThan(3400);
   }, 20000);
 
   it('with reduced motion there is no intro', async () => {
@@ -305,13 +295,13 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
       expect(await tab.evaluate(`getComputedStyle(${REPLAY}).display`)).not.toBe('none');
       await tab.evaluate(`${REPLAY}.click()`);
       expect(await waitFor(tab, 'pending', 1000)).toBeGreaterThanOrEqual(0);
-      await sleep(100);
+      await sleep(300);
       expect(
         await tab.evaluate("getComputedStyle(document.querySelector('.intro-overlay')).display"),
       ).toBe('grid');
       const took = await waitFor(tab, 'done', 4000);
       expect(took).toBeGreaterThanOrEqual(0);
-      expect(took + 100).toBeLessThan(1500);
+      expect(took + 300).toBeLessThan(3400);
       expect(await tab.evaluate("!!document.querySelector('.intro-overlay')")).toBe(false);
     },
     30000,
@@ -331,7 +321,7 @@ describe.skipIf(!enabled)('the intro in a real Chrome', () => {
     const tab = await freshTab(1366, 768);
     await tab.open();
     expect(await waitFor(tab, 'done', 9000)).toBeGreaterThanOrEqual(0);
-    await sleep(2000);
+    await sleep(600);
     const WORDS = `[${REPLAY}.textContent.trim(), document.querySelector('.theme-toggle').textContent.trim()]`;
     expect(await tab.evaluate(WORDS)).toEqual(['Replay intro', 'Light']);
     await tab.evaluate(

@@ -1,6 +1,6 @@
-# Vibe Code Auditor
+# Gatecheck
 
-Vibe Code Auditor checks one thing in an app built on Supabase: can another user read, change or delete data that belongs to someone else? It works on a **test project** only. It creates two temporary users in that project, plants one canary row owned by user A, and tries to reach it as user B and as a visitor with no login. For each table it reports `LEAKED`, `BLOCKED` or `INCONCLUSIVE`, with the evidence and a reproducer. For a leak it suggests fix SQL that a human approves and applies, and a Re-test shows whether the fix worked. The result is "no leak found by these checks". It is not a statement that an app is secure.
+Gatecheck checks one thing in an app built on Supabase: can another user read, change or delete data that belongs to someone else? It works on a **test project** only. It creates two temporary users in that project, plants one canary row owned by user A, and tries to reach it as user B and as a visitor with no login. For each table it reports `LEAKED`, `BLOCKED` or `INCONCLUSIVE`, with the evidence and a reproducer. For a leak it suggests fix SQL that a human approves and applies, and a Re-test shows whether the fix worked. The result is "no leak found by these checks". It is not a statement that an app is secure.
 
 ![Home page, dark theme](screenshots/01-hero-dark.png)
 
@@ -98,20 +98,9 @@ Claude Code  --stdio-->  MCP server (mcp/)  --HTTPS-->  the same API
 - Badges and fix progress in the browser are kept in `localStorage`. They are a convenience, not proof.
 - Not yet verified in a real browser by the author: the install prompt, offline behaviour on a device, and the look of both themes on every device.
 
-## Design notes
-
-These notes are the author's own words and are still to be written.
-
-- Why a canary row: [ADD: Anam's own words]
-- Why the verdict is decided by a test program and not by an AI: [ADD: Anam's own words]
-- Why keys are never stored: [ADD: Anam's own words]
-- Why "INCONCLUSIVE" exists next to "BLOCKED": [ADD: Anam's own words]
-- Why a human approves the fix: [ADD: Anam's own words]
-- What I would build next: [ADD: Anam's own words]
-
 ## Screenshots
 
-Files go in `screenshots/`. Files 01 to 07 exist; file 08 is still a placeholder.
+Files go in `screenshots/`. Files 01 to 07 exist.
 
 | File | Shows |
 |---|---|
@@ -122,7 +111,6 @@ Files go in `screenshots/`. Files 01 to 07 exist; file 08 is still a placeholder
 | `screenshots/05-report-dark.png` | Report with findings, dark theme |
 | `screenshots/06-home-mobile.png` | Home page on a phone |
 | `screenshots/07-report-mobile.png` | Report on a phone |
-| `screenshots/08-certificate-dark.png` | Result record (certificate), dark theme |
 
 ## Repository
 

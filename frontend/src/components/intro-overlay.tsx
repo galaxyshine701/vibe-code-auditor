@@ -18,31 +18,36 @@ type IntroWindow = Window & {
   __vcaIntroOwned?: boolean;
 };
 
-// The intro of the home page (R70): a short scene over the picture of the hero,
-// once per tab, one second at most. The <head> script (lib/intro.ts) has already
-// decided and set `data-intro="pending"` on <html> before the first paint; the
-// CSS shows this layer only then. With reduced motion there is no intro: the head
-// script never says "pending", and a replay does nothing.
+// The intro of the home page (R70): a scene on the whole screen, once per tab.
+// The <head> script (lib/intro.ts) has already decided and set
+// `data-intro="pending"` on <html> before the first
+// paint; the CSS shows this overlay only then. With reduced motion there is no
+// intro: the head script never says "pending", and a replay does nothing.
 //
-//   pending  the scene runs; the picture below it waits (CSS)
-//   opening  the gate splits open by CSS
-//   leaving  the layer fades out after a skip
-//   done     the layer is gone
+//   pending  the scene runs; the headline waits (CSS)
+//   opening  the gate splits open by CSS; the headline starts to rise
+//   leaving  the overlay fades out after a skip
+//   done     the overlay is gone
 //
-// It blocks nothing: no scroll lock, no focus taken or held, and clicks go
-// through it. A tap or a click anywhere, Esc or the Skip button ends it, and the
-// click still does what it was meant to do.
+// A tap, a click, Esc or the Skip button ends it at any moment.
 //
-// It sits in the hero of the home page (page.tsx), over the scene. If this code
-// never runs, the timer of the head script sets "done", and a CSS animation hides
-// the layer by itself.
+// This component sits directly in <body> (layout.tsx), never inside the page:
+// the page's wrapper has an animation with a `transform`, and a `position:
+// fixed` child of such an element is fixed to the wrapper, not to the screen
+// (and its z-index cannot get above the header).
+//
+// If this code never runs, the timer of the head script sets "done", and a CSS
+// animation hides the overlay by itself: the app is never blocked.
 export function IntroOverlay() {
   const [mounted, setMounted] = useState(true);
   const [lang] = useLang();
   const [runId, setRunId] = useState(0);
+  const skipButton = useRef<HTMLButtonElement>(null);
   const timers = useRef<number[]>([]);
   const active = useRef(false);
-  const startedAt = useRef(0);
+  /** waiting for the first paint, before the time of the intro can start */
+  const frame = useRef(0);
+  const returnFocus = useRef<HTMLElement | null>(null);
 
   const clearTimers = useCallback(() => {
     timers.current.forEach((timer) => window.clearTimeout(timer));
@@ -71,18 +76,24 @@ export function IntroOverlay() {
       window.setTimeout(() => {
         root().setAttribute('data-intro', 'done');
         setMounted(false);
+        const back = returnFocus.current;
+        returnFocus.current = null;
+        if (back && document.contains(back)) back.focus({ preventScroll: true });
         nudgeAccessCode();
       }, INTRO_FADE_MS),
     );
   }, [clearTimers, nudgeAccessCode]);
 
-  /** The natural end of the scene: the gate has opened, the layer goes. */
+  /** The natural end of the full scene: the gate has opened, the overlay goes. */
   const finish = useCallback(() => {
     if (!active.current) return;
     active.current = false;
     clearTimers();
     root().setAttribute('data-intro', 'done');
     setMounted(false);
+    const back = returnFocus.current;
+    returnFocus.current = null;
+    if (back && document.contains(back)) back.focus({ preventScroll: true });
     nudgeAccessCode();
   }, [clearTimers, nudgeAccessCode]);
 
@@ -94,6 +105,16 @@ export function IntroOverlay() {
   const begin = useCallback(
     (replay: boolean) => {
       const scoped = window as IntroWindow;
+      // not painted yet: the head script keeps the moment of the paint, and the
+      // time of the intro is counted from there
+      if (!replay && scoped.__vcaIntroAt === undefined) {
+        frame.current = window.requestAnimationFrame(() => {
+          const state = root().getAttribute('data-intro');
+          if (state === 'pending') begin(false);
+          else if (state === 'done') setMounted(false);
+        });
+        return;
+      }
       // from now on this code handles a skip (the head script stops doing it)
       scoped.__vcaIntroOwned = true;
       if (scoped.__vcaIntroTimer !== undefined) {
@@ -102,7 +123,6 @@ export function IntroOverlay() {
       }
       clearTimers();
       const now = window.performance.now();
-      startedAt.current = now;
       if (replay || scoped.__vcaIntroAt === undefined) {
         scoped.__vcaIntroAt = now;
       } else {
@@ -127,7 +147,7 @@ export function IntroOverlay() {
         ),
       );
       timers.current.push(window.setTimeout(finish, left));
-      // the limit: never more than 1 s from here, then it is gone whatever happened
+      // the limit: never more than 3 s from here, then it is gone whatever happened
       timers.current.push(
         window.setTimeout(
           () => {
@@ -137,6 +157,9 @@ export function IntroOverlay() {
           },
           Math.min(left + INTRO_FADE_MS + INTRO_GRACE_MS, INTRO_FALLBACK_MS),
         ),
+      );
+      window.requestAnimationFrame(() =>
+        skipButton.current?.focus({ preventScroll: true }),
       );
     },
     [clearTimers, finish],
@@ -149,28 +172,37 @@ export function IntroOverlay() {
     const replay = () => {
       if (active.current) return;
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      // the picture is brought into view, where the scene plays
-      document
-        .querySelector('.hero-visual')
-        ?.scrollIntoView({ block: 'nearest' });
+      const focused = document.activeElement;
+      returnFocus.current =
+        focused instanceof HTMLElement && focused !== document.body ? focused : null;
       setRunId((id) => id + 1);
       begin(true);
     };
-    // neither is stopped: the key and the click still do their own work
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
+      if (!active.current) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      } else if (event.key === 'Tab') {
+        // the page behind is not reachable while the intro runs
+        event.preventDefault();
+        skipButton.current?.focus({ preventScroll: true });
+      }
     };
-    const onClick = (event: MouseEvent) => {
-      // not the click that asked for this replay
-      if (event.timeStamp >= startedAt.current) close();
+    // the first paint came too late: the head script has taken the intro away
+    const late = () => {
+      active.current = false;
+      clearTimers();
+      setMounted(false);
     };
+    window.addEventListener('vca:intro-late', late);
     window.addEventListener('vca:replay-hero', replay);
     window.addEventListener('keydown', onKey);
-    document.addEventListener('click', onClick);
     return () => {
+      window.cancelAnimationFrame(frame.current);
+      window.removeEventListener('vca:intro-late', late);
       window.removeEventListener('vca:replay-hero', replay);
       window.removeEventListener('keydown', onKey);
-      document.removeEventListener('click', onClick);
       clearTimers();
     };
   }, [begin, close, clearTimers]);
@@ -180,13 +212,16 @@ export function IntroOverlay() {
   return (
     <div
       className="intro-overlay"
-      role="region"
+      role="dialog"
+      aria-modal="true"
       aria-label={pickText(INTRO_COPY.label, lang)}
+      onClick={close}
     >
       <IntroScene key={runId} />
       <button
         type="button"
         className="button intro-skip"
+        ref={skipButton}
         onClick={close}
       >
         {pickText(INTRO_COPY.skip, lang)}

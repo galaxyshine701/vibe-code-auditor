@@ -1,17 +1,17 @@
-// The opening of the home page (R70): a short scene plays once per tab over the
-// picture of the hero, and nowhere else: the headline and the form are there and
-// can be used from the first paint, nothing is locked and no click is taken. The
-// rules of "when" are here, in plain functions, so they can be tested. The boot
-// script at the bottom is the same rule written as text: it runs in the <head>
-// before the first paint (like the theme script).
+// The opening of the home page (R70): a short scene fills the screen once per
+// tab (a scan beam passes over a website and a database, a gate opens, the name
+// appears), then the page shows its headline. The rules of "when" are here, in
+// plain functions, so they can be tested. The boot script at the bottom is the
+// same rule written as text: it runs in the <head> before the first paint (like
+// the theme script), so the page never shows before the intro.
 //
 // When it is shown: only on the home page, only once per tab (the flag is in
 // sessionStorage and is written at once, so a refresh does not repeat it), and
 // only when the flag can be stored (otherwise it would repeat on every load).
 // With reduced motion there is no intro at all.
-// How it ends, within 1 s: the end of the scene; a tap, a click, Esc or the Skip
-// button; the time limit of the page's code; the timer of the head script; and a
-// CSS animation that hides it with no script.
+// How it ends: the end of the scene; a tap, a click, Esc or the Skip button; the
+// time limit of the page's code; the timer of the head script (3 s); and a CSS
+// animation that hides the overlay after 3 s with no script.
 
 /** sessionStorage key: set when the intro starts, so a refresh in the same tab skips it. */
 export const INTRO_KEY = 'vca-intro-v1';
@@ -22,32 +22,34 @@ export type IntroMode = 'full';
 
 /** When each part of the scene starts, in ms. The CSS (intro.css) uses the same times. */
 export const INTRO_SCENE_MS = {
-  /** the grid, the two objects draw on, the rings turn */
+  /** the grid, the two objects draw on, the rings turn: 0 to 0.8 s */
   draw: 0,
-  /** the beam sweeps, the callouts and the counter appear as it passes */
-  beam: 100,
-  /** the rings contract into the gate line */
-  contract: 500,
+  /** the beam sweeps, the callouts and the counter appear as it passes: 0.8 to 2.3 s */
+  beam: 700,
+  /** the rings contract into the gate line: 2.3 s */
+  contract: 2000,
   /** the name appears, word by word */
-  word: 520,
+  word: 2100,
   /** the gate splits open from the centre and the page shows */
-  open: 700,
+  open: 2500,
 } as const;
 
 /** The name is fully shown and the gate starts to open at this time. */
 export const INTRO_STORY_MS = INTRO_SCENE_MS.open;
 /** The gate opens for this long. */
-export const INTRO_HOLD_MS = 150;
+export const INTRO_HOLD_MS = 450;
 /** The fade of the overlay (nothing is left to see by then). */
-export const INTRO_FADE_MS = 150;
-/** The scene ends here: under 1 s. */
+export const INTRO_FADE_MS = 350;
+/** The scene ends here: under 3 s. */
 export const INTRO_END_MS = INTRO_STORY_MS + INTRO_HOLD_MS;
 /** The whole intro, fade included. */
 export const INTRO_TOTAL_MS = INTRO_END_MS + INTRO_FADE_MS;
+/** A first paint later than this after the navigation: no intro at all. */
+export const INTRO_LATE_PAINT_MS = 1500;
 /** If nothing has ended the intro by then, it is removed anyway (the head script and the CSS use it too). */
-export const INTRO_FALLBACK_MS = 1000;
+export const INTRO_FALLBACK_MS = 3000;
 /** After the page's own code has taken over, it gets this long beyond the normal end. */
-export const INTRO_GRACE_MS = 150;
+export const INTRO_GRACE_MS = 1500;
 
 // ---- The card of the example run (the hero's last frame). Its own timeline, kept for its "intro" mode. ----
 
@@ -128,14 +130,19 @@ export function remainingMs(elapsedMs: number): number {
 
 /**
  * The same rule, as the inline script of the <head>. It sets
- * `data-intro="pending"` on <html> (the CSS shows the scene). With reduced motion it does nothing. It writes the flag at once (a refresh during the intro
- * does not repeat it), remembers when it started (`window.__vcaIntroAt`) and
- * arms a timer that sets `data-intro="done"` if the page's own code never ends
- * the intro. The timer id is kept in `window.__vcaIntroTimer` so that the page's
- * code can replace it by one that starts when it takes over.
+ * `data-intro="pending"` on <html> (the CSS shows the overlay and locks the
+ * scroll). With reduced motion it does nothing. It writes the flag at once (a
+ * refresh during the intro does not repeat it).
+ *
+ * The time of the intro starts when the scene has been painted, not when this
+ * script runs: after the first frame it keeps the moment (`window.__vcaIntroAt`)
+ * and arms a timer that sets `data-intro="done"` if the page's own code never
+ * ends the intro (its id is kept in `window.__vcaIntroTimer`, so the page's code
+ * can replace it by its own). If the first paint comes more than
+ * INTRO_LATE_PAINT_MS after the navigation, there is no intro at all.
  *
  * It also lets a click, a tap or Esc skip the scene BEFORE the page's code is
  * ready (a fade, then done); once the page's code has taken over
  * (`window.__vcaIntroOwned`), its own handlers do it.
  */
-export const INTRO_BOOT_SCRIPT = `(function(){try{var d=document.documentElement;if(location.pathname!=='/'||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var s=window.sessionStorage;if(s.getItem('${INTRO_KEY}'))return;s.setItem('${INTRO_KEY}','1');d.setAttribute('data-intro','pending');window.__vcaIntroAt=window.performance?window.performance.now():0;window.__vcaIntroTimer=setTimeout(function(){d.setAttribute('data-intro','done');},${INTRO_FALLBACK_MS});var skip=function(e){if(window.__vcaIntroOwned||d.getAttribute('data-intro')!=='pending')return;if(e.type==='keydown'&&e.key!=='Escape')return;document.removeEventListener('click',skip,true);document.removeEventListener('keydown',skip,true);d.setAttribute('data-intro','leaving');clearTimeout(window.__vcaIntroTimer);window.__vcaIntroTimer=setTimeout(function(){d.setAttribute('data-intro','done');},${INTRO_FADE_MS});};document.addEventListener('click',skip,true);document.addEventListener('keydown',skip,true);}catch(e){}})();`;
+export const INTRO_BOOT_SCRIPT = `(function(){try{var d=document.documentElement;if(!window.requestAnimationFrame||location.pathname!=='/'||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var s=window.sessionStorage;if(s.getItem('${INTRO_KEY}'))return;s.setItem('${INTRO_KEY}','1');d.setAttribute('data-intro','pending');var now=function(){return window.performance?window.performance.now():0;};var drop=function(){if(d.getAttribute('data-intro')==='done')return;clearTimeout(window.__vcaIntroTimer);d.setAttribute('data-intro','done');if(window.dispatchEvent&&window.Event)window.dispatchEvent(new window.Event('vca:intro-late'));};var raf=window.requestAnimationFrame;raf(function(){if(d.getAttribute('data-intro')!=='pending')return;if(now()>${INTRO_LATE_PAINT_MS}){drop();return;}raf(function(){if(d.getAttribute('data-intro')!=='pending'||window.__vcaIntroAt!==undefined)return;window.__vcaIntroAt=now();if(!window.__vcaIntroOwned)window.__vcaIntroTimer=setTimeout(function(){d.setAttribute('data-intro','done');},${INTRO_FALLBACK_MS});});});if(window.PerformanceObserver){try{new window.PerformanceObserver(function(list,watch){var all=list.getEntries();for(var i=0;i<all.length;i++){if(all[i].name==='first-contentful-paint'){watch.disconnect();if(all[i].startTime>${INTRO_LATE_PAINT_MS})drop();}}}).observe({type:'paint',buffered:true});}catch(x){}}var skip=function(e){if(window.__vcaIntroOwned||d.getAttribute('data-intro')!=='pending')return;if(e.type==='keydown'&&e.key!=='Escape')return;document.removeEventListener('click',skip,true);document.removeEventListener('keydown',skip,true);d.setAttribute('data-intro','leaving');clearTimeout(window.__vcaIntroTimer);window.__vcaIntroTimer=setTimeout(function(){d.setAttribute('data-intro','done');},${INTRO_FADE_MS});};document.addEventListener('click',skip,true);document.addEventListener('keydown',skip,true);}catch(e){}})();`;
