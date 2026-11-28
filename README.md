@@ -137,14 +137,23 @@ Tests: `backend/test/` (run `npm test` in `backend/`; the frontend has no test r
 
 ## Security notes
 
-- **Keys are used from memory only.** The keys of the test project are sent with the request that starts an audit (and again with a Re-test). They are never stored on the audit, never returned by the API, and never logged. In the browser the access code is kept in memory and not in `localStorage`.
-- **Redaction.** Error text and agent messages are cleaned of the keys before they are stored or shown. The MCP server replaces its configured keys with `[REDACTED]` in every result and error.
+- **Keys of the test project.** They are sent with the request that starts an audit (and again with a Re-test) and used to call that project. The secret key is not written to the database, the app's logs, API responses, error messages or the Groq prompt, and records are redacted before every write. The key stays in server memory for the whole background run and while saving is retried; there is no code that wipes it. *(Checked by reading the code on 28 Nov 2026, not by a runtime test.)*
+- **Found secrets.** Repo scan and Bundle scan do not store the value of a secret they find: only its type, with the file path and line (Bundle scan: the script's host and path). *(Checked by reading the code on 28 Nov 2026, not by a runtime test.)*
+- **In the browser** the keys and the access code are kept only in React memory, not in browser storage, cookies or the URL. *(Checked by reading the code on 28 Nov 2026, not by a runtime test.)*
+- **Redaction.** Before a record is stored, the keys of that run and text shaped like `eyJ…`, `sb_secret_…`, `sb_publishable_…` or `gsk_…` are replaced with `[REDACTED]`. The MCP server replaces its configured keys with `[REDACTED]` in every result and error. *(Checked by reading the code on 28 Nov 2026, not by a runtime test.)*
 - **TEST confirmation.** An audit starts only when the request says `confirmTestProject: true`. The API also refuses any project address that is not `https://<project-ref>.supabase.co`.
 - **100-row stop.** If any table has more than 100 rows, the audit stops before it changes anything, because that does not look like a test project.
 - **Cleanup.** The temporary users and canary rows are removed in a `finally` block, and the result says `cleanup: "ok"` or `"failed"`. Every call to Supabase has a 20 second timeout.
-- **Access code.** Every `/api/v1/audits` route needs the `X-Access-Code` header. The server does not start without a code of at least 24 characters (unless `ALLOW_OPEN_API=yes`, for local testing only). Ten wrong tries from one client address within 15 minutes give `429 RATE_LIMITED`.
-- **Service worker.** It stores only one offline page. It never stores an API answer, a script or a style, and never sees a request that carries the access code.
-- Secrets live only in `backend/.env` (local) and Railway Variables. `.env` files are git-ignored.
+- **Access code.** Every `/api/v1/audits` route needs the `X-Access-Code` header. The server does not start without a code of at least 24 characters (unless `ALLOW_OPEN_API=yes`, for local testing only). Ten wrong tries from one client address within 15 minutes give `429 RATE_LIMITED`. The server compares the code by its hash and does not store or log it. *(Checked by reading the code on 28 Nov 2026, not by a runtime test.)*
+- **Service worker.** It stores only one offline page. It never stores an API answer, a script or a style, and it does not handle API requests (it acts only on page loads of this site). *(Checked by reading the code on 28 Nov 2026, not by a runtime test.)*
+- The service's own secrets are set in `backend/.env` (local) and Railway Variables; the MCP server reads its settings from `mcp/.env`. `.env` files are git-ignored.
+
+### Known limits
+
+- Redaction works by pattern. A different kind of key inside a file name or a URL path could be stored.
+- Anyone who holds the access code can read any audit if they know its id (the id is random, 64 bit). There is no per-user ownership yet.
+- If a submit fails, the keys stay in the form. Cancel does not clear the Re-test form.
+- Railway's own platform logs were not checked.
 
 ## Limitations
 
