@@ -1,8 +1,8 @@
 # Gatecheck
 
-Gatecheck checks one thing in an app built on Supabase: can another user read, change or delete data that belongs to someone else? It works on a **test project** only. It creates two temporary users in that project, plants one canary row owned by user A, and tries to reach it as user B and as a visitor with no login. For each table it reports `LEAKED`, `BLOCKED` or `INCONCLUSIVE`, with the evidence and a reproducer. For a leak it suggests fix SQL that a human approves and applies, and a Re-test shows whether the fix worked. The result is "no leak found by these checks". It is not a statement that an app is secure.
+Gatecheck runs launch readiness checks on three things: a live website (weak or missing headers, and secret keys in its scripts), the table access of a Supabase project, and a public GitHub repo (secret keys, committed `.env` files and database migrations without row level security). It gives one gate result, by these checks, with the evidence. The rest of this page is mostly about the Supabase check, which works on a **test project** only. It creates two temporary users in that project, plants one canary row owned by user A, and tries to reach it as user B and as a visitor with no login. For each table it reports `LEAKED`, `BLOCKED` or `INCONCLUSIVE`, with the evidence and a reproducer. For a leak it suggests fix SQL that a human approves and applies, and a Re-test shows whether the fix worked. The result is "no leak found by these checks". It is not a statement that an app is secure.
 
-![Home page, dark theme](screenshots/01-hero-dark.png)
+![Home page, dark theme](screenshots/01-home-dark.png)
 
 ## Live
 
@@ -26,14 +26,14 @@ You need your own empty Supabase **test** project. Do not use a real or producti
    ```
 
 3. Open the app and enter the access code (see below).
-4. Enter your project's address, publishable key and secret key, tick the box that says it is a test project, and start the audit. The keys are only used for this audit; see "Security notes".
+4. On the home page, open **Advanced: Supabase test project** at the bottom, enter your project's address, publishable key and secret key, tick the box that says it is a test project, and press **Run these checks**. The keys are only used for this audit; see "Security notes".
 5. Expected result for `notes`: **LEAKED**. User B (or the visitor) was able to reach the canary row.
 6. On the report, open the finding and read the suggested fix SQL. **Approve** it. Approving only records your decision; nothing changes in your database.
 7. Apply the fix SQL yourself in the Supabase SQL editor.
 8. Press **Re-test**. The same checks run again. If the table now answers `BLOCKED`, the finding shows as verified fixed.
-9. When no table is `LEAKED`, at least one is `BLOCKED` and cleanup did not fail, a result record (certificate) can be opened. It says "no leak found by these checks" and carries an integrity fingerprint, which is not a signature.
+9. When no table is `LEAKED`, at least one is `BLOCKED` and cleanup did not fail, **Open result view** on the report opens the **Re-test result** screen. It says "no leak found by these checks" and carries an integrity fingerprint, which is not a signature.
 
-![Report, dark theme](screenshots/05-report-dark.png)
+![Supabase result, dark theme](screenshots/03-result-supabase-dark.png)
 
 ### Access code
 
@@ -71,7 +71,7 @@ Claude Code  --stdio-->  MCP server (mcp/)  --HTTPS-->  the same API
 ```
 
 - **Frontend** (`frontend/`): Next.js and React, deployed on Vercel. Dark theme by default with a light option, and an installable app (PWA) whose only offline feature is a fallback page.
-- **Backend** (`backend/`): NestJS and TypeScript, deployed on Railway. Audits live in memory only; there is no database, and a restart removes them (the last 50 are kept). The routes are in [`docs/api-contract.md`](docs/api-contract.md).
+- **Backend** (`backend/`): NestJS and TypeScript, deployed on Railway. Audits are kept in a table in the platform's own Supabase project (never the project being tested), so they survive a restart; the newest 50 are kept. The routes are in [`docs/api-contract.md`](docs/api-contract.md).
 - **Data Access Prover**: the part that creates the temporary users, plants the canary rows, runs the attacks, and always cleans up. Data goes through `@supabase/supabase-js`. It can also be run alone with `npm run prove` in `backend/`.
 - **Pipeline runner**: runs the agents one after another. If a critical agent (the Prover) fails, the run stops. If a non-critical agent fails, the audit still completes and the failed agent is shown in the `modules` list.
 - **Report agent (Groq), off by default**: with `REPORT_AGENT=groq` it may rewrite only the English explanation text of a finding. The verdict, severity, evidence, fix SQL and Urdu text always stay as the Prover made them. Its text must pass checks (a closed word list, two sentences, no claims such as "secure" or "safe", no severity words); text that fails is replaced by the Prover's own template text. What is sent to Groq: table names and check results, never keys.
@@ -93,24 +93,42 @@ Claude Code  --stdio-->  MCP server (mcp/)  --HTTPS-->  the same API
 - Table data access only (see "What is checked, and what is not"). A result of "no leak found by these checks" says nothing about the rest of the app.
 - Test projects only, with at most 100 rows per table.
 - One audit runs at a time; a second one gets `409 AUDIT_IN_PROGRESS`.
-- Audits are in memory, so they disappear when the server restarts. A Re-test needs the keys again.
+- Only the newest 50 audits are kept. A run that a restart cuts off is closed as `INTERRUPTED`. A Re-test needs the keys again.
 - Fix SQL is a suggestion. The tool never applies it.
 - Badges and fix progress in the browser are kept in `localStorage`. They are a convenience, not proof.
 - Not yet verified in a real browser by the author: the install prompt, offline behaviour on a device, and the look of both themes on every device.
 
 ## Screenshots
 
-Files go in `screenshots/`. Files 01 to 07 exist.
+All screenshots use sample data: no real audit, project or key is in them.
 
-| File | Shows |
-|---|---|
-| `screenshots/01-hero-dark.png` | Home page, dark theme |
-| `screenshots/02-connect-dark.png` | Connect form, dark theme |
-| `screenshots/03-hero-light.png` | Home page, light theme |
-| `screenshots/04-connect-light.png` | Connect form, light theme |
-| `screenshots/05-report-dark.png` | Report with findings, dark theme |
-| `screenshots/06-home-mobile.png` | Home page on a phone |
-| `screenshots/07-report-mobile.png` | Report on a phone |
+![Home page, dark theme (1280×800).](screenshots/01-home-dark.png)
+
+*Home page, dark theme (1280×800).*
+
+![Run page of a finished audit of a repository.](screenshots/02-run-dark.png)
+
+*Run page of a finished audit of a repository.*
+
+![Result of a Supabase test project: the gate, the counts and the first steps.](screenshots/03-result-supabase-dark.png)
+
+*Result of a Supabase test project: the gate, the counts and the first steps.*
+
+![Result of a GitHub repo: the gate, the counts and the first steps.](screenshots/04-result-repo-dark.png)
+
+*Result of a GitHub repo: the gate, the counts and the first steps.*
+
+![The Re-test result screen, after a fix was checked again.](screenshots/05-retest-result-dark.png)
+
+*The Re-test result screen, after a fix was checked again.*
+
+<img src="screenshots/06-home-phone-dark.png" alt="Home page on a phone (375×812)." width="375">
+
+*Home page on a phone (375×812).*
+
+![Home page, light theme.](screenshots/07-home-light.png)
+
+*Home page, light theme.*
 
 ## Repository
 

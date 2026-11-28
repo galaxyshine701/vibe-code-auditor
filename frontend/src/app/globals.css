@@ -530,7 +530,29 @@ h4 {
 
 .hero-word {
   display: inline-block;
-  animation: heroWordIn 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+/* The words of the headline fade in, one after the other (each has its delay,
+   page.tsx). They are hidden only here: with no script, with reduced motion, or
+   in a browser that does not know these two questions, the headline is simply
+   there. They wait while the intro runs (the pause is at the end of this file).
+
+   The failsafe is the second animation: after 8 s (plus the delay of the word)
+   it holds the word fully visible whatever happened to the first one, and the
+   intro cannot pause it. */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .hero-word {
+    opacity: 0;
+    animation:
+      heroWordIn 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards,
+      heroWordShown 8s step-end forwards;
+  }
+
+  html[data-intro="pending"] .hero-title .hero-word,
+  html[data-intro="opening"] .hero-title .hero-word,
+  html[data-intro="leaving"] .hero-title .hero-word {
+    animation-play-state: paused, running;
+  }
 }
 
 .hero-lede {
@@ -2681,9 +2703,21 @@ h4 {
 
 @keyframes heroWordIn {
   from {
+    opacity: 0;
+    filter: blur(14px);
     transform: translateY(0.3em);
   }
   to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+@keyframes heroWordShown {
+  to {
+    opacity: 1;
+    filter: none;
     transform: none;
   }
 }

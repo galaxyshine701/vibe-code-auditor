@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // Round 5: the screen of a phone and the first paint. The frontend has no test
@@ -25,9 +26,36 @@ describe('the first screen does not wait for the script', () => {
     expect(hero).not.toMatch(/<Reveal\b|data-reveal/);
   });
 
-  it('the words of the headline only move: they are never at opacity 0', () => {
-    expect(/\n\.hero-word \{([^}]*)\}/.exec(globals)![1]).not.toContain('opacity');
-    expect(/@keyframes heroWordIn \{([\s\S]*?)\n\}/.exec(globals)![1]).not.toContain('opacity');
+  it('the words of the headline are visible within a stated time, and end at opacity 1', async () => {
+    const { HEADLINE } = (await import(
+      /* @vite-ignore */ pathToFileURL(join(SRC, 'lib', 'hero-copy.ts')).href
+    )) as { HEADLINE: { en: string; ur: string } };
+    const page = read('app', 'page.tsx');
+    const [, first, step] = /animationDelay: `\$\{(\d+) \+ index \* (\d+)\}ms`/.exec(page)!.map(Number);
+    const fade = Number(/heroWordIn ([\d.]+)s /.exec(globals)![1]) * 1000;
+    // without an intro: the last word is there 3 s after it began, in both languages
+    for (const words of [HEADLINE.en, HEADLINE.ur]) {
+      const last = first + (words.split(' ').length - 1) * step;
+      expect(last + fade).toBeLessThanOrEqual(3000);
+    }
+    // the end of both animations is fully visible
+    for (const name of ['heroWordIn', 'heroWordShown']) {
+      const body = new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}`).exec(globals)![1];
+      expect(body, name).toMatch(/to \{\s*opacity: 1;/);
+    }
+    // the failsafe: 8 s plus the delay of a word, never paused by the intro
+    expect(globals).toContain('heroWordShown 8s step-end forwards');
+    expect(globals).toMatch(/\.hero-title \.hero-word \{\s*animation-play-state: paused, running;/);
+  });
+
+  it('the words are hidden only where a script and motion are there: else the headline is static', () => {
+    const open = globals.indexOf('@media (scripting: enabled) and (prefers-reduced-motion: no-preference)');
+    expect(open).toBeGreaterThan(-1);
+    // outside that block nothing hides a word
+    expect(/\n\.hero-word \{([^}]*)\}/.exec(globals)![1]).not.toMatch(/opacity|animation/);
+    const inside = globals.slice(open, globals.indexOf('\n}\n', open));
+    expect(inside).toContain('opacity: 0;');
+    expect([...globals.matchAll(/\.hero-word[^{}]*\{[^}]*opacity: 0;/g)]).toHaveLength(1);
   });
 
   it('the fonts come from this site with swap, and no stylesheet blocks the first paint', () => {

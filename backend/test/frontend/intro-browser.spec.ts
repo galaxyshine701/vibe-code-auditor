@@ -123,6 +123,22 @@ async function freshTab(width: number, height: number) {
     );
     return result.result?.value;
   };
+  // One throwaway load in this context fills its cache, so a slow first paint of
+  // a cold browser is not taken for a missing intro. The tab then starts empty
+  // again: no flag in sessionStorage.
+  await cdp.send('Page.navigate', { url: URL_UNDER_TEST! }, sessionId);
+  for (let i = 0; i < 200; i++) {
+    await sleep(50);
+    if (
+      (await evaluate(
+        "location.href !== 'about:blank' && document.readyState === 'complete'",
+      )) === true
+    )
+      break;
+  }
+  await evaluate('sessionStorage.clear()');
+  await cdp.send('Page.navigate', { url: 'about:blank' }, sessionId);
+  await sleep(100);
   return {
     open: () => cdp.send('Page.navigate', { url: URL_UNDER_TEST! }, sessionId),
     reload: () => cdp.send('Page.reload', {}, sessionId),
