@@ -1,6 +1,12 @@
 # Gatecheck
 
-Gatecheck runs launch readiness checks on three things: a live website (weak or missing headers, and secret keys in its scripts), the table access of a Supabase project, and a public GitHub repo (secret keys, committed `.env` files and database migrations without row level security). It gives one gate result, by these checks, with the evidence. The rest of this page is mostly about the Supabase check, which works on a **test project** only. It creates two temporary users in that project, plants one canary row owned by user A, and tries to reach it as user B and as a visitor with no login. For each table it reports `LEAKED`, `BLOCKED` or `INCONCLUSIVE`, with the evidence and a reproducer. For a leak it suggests fix SQL that a human approves and applies, and a Re-test shows whether the fix worked. The result is "no leak found by these checks". It is not a statement that an app is secure.
+Gatecheck runs launch readiness checks on an app, with three kinds of check. Give one of them, two, or all three; there is one gate result, by these checks, with the evidence.
+
+- **GitHub repo** (public): looks for secret keys in its text files, committed `.env` files with secret-looking variable names, and database migrations that create a table without turning on row level security.
+- **Website**: reads the security headers of the front page, and looks for secret keys in the front page and the scripts of the same site.
+- **Supabase** (a **test project** only): creates two temporary users, plants one canary row owned by user A, and tries to reach it as user B and as a visitor with no login. Each table is reported `LEAKED`, `BLOCKED` or `INCONCLUSIVE`, with the evidence and a reproducer. For a leak it suggests fix SQL that a human approves and applies, and a Re-test shows whether the fix worked.
+
+A clean result means "no leak found by these checks". It is not an approval of the app.
 
 ![Home page, dark theme](screenshots/01-home-dark.png)
 
@@ -9,7 +15,20 @@ Gatecheck runs launch readiness checks on three things: a live website (weak or 
 - App (Vercel): https://vibe-code-auditor-five.vercel.app
 - API (Railway): https://vibe-code-auditor-production.up.railway.app (`GET /health` answers `{"status":"ok"}`)
 
-## How to try it
+## Try a repo first (no Supabase needed)
+
+1. Open the app and enter the access code at the top of the page (see "Access code" below).
+2. Under **Paste your GitHub repo link**, paste the link of a public repository, like `https://github.com/owner/repo`.
+3. Tick the box **This repository is public and I may scan its files.**
+4. Optional: open **Also check a live website (optional)**, enter its `https` address and tick **I may test this site. It is mine, or I have permission to check it.**
+5. Press **Check this repo** (with a website added, the button reads **Check repo + website**). When the run has finished, press **View report**.
+6. Read the report: the gate at the top, **What was checked**, the **Next steps** (why, the steps to fix, and for most of them a fix prompt to paste into your AI tool) and the **Evidence** (each finding and where it was found).
+
+What the result means: the gate says either **No leak found by these checks.** or **Not ready: see why**. `LEAKED` means a check saw the problem directly, for example a secret key in a file. `INCONCLUSIVE` is a warning sign that a person should confirm, not a proven leak. `BLOCKED` on a website header means the header is there. The result covers only what these checks read (see "Limitations") and is not an approval of the app.
+
+On a server of your own, repository and website checks need `LOCK_C_AGENTS=on`.
+
+## Advanced: try the Supabase test project
 
 You need your own empty Supabase **test** project. Do not use a real or production project.
 
@@ -76,9 +95,45 @@ Claude Code  --stdio-->  MCP server (mcp/)  --HTTPS-->  the same API
 - **Frontend** (`frontend/`): Next.js and React, deployed on Vercel. Dark theme by default with a light option, and an installable app (PWA) whose only offline feature is a fallback page.
 - **Backend** (`backend/`): NestJS and TypeScript, deployed on Railway. Audits are kept in a table in the platform's own Supabase project (never the project being tested), so they survive a restart; the newest 50 are kept. The routes are in [`docs/api-contract.md`](docs/api-contract.md).
 - **Data Access Prover**: the part that creates the temporary users, plants the canary rows, runs the attacks, and always cleans up. Data goes through `@supabase/supabase-js`. It can also be run alone with `npm run prove` in `backend/`.
-- **Pipeline runner**: runs the agents in the steps shown above; the agents of one step run side by side. The Data Access Prover runs only when a Supabase project is given, the Report agent only after it and only with `REPORT_AGENT=groq`, Site headers and Bundle scan only when a website is given, and Repo scan only when a repository is given. Planner, Ownership, the three inspectors, Evidence, Roadmap and Guide are added by `LOCK_C_AGENTS=on` (the default is off) and use no AI model. Ownership is skipped today, contract only. If a critical agent (the Prover is the only one) fails, the steps that have not started do not run; Evidence, Roadmap and Guide, when they are on, still run. If a non-critical agent fails, the audit still completes and the failed agent is shown in the `modules` list.
+- **Pipeline runner**: runs the agents in the steps shown above; the agents of one step run side by side. The Data Access Prover runs only when a Supabase project is given, the Report agent only after it and only with `REPORT_AGENT=groq`, Site headers and Bundle scan only when a website is given, and Repo scan only when a repository is given. Planner, Ownership, the three inspectors, Evidence, Roadmap and Guide are added by `LOCK_C_AGENTS=on` (the default is off) and use no AI model. Ownership is skipped today, contract only. If a critical agent (the Prover is the only one) fails, the steps that have not started do not run; Evidence, Roadmap and Guide, when they are on, still run. If a non-critical agent fails, the audit still completes and the failed agent is shown in the `modules` list. On the live service `LOCK_C_AGENTS` is `on` and `REPORT_AGENT` is `groq` (checked by the owner in the Railway Variables on 28 Nov 2026).
 - **Report agent (Groq), off by default**: with `REPORT_AGENT=groq` it may rewrite only the English explanation text of a finding. The verdict, severity, evidence, fix SQL and Urdu text always stay as the Prover made them. Its text must pass checks (a closed word list, two sentences, no claims such as "secure" or "safe", no severity words); text that fails is replaced by the Prover's own template text. What is sent to Groq: table names and check results, never keys.
 - **MCP server** (`mcp/`): lets Claude Code start an audit, read the report, ask for a Re-test and get the result record, through five tools. It has no tool to approve a fix; that stays a human decision. Keys are read from its own `.env` at start-up and never pass through the model. See [`mcp/README.md`](mcp/README.md).
+
+## Project structure
+
+```
+backend/                 API and checks (NestJS, TypeScript)
+  src/                   application code
+    access/              access code and rate limit
+    agents/              the pipeline runner and its agents
+    audits/              the audit routes, service and audit store
+    common/              API error shape
+    net/                 the fetcher for websites
+    prover/              the Data Access Prover (Supabase tables)
+    repo/                the GitHub repository scan
+    report/              the Report agent (Groq)
+    stages/              plan, evidence, roadmap, gate and fixed rules
+  test/                  backend tests, one folder per area
+    frontend/            the tests of the frontend
+  migrations/            SQL of the audit store table
+  scripts/               manual smoke scripts
+frontend/                web app (Next.js)
+  src/app/               pages, layout and styles
+  src/components/        UI components
+  src/lib/               API client, texts, page logic, sample data
+  public/                icons, service worker, offline page
+  scripts/               draws the app icons
+mcp/                     MCP server
+  src/                   server and tools
+  test/                  its tests
+docs/                    API contract, Prover spec, frontend brief, roadmap
+  evidence/              saved output of earlier runs
+  frontend-mock/         sample answers of the API
+screenshots/             the pictures in this README
+.claude/skills/          the skill that drives the MCP tools
+```
+
+Tests: `backend/test/` (run `npm test` in `backend/`; the frontend has no test runner of its own, so its tests are in `backend/test/frontend/`), two more spec files in `backend/src/`, and `mcp/test/` (run `npm test` in `mcp/`).
 
 ## Security notes
 
@@ -93,8 +148,16 @@ Claude Code  --stdio-->  MCP server (mcp/)  --HTTPS-->  the same API
 
 ## Limitations
 
-- Table data access only (see "What is checked, and what is not"). A result of "no leak found by these checks" says nothing about the rest of the app.
-- Test projects only, with at most 100 rows per table.
+- A result of "no leak found by these checks" says nothing about what the checks did not read.
+- **Repo:** only a public GitHub repository, its default branch as it is now; the history of old commits is not read. Only text files, chosen by their file type, each at most 1 MB. A repository whose zip is over 15 MB, over 40 MB unpacked or over 3000 entries is not read. The folders `node_modules`, `.git`, `dist`, `build`, `.next` and `vendor` are skipped; links and binary files are not read.
+- **Repo warnings:** a key in a test path, a committed `.env` file, a `NEXT_PUBLIC_` or `VITE_` name with `SECRET` or `SERVICE_ROLE` (uppercase only, not in `.md` or `.txt` files) and a table without row level security are `INCONCLUSIVE`, not proven leaks. Migrations are checked only as `.sql` files in folders called `migrations`, and only for tables of the `public` schema; row level security may be turned on elsewhere. Renamed tables and SQL built by code are not followed.
+- **Website headers:** read from the front page only (https, `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options`, framing and `Referrer-Policy`). Cookie settings, TLS versions, the TLS validity period and expiry, and other pages are not checked.
+- **Website scripts:** the front page and at most 30 script files of the same origin, each at most 2 MB and 15 MB in total. Scripts from other origins are not scanned; scripts that could not be read are listed.
+- **Keys:** only known formats are looked for (Supabase secret and `service_role` keys, OpenAI, Stripe live secret keys, AWS access key ids, GitHub, Slack bot, Anthropic and Groq). Whether a found key still works is not tested.
+- **Known limit (Jira KAN-15):** an AWS access key id on its own (`AKIA...`) is reported as `LEAKED`, although the scan does not look for the matching secret access key.
+- **No active checks:** no probes are sent to a website, and ownership of a site is not checked yet.
+- **Supabase:** table data access only (see "What is checked, and what is not").
+- Supabase test projects only, with at most 100 rows per table.
 - One audit runs at a time; a second one gets `409 AUDIT_IN_PROGRESS`.
 - Only the newest 50 audits are kept. A run that a restart cuts off is closed as `INTERRUPTED`. A Re-test needs the keys again.
 - Fix SQL is a suggestion. The tool never applies it.
